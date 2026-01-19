@@ -3,23 +3,26 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ITSupportServer.Data
 {
-    [Table("departments")]
-    public class Departments
+    [Table("reasons")]
+    public class Reasons
     {
         [Key]
-        [Column("dpt_id")]
+        [Column("reason_id")]
         [Required]
-        public string DptId { get; set; }
+        public int ReasonId { get; set; }
 
         [Column("name")]
         [Required]
         public string Name { get; set; }
 
-        [Column("description")]
-        public string? Description { get; set; }
+        [Column("iss_id")]
+        [Required]
+        public string IssId { get; set; }
+
+        [ForeignKey(nameof(IssId))]
+        public Issues Issues { get; set; }
 
         [Column("created_at")]
-        [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("updated_at")]
@@ -27,8 +30,5 @@ namespace ITSupportServer.Data
 
         [Column("deleted_at")]
         public DateTime? DeletedAt { get; set; }
-
-        public ICollection<Employees> Employees { get; set; } = new List<Employees>();
-        public ICollection<IssueLogs> IssueLogs { get; set; } = new List<IssueLogs>();
     }
 }
