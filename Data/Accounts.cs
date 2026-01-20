@@ -6,7 +6,6 @@ namespace ITSupportServer.Data
 {
     [Table("accounts")]
     [Index(nameof(Username), IsUnique = true)]
-    //[Index(nameof(GoogleId), IsUnique = true)]
     public class Accounts
     {
         [Key]

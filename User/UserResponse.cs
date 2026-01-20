@@ -1,4 +1,4 @@
-﻿using ITSupportServer.src.Shared.Attributes;
+﻿using ITSupportServer.Attributes;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 

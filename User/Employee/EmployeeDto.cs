@@ -25,7 +25,7 @@ namespace ITSupportServer.src.Modules.User.Employee
         public string PhoneNumber { get; set; } = null!;
 
         [Required(ErrorMessage = "Mật khẩu là bắt buộc")]
-        [StringLength(100, MinimumLength = 6, ErrorMessage = "Mật khẩu phải có độ dài từ 6 đến 100 ký tự")]
+        [StringLength(100, MinimumLength = 8, ErrorMessage = "Mật khẩu phải có độ dài từ 8 đến 100 ký tự")]
         [RegularExpression(@"^[a-zA-Z0-9_@#]+$",
         ErrorMessage = "Mật khẩu chỉ được chứa chữ cái, @, #, gạch ngang (-) và gạch dưới (_)")]
         public string Password { get; set; }
