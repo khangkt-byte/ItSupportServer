@@ -1,10 +1,10 @@
-﻿using NhaHangApi.EF_Core.Data;
-using NhaHangApi.src.Modules.User;
-using NhaHangApi.src.Shared.Base;
-using static NhaHangApi.src.Shared.Base.BaseEnum;
-using static NhaHangApi.src.Modules.User.UsersEnum;
+﻿using ITSupportServer.EF_Core.Data;
+using ITSupportServer.src.Modules.User;
+using ITSupportServer.src.Shared.Base;
+using static ITSupportServer.src.Shared.Base.BaseEnum;
+using static ITSupportServer.src.Modules.User.UsersEnum;
 
-namespace NhaHangApi.src.Modules.User.Employee
+namespace ITSupportServer.src.Modules.User.Employee
 {
     public interface IEmployeeService
     {

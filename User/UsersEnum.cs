@@ -1,7 +1,7 @@
 ﻿using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
-namespace NhaHangApi.src.Modules.User
+namespace ITSupportServer.src.Modules.User
 {
     public class UsersEnum
     {

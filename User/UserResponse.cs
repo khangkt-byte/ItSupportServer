@@ -1,8 +1,8 @@
-﻿using NhaHangApi.src.Shared.Attributes;
+﻿using ITSupportServer.src.Shared.Attributes;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
-namespace NhaHangApi.src.Modules.User
+namespace ITSupportServer.src.Modules.User
 {
     public class ProfileDto
     {

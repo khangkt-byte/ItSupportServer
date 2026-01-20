@@ -1,6 +1,6 @@
-﻿using NhaHangApi.src.Shared.Base;
+﻿using ITSupportServer.src.Shared.Base;
 
-namespace NhaHangApi.src.Modules.User.Customer
+namespace ITSupportServer.src.Modules.User.Customer
 {
     public interface ICustomerService
     {

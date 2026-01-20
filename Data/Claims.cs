@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace NhaHangApi.EF_Core.Data
+namespace ITSupportServer.Data
 {
     [Table("claims")]
     [Index(nameof(Claim), IsUnique = true)]
@@ -11,9 +11,11 @@ namespace NhaHangApi.EF_Core.Data
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [Column("id")]
+        [Required]
         public int Id { get; set; }
 
         [Column("claim")]
+        [Required]
         public string Claim { get; set; }
 
         [Column("category")]

@@ -1,14 +1,14 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using NhaHangApi.EF_Core.Data;
-using NhaHangApi.src.Shared.Base;
-using NhaHangApi.src.Shared.Helper;
+using ITSupportServer.EF_Core.Data;
+using ITSupportServer.src.Shared.Base;
+using ITSupportServer.src.Shared.Helper;
 using System.Collections.Generic;
-using static NhaHangApi.src.Shared.Base.BaseEnum;
-using static NhaHangApi.src.Modules.User.UsersEnum;
+using static ITSupportServer.src.Shared.Base.BaseEnum;
+using static ITSupportServer.src.Modules.User.UsersEnum;
 
-namespace NhaHangApi.src.Modules.User.Customer
+namespace ITSupportServer.src.Modules.User.Customer
 {
     public class CustomerService(AppDbContext db, GitHubImageService git, IConfiguration con, IMapper map, BaseCrud<Users, Guid> crud) : ICustomerService
     {
@@ -81,18 +81,18 @@ namespace NhaHangApi.src.Modules.User.Customer
                     .HashPassword(dto, dto.Password);
                 //add new account
                 var code = RandomString.GenerateRandomNumericString(6);
-                var account = new Account
+                var account = new Accounts
                 {
-                    IdUser = user.Id,
-                    UserName = dto.UserName,
+                    UserId = user.Id,
+                    Username = dto.UserName,
                     Password = hashedPass,
                     Otp = code,
-                    ExpriesOtp = DateTime.UtcNow.AddMinutes(5),
+                    ExpiredOtp = DateTime.UtcNow.AddMinutes(5),
                 };
                 var NewAcc = await db.Accounts.AddAsync(account);
                 await db.SaveChangesAsync();
                 //add role
-                await db.AccountRoles.AddAsync(new AccountRole
+                await db.AccountRoles.AddAsync(new AccountRoles
                 {
                     AccountId = NewAcc.Entity.IdUser,
                     RoleId = EMP_CUS.customer.ToString()

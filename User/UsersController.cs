@@ -1,11 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using NhaHangApi.src.Modules.User.Customer;
-using NhaHangApi.src.Modules.User.Employee;
-using NhaHangApi.src.Shared.Base;
+using ITSupportServer.src.Modules.User.Customer;
+using ITSupportServer.src.Modules.User.Employee;
+using ITSupportServer.src.Shared.Base;
 using System.Security.Claims;
 
-namespace NhaHangApi.src.Modules.User
+namespace ITSupportServer.src.Modules.User
 {
     [Route("api/[controller]")]
     [ApiController]

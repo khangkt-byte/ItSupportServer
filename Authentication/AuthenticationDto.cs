@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace NhaHangApi.src.Modules.Authentication
+namespace ITSupportServer.src.Modules.Authentication
 {
     public class LoginDto
     {

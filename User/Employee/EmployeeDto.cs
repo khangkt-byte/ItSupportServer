@@ -1,9 +1,9 @@
-﻿using NhaHangApi.src.Modules.Role;
-using NhaHangApi.src.Shared.Helper;
+﻿using ITSupportServer.src.Modules.Role;
+using ITSupportServer.src.Shared.Helper;
 using System.ComponentModel.DataAnnotations;
-using static NhaHangApi.src.Modules.User.UsersEnum;
+using static ITSupportServer.src.Modules.User.UsersEnum;
 
-namespace NhaHangApi.src.Modules.User.Employee
+namespace ITSupportServer.src.Modules.User.Employee
 {
     public class CreateEmployeeDto
     {

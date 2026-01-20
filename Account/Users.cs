@@ -1,9 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using NhaHangApi.src.Shared.Helper;
+using ITSupportServer.Helper;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace NhaHangApi.EF_Core.Data
+namespace ITSupportServer.Data
 {
     [Table("users")]
     [Index(nameof(EmployeeCode), IsUnique = true)]
@@ -50,9 +50,6 @@ namespace NhaHangApi.EF_Core.Data
         [Column("status")]
         public bool Status { get; set; } = true;
 
-        public Account? Account { get; set; }
-        public ICollection<Histories>? Histories { get; set; } = new List<Histories>();
-        public ICollection<Discounts>? Discounts { get; set; } = new List<Discounts>();
-        public ICollection<Orders_Users>? Orders_Users { get; set; } = new List<Orders_Users>();
+        public Accounts? Account { get; set; }
     }
 }

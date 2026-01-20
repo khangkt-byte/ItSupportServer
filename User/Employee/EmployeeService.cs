@@ -2,14 +2,14 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using NhaHangApi.EF_Core.Data;
-using NhaHangApi.src.Shared.Base;
-using NhaHangApi.src.Shared.Helper;
-using static NhaHangApi.src.Shared.Base.BaseEnum;
-using static NhaHangApi.src.Modules.User.UsersEnum;
-using NhaHangApi.src.Modules.Role;
+using ITSupportServer.EF_Core.Data;
+using ITSupportServer.src.Shared.Base;
+using ITSupportServer.src.Shared.Helper;
+using static ITSupportServer.src.Shared.Base.BaseEnum;
+using static ITSupportServer.src.Modules.User.UsersEnum;
+using ITSupportServer.src.Modules.Role;
 
-namespace NhaHangApi.src.Modules.User.Employee
+namespace ITSupportServer.src.Modules.User.Employee
 {
     public class EmployeeService(AppDbContext db, IMapper mapper, BaseCrud<Users, Guid> crud, GitHubImageService git, IMemoryCache _cache) : IEmployeeService
     {
@@ -127,15 +127,15 @@ namespace NhaHangApi.src.Modules.User.Employee
 
                 var HashPassword = new PasswordHasher<CreateEmployeeDto>()
                     .HashPassword(dto, dto.Password);
-                var NewAccount = await db.Accounts.AddAsync(new Account
+                var NewAccount = await db.Accounts.AddAsync(new Accounts
                 {
-                    IdUser = NewEmployee.Entity.Id,
-                    UserName = dto.Email,
+                    UserId = NewEmployee.Entity.Id,
+                    Username = dto.Email,
                     Password = HashPassword
 
                 });
 
-                await db.AccountRoles.AddAsync(new AccountRole
+                await db.AccountRoles.AddAsync(new AccountRoles
                 {
                     AccountId = NewEmployee.Entity.Id,
                     RoleId = EMP_CUS.employee.ToString()

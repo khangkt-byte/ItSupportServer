@@ -1,6 +1,6 @@
 ﻿using AutoMapper;
 
-namespace NhaHangApi.src.Modules.User.Customer
+namespace ITSupportServer.src.Modules.User.Customer
 {
     public class CustomerProfile : Profile
     {
