@@ -37,9 +37,6 @@ namespace ITSupportServer.Data
         [Column("expired_otp")]
         public DateTime? ExpiredOtp { get; set; }
 
-        //[Column("google_id")]
-        //public string? GoogleId { get; set; }
-
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

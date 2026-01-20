@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace ITSupportServer.src.Modules.Authentication
+namespace ITSupportServer.Authentication
 {
     public class LoginDto
     {

@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using ITSupportServer.src.Modules.User.Customer;
-using ITSupportServer.src.Shared.Base;
+using ITSupportServer.Base;
 
-namespace ITSupportServer.src.Modules.Authentication
+namespace ITSupportServer.Authentication
 {
-    [Route("api/[controller]")]
+    [Route("api/authentication")]
     [ApiController]
     public class AuthenticationController(IAuthenticationService service, ICustomerService cus) : ControllerBase
     {
@@ -26,27 +26,6 @@ namespace ITSupportServer.src.Modules.Authentication
         public async Task<IActionResult> RegisterCustomer([FromBody] RegisterCustomerDto dto)
         {
             var result = await cus.RegisterCustomerdto(dto);
-            return this.MyStatusCode(result);
-        }
-
-        [HttpPost("login-google")]
-        public async Task<IActionResult> LoginGoogle([FromBody] GoogleAuthDto dto)
-        {
-            var result = await service.LoginWithGG(dto);
-            return this.MyStatusCode(result);
-        }
-
-        [HttpPost("register-google")]
-        public async Task<IActionResult> RegisterGoogle([FromBody] GoogleAuthDto dto)
-        {
-            var result = await service.RegisterGGAsync(dto);
-            return this.MyStatusCode(result);
-        }
-
-        [HttpPatch("link-account-google/{Id}")]
-        public async Task<IActionResult> LinkAccountGoogle([FromBody] GoogleAuthDto dto, [FromRoute] Guid Id)
-        {
-            var result = await service.LinkGGAccoung(dto, Id);
             return this.MyStatusCode(result);
         }
 
