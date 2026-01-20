@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-namespace ITSupportServer.Data
+namespace ItSupportServer.Data
 {
     public class AppDbContext : DbContext
     {

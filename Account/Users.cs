@@ -1,9 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using ITSupportServer.Helper;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using ItSupportServer.src.Shared.Helper;
 
-namespace ITSupportServer.Data
+namespace ItSupportServer.Data
 {
     [Table("users")]
     [Index(nameof(EmployeeCode), IsUnique = true)]

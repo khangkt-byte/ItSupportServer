@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ITSupportServer.Data
+namespace ItSupportServer.Data
 {
     [Table("accounts")]
     [Index(nameof(Username), IsUnique = true)]
@@ -12,7 +12,7 @@ namespace ITSupportServer.Data
         [Column("user_id")]
         [ForeignKey(nameof(Employee))]
         [Required]
-        public Guid EmployeeId { get; set; }
+        public string AccountId { get; set; }
 
         public Employees Employee { get; set; }
 
