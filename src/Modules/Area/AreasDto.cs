@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace ItSupportServer.src.Modules.Areas
+namespace ItSupportServer.src.Modules.Area
 {
     public class AreaCreateDto
     {

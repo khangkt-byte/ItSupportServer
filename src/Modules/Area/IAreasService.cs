@@ -1,10 +1,11 @@
 ﻿using ItSupportServer.Data;
+using ItSupportServer.src.Shared.Base;
 
-namespace ItSupportServer.src.Modules.Areas
+namespace ItSupportServer.src.Modules.Area
 {
-    public interface IAreasServices
+    public interface IAreasService
     {
-        Task<BaseResult<PaginationResult<List<Areas>>>> GetAreasAsync(string? query, int page, int pageSize, SortOBJ? sort);
+        Task<BaseResult<PaginatedResult<List<Areas>>>> GetAreasAsync(string? query, int page, int pageSize, SortOBJ? sort);
         Task<BaseResult<Areas>> GetAreaByIdAsync(string areaId);
         Task<BaseResult<AreaCreateDto>> CreateAreaAsync(AreaCreateDto dto);
         Task<BaseResult<AreaUpdateDto>> UpdateAreaAsync(AreaUpdateDto dto);

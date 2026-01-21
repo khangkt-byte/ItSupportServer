@@ -9,7 +9,7 @@ namespace ItSupportServer.Data
         [Key]
         [Column("area_id")]
         [Required]
-        public int AreaId { get; set; }
+        public string AreaId { get; set; }
 
         [Column("name")]
         [Required]

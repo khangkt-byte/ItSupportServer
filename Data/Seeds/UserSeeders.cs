@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using ItSupportServer.EF_Core.Data;
 
-namespace ItSupportServer.EF_Core.Seeds
+namespace ItSupportServer.Data.Seeds
 {
     public static class UserSeeders
     {
@@ -21,19 +20,19 @@ namespace ItSupportServer.EF_Core.Seeds
                     CreatedAt = new DateTime(2025, 10, 30, 9, 38, 50, DateTimeKind.Utc),
                     Position = "Supper_Admin"
                 });
-            modelBuilder.Entity<Account>().HasData(
-                new Account
+            modelBuilder.Entity<Accounts>().HasData(
+                new Accounts
                 {
-                    IdUser = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                    UserName = "adminA",
+                    AccountId = "TK001",
+                    Username = "adminA",
                     Password = "AQAAAAIAAYagAAAAEEms0ysPRm2n5vnXRawAsarpqN71JIBmAsB6o/LwNQElvYkETT9sR3eCUBaE9SpJtA==",//admin1234
                     CreatedAt = new DateTime(2025, 10, 30, 9, 38, 50, DateTimeKind.Utc)
                 });
 
-            modelBuilder.Entity<AccountRole>().HasData(
-                new AccountRole
+            modelBuilder.Entity<AccountRoles>().HasData(
+                new AccountRoles
                 {
-                    AccountId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                    AccountId = "TK001",
                     RoleId = "admin"
                 });
         }

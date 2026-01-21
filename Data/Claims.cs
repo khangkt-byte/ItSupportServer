@@ -10,9 +10,9 @@ namespace ItSupportServer.Data
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        [Column("id")]
+        [Column("claim_id")]
         [Required]
-        public int Id { get; set; }
+        public int ClaimId { get; set; }
 
         [Column("claim")]
         [Required]

@@ -1,10 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using ItSupportServer.EF_Core.Data;
+using ItSupportServer.Data;
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Helper;
 using System.Linq.Dynamic.Core;
 
-namespace ItSupportServer.src.Modules.Roles
+namespace ItSupportServer.src.Modules.Role
 {
     public class RolesService(AppDbContext db) : IRolesService
     {
@@ -16,12 +16,12 @@ namespace ItSupportServer.src.Modules.Roles
                     .Where(r => r.DeletedAt == null)
                     .Select(r => new RolesDto
                     {
-                        Id = r.Id,
+                        Id = r.RoleId,
                         Name = r.Name,
 
                         Claims = db.RoleClaims
-                            .Where(rc => rc.RoleId == r.Id)
-                            .OrderBy(o => o.Claim.Id)
+                            .Where(rc => rc.RoleId == r.RoleId)
+                            .OrderBy(o => o.Claim.ClaimId)
                             .Select(rc => new ClaimDto
                             {
                                 Id = rc.ClaimId,
@@ -54,8 +54,8 @@ namespace ItSupportServer.src.Modules.Roles
                 {
                     Name = role.Name,
                     Claims = await db.RoleClaims
-                        .Where(rc => rc.RoleId == role.Id)
-                        .OrderBy(o => o.Claim.Id)
+                        .Where(rc => rc.RoleId == role.RoleId)
+                        .OrderBy(o => o.Claim.ClaimId)
                         .Select(rc => new ClaimDto
                         {
                             Id = rc.ClaimId,
@@ -76,14 +76,14 @@ namespace ItSupportServer.src.Modules.Roles
             using var transaction = await db.Database.BeginTransactionAsync();
             try
             {
-                var idRole = ConverToSlug.GetSlug(dto.Name);
+                var roleId = ConverToSlug.GetSlug(dto.Name);
 
-                var existingRole = await db.Roles.FindAsync(idRole);
+                var existingRole = await db.Roles.FindAsync(roleId);
                 if (existingRole is not null) return BaseResult<CreateRoleDto>.Fail("Vai trò đã tồn tại hoặc tên bị trùng", 400);
 
-                var role = await db.Roles.AddAsync(new EF_Core.Data.Role()
+                var role = await db.Roles.AddAsync(new Data.Roles()
                 {
-                    Id = idRole,
+                    RoleId = roleId,
                     Name = dto.Name,
                 });
 
@@ -180,10 +180,10 @@ namespace ItSupportServer.src.Modules.Roles
             try
             {
                 var claims = await db.Claims
-                    .OrderBy(o => o.Id)
+                    .OrderBy(o => o.ClaimId)
                     .Select(c => new ClaimDto
                     {
-                        Id = c.Id,
+                        Id = c.ClaimId,
                         Claim = c.Claim,
                         Category = c.Category,
                     }).ToListAsync();
@@ -215,7 +215,7 @@ namespace ItSupportServer.src.Modules.Roles
 
                 if (toAdd.Any())
                 {
-                    var adds = toAdd.Select(id => new AccountRole { AccountId = dto.AccountId, RoleId = id }).ToList();
+                    var adds = toAdd.Select(id => new AccountRoles { AccountId = dto.AccountId, RoleId = id }).ToList();
                     await db.AccountRoles.AddRangeAsync(adds);
                 }
 
@@ -234,7 +234,7 @@ namespace ItSupportServer.src.Modules.Roles
                 {
                     RoleId = dto.RoleId,
                     AccountId = dto.AccountId,
-                    Username = user.UserName,
+                    Username = user.Username,
                 });
             }
             catch (Exception e)

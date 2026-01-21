@@ -9,7 +9,7 @@ namespace ItSupportServer.Data
         [Key]
         [Column("reason_id")]
         [Required]
-        public int ReasonId { get; set; }
+        public string ReasonId { get; set; }
 
         [Column("name")]
         [Required]

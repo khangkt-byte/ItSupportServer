@@ -1,6 +1,6 @@
 ﻿using ItSupportServer.src.Shared.Base;
 
-namespace ItSupportServer.src.Modules.Roles
+namespace ItSupportServer.src.Modules.Role
 {
     public interface IRolesService
     {

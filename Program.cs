@@ -103,10 +103,10 @@ builder.Services.AddOpenApi(options =>
             Version = "v1",
             Description = "Tài liệu API cho hệ thống ký lục IT Support.\n\n" +
                           "**Hỗ trợ:** \n" +
-                          "- Viết ký lục sửa chữa thiết bị, máy tính" +
+                          "- Viết ký lục sửa chữa thiết bị, máy tính",
             Contact = new OpenApiContact
             {
-                Name = "Khang Support",
+                Name = "Khangkt",
                 Email = "khangkttb01029@fpt.edu.vn"
             }
         };

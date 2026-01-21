@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using ItSupportServer.EF_Core.Data;
+using ItSupportServer.Data;
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Helper;
 using static ItSupportServer.src.Shared.Base.BaseEnum;
