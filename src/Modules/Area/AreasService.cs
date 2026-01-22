@@ -65,6 +65,7 @@ namespace ItSupportServer.src.Modules.Area
                 var existing = await db.Areas
                                        .Where(a => a.Name == dto.Name && a.DeletedAt == null)
                                        .FirstOrDefaultAsync();
+
                 if (existing is not null)
                     return BaseResult<AreaCreateDto>.Fail("Khu vực đã tồn tại", 400);
 

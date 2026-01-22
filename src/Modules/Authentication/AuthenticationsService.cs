@@ -32,7 +32,6 @@ namespace ItSupportServer.src.Modules.Authentication
             //{
             //    claims.Add(new Claim(ClaimTypes.Role, role.RoleId));
             //}
-            //system.identity.tokens.jwt tai thu vien ve
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(configuration.GetValue<string>("AppSettings:Token")!)
                 );
