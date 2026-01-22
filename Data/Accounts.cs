@@ -17,7 +17,7 @@ namespace ItSupportServer.Data
         public Employees Employee { get; set; }
 
         [Column("username")]
-        [Required, MaxLength(200)]
+        [Required, MaxLength(32)]
         public string Username { get; set; }
 
         [Column("password")]

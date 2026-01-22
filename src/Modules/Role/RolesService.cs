@@ -76,7 +76,7 @@ namespace ItSupportServer.src.Modules.Role
             using var transaction = await db.Database.BeginTransactionAsync();
             try
             {
-                var roleId = ConverToSlug.GetSlug(dto.Name);
+                var roleId = ConvertToSlug.GetSlug(dto.Name);
 
                 var existingRole = await db.Roles.FindAsync(roleId);
                 if (existingRole is not null) return BaseResult<CreateRoleDto>.Fail("Vai trò đã tồn tại hoặc tên bị trùng", 400);

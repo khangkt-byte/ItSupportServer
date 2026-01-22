@@ -12,7 +12,7 @@ namespace ItSupportServer.src.Shared.Base
             IQueryable<T> q = db.Set<T>().Where(e => e.DeletedAt == null);
             if (fields is not null && fields.Length > 0 && !string.IsNullOrEmpty(query))
             {
-                var slug = ConverToSlug.GetSlug(query);
+                var slug = ConvertToSlug.GetSlug(query);
                 var where = string.Join(" OR ", fields.Select(f => $"{f} != null && {f}.Contains(@0)"));
                 var q1 = q.Where(where, query);
                 var q2 = q.Where(where, slug);

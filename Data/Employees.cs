@@ -1,9 +1,13 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ItSupportServer.Data
 {
     [Table("employees")]
+    [Index(nameof(EmpCode), IsUnique = true)]
+    [Index(nameof(Email), IsUnique = true)]
+    [Index(nameof(PhoneNumber), IsUnique = true)]
     public class Employees
     {
         [Key]
@@ -12,22 +16,27 @@ namespace ItSupportServer.Data
         public string EmpId { get; set; }
 
         [Column("emp_code")]
-        [Required]
+        [Required, MaxLength(20)]
         public string EmpCode { get; set; }
 
         [Column("full_name")]
-        [Required]
+        [Required, MaxLength(150)]
         public string FullName { get; set; }
 
         [Column("birthday")]
         [Required]
         public DateTime Birthday { get; set; }
 
+        //[Required]
+        //[Column("gender")]
+        //public string Gender { get; set; }
+
         [Column("phone_number")]
+        [MaxLength(15)]
         public string? PhoneNumber { get; set; }
 
         [Column("email")]
-        [Required]
+        [Required, MaxLength(254)]
         public string Email { get; set; }
 
         [Column("dpt_id")]
@@ -44,9 +53,12 @@ namespace ItSupportServer.Data
         [ForeignKey(nameof(AreaId))]
         public Areas Area { get; set; }
 
-        //[Column("position")]
         //[Required]
+        //[Column("position")]
         //public string Position { get; set; }
+
+        //[Column("url_image")]
+        //public string? UrlImage { get; set; }
 
         //[Column("hire_date")]
         //[Required]

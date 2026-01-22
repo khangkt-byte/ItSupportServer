@@ -1,12 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using ItSupportServer.src.Modules.User.Customer;
 using ItSupportServer.src.Shared.Base;
 
 namespace ItSupportServer.src.Modules.Authentication
 {
-    [Route("api/authentication")]
+    [Route("api/authentications")]
     [ApiController]
-    public class AuthenticationsController(IAuthenticationsService service, ICustomerService cus) : ControllerBase
+    public class AuthenticationsController(IAuthenticationsService service) : ControllerBase
     {
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
@@ -19,13 +18,6 @@ namespace ItSupportServer.src.Modules.Authentication
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto dto)
         {
             var result = await service.RefreshTokenAsync(dto);
-            return this.MyStatusCode(result);
-        }
-
-        [HttpPost("register")]
-        public async Task<IActionResult> RegisterCustomer([FromBody] RegisterCustomerDto dto)
-        {
-            var result = await cus.RegisterCustomerdto(dto);
             return this.MyStatusCode(result);
         }
 

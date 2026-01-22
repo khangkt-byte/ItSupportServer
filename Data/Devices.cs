@@ -19,26 +19,27 @@ namespace ItSupportServer.Data
         public DeviceTypes DeviceType { get; set; }
 
         [Column("name")]
-        [Required]
+        [Required, MaxLength(255)]
         public string Name { get; set; }
 
         [Column("brand")]
-        [Required]
+        [Required, MaxLength(64)]
         public string Brand { get; set; }
 
         [Column("model")]
-        [Required]
+        [Required, MaxLength(128)]
         public string Model { get; set; }
 
         [Column("serial_number")]
-        [Required]
+        [Required, MaxLength(64)]
         public string SerialNumber { get; set; }
 
         [Column("manufacturer")]
-        [Required]
+        [Required, MaxLength(150)]
         public string Manufacturer { get; set; }
 
         [Column("supplier")]
+        [MaxLength(255)]
         public string? Supplier { get; set; }
 
         //[Column("purchase_date")]
@@ -52,9 +53,11 @@ namespace ItSupportServer.Data
         //public string Status { get; set; }
 
         [Column("ip_address")]
+        [MaxLength(45)]
         public string? IpAddress { get; set; }
 
         [Column("mac_address")]
+        [MaxLength(17)]
         public string? MacAddress { get; set; }
 
         [Column("notes")]

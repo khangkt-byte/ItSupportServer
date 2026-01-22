@@ -1,4 +1,6 @@
-﻿using ItSupportServer.AreasController;
+﻿using ItSupportServer.src.Modules.Area;
+using ItSupportServer.src.Modules.Authentication;
+using ItSupportServer.src.Modules.Role;
 
 namespace ItSupportServer
 {
@@ -7,7 +9,9 @@ namespace ItSupportServer
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
             // Register application services here
-            //services.AddScoped<IAreasServices, AreasServices>();
+            services.AddScoped<IAuthenticationsService, AuthenticationsService>();
+            services.AddScoped<IRolesService, RolesService>();
+            services.AddScoped<IAreasService, AreasService>();
 
             return services;
         }

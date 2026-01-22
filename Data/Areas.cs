@@ -12,7 +12,7 @@ namespace ItSupportServer.Data
         public string AreaId { get; set; }
 
         [Column("name")]
-        [Required]
+        [Required, MaxLength(255)]
         public string Name { get; set; }
 
         [Column("description")]
