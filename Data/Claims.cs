@@ -16,7 +16,7 @@ namespace ItSupportServer.Data
 
         [Column("claim")]
         [Required]
-        public string Claim { get; set; }
+        required public string Claim { get; set; }
 
         [Column("category")]
         public string? Category { get; set; }

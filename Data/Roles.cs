@@ -1,15 +1,17 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using ItSupportServer.src.Shared.Base;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ItSupportServer.Data
 {
     [Table("roles")]
-    public class Roles
+    public class Roles : BaseEntity<int>
     {
         [Key]
         [Column("role_id")]
         [Required]
-        public string RoleId { get; set; }
+        public int RoleId { get; set; }
+        public override int Id => RoleId;
 
         [Column("name")]
         [Required, MaxLength(150)]
@@ -17,15 +19,6 @@ namespace ItSupportServer.Data
 
         [Column("description")]
         public string? Description { get; set; }
-
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        
-        [Column("updated_at")]
-        public DateTime? UpdatedAt { get; set; }
-        
-        [Column("deleted_at")]
-        public DateTime? DeletedAt { get; set; }
 
         public ICollection<RoleClaims> RoleClaims { get; set; } = new List<RoleClaims>();
         public ICollection<AccountRoles> AccountRoles { get; set; } = new List<AccountRoles>();

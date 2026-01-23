@@ -2,7 +2,7 @@
 using ItSupportServer.Data;
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Helper;
-using System.Linq.Dynamic.Core;
+using System.Linq;
 
 namespace ItSupportServer.src.Modules.Role
 {
@@ -16,7 +16,7 @@ namespace ItSupportServer.src.Modules.Role
                     .Where(r => r.DeletedAt == null)
                     .Select(r => new RolesDto
                     {
-                        Id = r.RoleId,
+                        RoleId = r.RoleId,
                         Name = r.Name,
 
                         Claims = db.RoleClaims
@@ -24,7 +24,7 @@ namespace ItSupportServer.src.Modules.Role
                             .OrderBy(o => o.Claim.ClaimId)
                             .Select(rc => new ClaimDto
                             {
-                                Id = rc.ClaimId,
+                                ClaimId = rc.ClaimId,
                                 Claim = rc.Claim.Claim
                             }).ToList()
 
@@ -43,11 +43,11 @@ namespace ItSupportServer.src.Modules.Role
             }
         }
 
-        public async Task<BaseResult<RolesDto>> GetRoleAsync(string id)
+        public async Task<BaseResult<RolesDto>> GetRoleAsync(int roleId)
         {
             try
             {
-                var role = await db.Roles.FindAsync(id);
+                var role = await db.Roles.FindAsync(roleId);
                 if (role is null) return BaseResult<RolesDto>.Fail("Vai trò không tồn tại", 404);
 
                 var result = new RolesDto
@@ -58,7 +58,7 @@ namespace ItSupportServer.src.Modules.Role
                         .OrderBy(o => o.Claim.ClaimId)
                         .Select(rc => new ClaimDto
                         {
-                            Id = rc.ClaimId,
+                            ClaimId = rc.ClaimId,
                             Claim = rc.Claim.Claim
                         }).ToListAsync()
                 };
@@ -76,22 +76,21 @@ namespace ItSupportServer.src.Modules.Role
             using var transaction = await db.Database.BeginTransactionAsync();
             try
             {
-                var roleId = ConvertToSlug.GetSlug(dto.Name);
-
-                var existingRole = await db.Roles.FindAsync(roleId);
+                var existingRole = await db.Roles
+                                           .Where(r => r.Name == dto.Name && r.DeletedAt == null)
+                                           .FirstOrDefaultAsync();
                 if (existingRole is not null) return BaseResult<CreateRoleDto>.Fail("Vai trò đã tồn tại hoặc tên bị trùng", 400);
 
                 var role = await db.Roles.AddAsync(new Data.Roles()
                 {
-                    RoleId = roleId,
                     Name = dto.Name,
                 });
 
-                var selected = dto.ClaimIds.Distinct().ToList();
+                var selected = dto.ClaimIds!.Distinct().ToList();
 
                 if (selected.Any())
                 {
-                    var addedRole = selected.Select(id => new RoleClaims { RoleId = role.Entity.Id, ClaimId = id }).ToList();
+                    var addedRole = selected.Select(id => new RoleClaims { RoleId = role.Entity.RoleId, ClaimId = id }).ToList();
                     await db.RoleClaims.AddRangeAsync(addedRole);
                 }
 
@@ -112,7 +111,7 @@ namespace ItSupportServer.src.Modules.Role
             using var transaction = await db.Database.BeginTransactionAsync();
             try
             {
-                var role = await db.Roles.FindAsync(dto.Id);
+                var role = await db.Roles.FindAsync(dto.RoleId);
                 if (role is null) return BaseResult<UpdateRoleDto>.Fail("Vai trò không tồn tại", 404);
 
                 role.Name = dto.Name;
@@ -120,25 +119,25 @@ namespace ItSupportServer.src.Modules.Role
                 db.Roles.Update(role);
 
                 var existingRoleClaims = await db.RoleClaims
-                                             .Where(rc => rc.RoleId == dto.Id)
+                                             .Where(rc => rc.RoleId == dto.RoleId)
                                              .Select(c => c.ClaimId)
                                              .ToListAsync();
 
-                var selected = dto.ClaimIds.Distinct().ToList();
+                var selected = dto.ClaimIds!.Distinct().ToList();
 
                 var toAdd = selected.Except(existingRoleClaims);
                 var toRemove = existingRoleClaims.Except(selected);
 
                 if (toAdd.Any())
                 {
-                    var adds = toAdd.Select(id => new RoleClaims { RoleId = role.Id, ClaimId = id }).ToList();
+                    var adds = toAdd.Select(id => new RoleClaims { RoleId = role.RoleId, ClaimId = id }).ToList();
                     await db.RoleClaims.AddRangeAsync(adds);
                 }
 
                 if (toRemove.Any())
                 {
                     var removes = await db.RoleClaims
-                                          .Where(rc => rc.RoleId == dto.Id && toRemove.Contains(rc.ClaimId))
+                                          .Where(rc => rc.RoleId == dto.RoleId && toRemove.Contains(rc.ClaimId))
                                           .ToListAsync();
                     db.RoleClaims.RemoveRange(removes);
                 }
@@ -155,11 +154,11 @@ namespace ItSupportServer.src.Modules.Role
             }
         }
 
-        public async Task<BaseResult<bool>> DeleteRoleAsync(string id)
+        public async Task<BaseResult<bool>> DeleteRoleAsync(int roleId)
         {
             try
             {
-                var role = await db.Roles.FindAsync(id);
+                var role = await db.Roles.FindAsync(roleId);
                 if (role is null) return BaseResult<bool>.Fail("Không tìm thấy vai trò", 404);
 
                 role.DeletedAt = DateTime.UtcNow;
@@ -183,7 +182,7 @@ namespace ItSupportServer.src.Modules.Role
                     .OrderBy(o => o.ClaimId)
                     .Select(c => new ClaimDto
                     {
-                        Id = c.ClaimId,
+                        ClaimId = c.ClaimId,
                         Claim = c.Claim,
                         Category = c.Category,
                     }).ToListAsync();

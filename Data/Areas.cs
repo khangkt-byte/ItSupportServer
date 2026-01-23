@@ -1,15 +1,17 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using ItSupportServer.src.Shared.Base;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ItSupportServer.Data
 {
     [Table("areas")]
-    public class Areas
+    public class Areas : BaseEntity<int>
     {
         [Key]
         [Column("area_id")]
         [Required]
-        public string AreaId { get; set; }
+        public int AreaId { get; set; }
+        public override int Id => AreaId;
 
         [Column("name")]
         [Required, MaxLength(255)]
@@ -17,16 +19,6 @@ namespace ItSupportServer.Data
 
         [Column("description")]
         public string? Description { get; set; }
-
-        [Column("created_at")]
-        [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        [Column("updated_at")]
-        public DateTime? UpdatedAt { get; set; }
-
-        [Column("deleted_at")]
-        public DateTime? DeletedAt { get; set; }
 
         public ICollection<Employees> Employees { get; set; } = new List<Employees>();
         public ICollection<IssueLogs> IssueLogs { get; set; } = new List<IssueLogs>();

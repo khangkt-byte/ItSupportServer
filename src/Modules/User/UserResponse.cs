@@ -8,33 +8,29 @@ namespace ItSupportServer.src.Modules.User
     {
         [Description("Mã định danh duy nhất của người dùng (GUID)")]
         [OpenApiExample("3fa85f64-5717-4562-b3fc-2c963f66afa6")]
-        public Guid Id { get; set; }
+        required public string EmpId { get; set; }
 
         [Description("Tên đăng nhập dùng để truy cập hệ thống")]
         [OpenApiExample("nguyenvana")]
-        public string? UserName { get; set; }
+        public string? Username { get; set; }
 
         [Description("Mã nhân viên nội bộ (duy nhất)")]
         [OpenApiExample("NV2024001")]
-        public string EmployeeCode { get; set; }
+        required public string EmpCode { get; set; }
 
         [Description("Họ và tên đầy đủ")]
         [OpenApiExample("Nguyễn Văn An")]
-        public string Name { get; set; }
+        required public string FullName { get; set; }
 
         [Description("Địa chỉ Email liên hệ")]
         [DataType(DataType.EmailAddress)] // Scalar sẽ hiện đúng format email
         [OpenApiExample("an.nguyen@nhahang.com")]
-        public string Email { get; set; }
+        public string? Email { get; set; }
 
         [Description("Số điện thoại cá nhân")]
         [DataType(DataType.PhoneNumber)]
         [OpenApiExample("0979123456")]
         public string? PhoneNumber { get; set; }
-
-        [Description("Địa chỉ chi tiết (Lưu dạng JSON dynamic). Ví dụ: Tỉnh, Huyện, Xã.")]
-        [OpenApiExample("{ \"province\": \"Hà Nội\", \"district\": \"Cầu Giấy\", \"street\": \"Duy Tân\" }")]
-        public Dictionary<string, object>? Address { get; set; }
 
         [Description("Ngày tháng năm sinh")]
         [DataType(DataType.Date)] // Scalar sẽ hiện Date Picker (bỏ phần giờ)
@@ -51,7 +47,7 @@ namespace ItSupportServer.src.Modules.User
 
         [Description("Chức vụ hoặc vị trí công việc")]
         [OpenApiExample("Quản lý chi nhánh")]
-        public string Position { get; set; }
+        public string? Position { get; set; }
 
         [Description("Link ảnh đại diện (Avatar)")]
         [DataType(DataType.ImageUrl)]
@@ -60,6 +56,6 @@ namespace ItSupportServer.src.Modules.User
 
         [Description("Trạng thái hoạt động (True: Active, False: Inactive)")]
         [OpenApiExample("true")]
-        public bool Status { get; set; }
+        public bool? Status { get; set; }
     }
 }

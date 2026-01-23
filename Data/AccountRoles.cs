@@ -12,14 +12,14 @@ namespace ItSupportServer.Data
     {
         [Column("account_id")]
         [Required]
-        public string AccountId { get; set; }
+        required public string AccountId { get; set; }
         
         [ForeignKey(nameof(AccountId))]
         public Accounts Account { get; set; }
 
         [Column("role_id")]
         [Required]
-        public string RoleId { get; set; }
+        public int RoleId { get; set; }
         
         [ForeignKey(nameof(RoleId))]
         public Roles Role { get; set; }

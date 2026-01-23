@@ -1,32 +1,31 @@
-﻿using AutoMapper;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using ItSupportServer.Data;
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Helper;
 using static ItSupportServer.src.Shared.Base.BaseEnum;
-using static ItSupportServer.src.Modules.User.UsersEnum;
+using static ItSupportServer.src.Modules.User.EmployeesEnum;
 using ItSupportServer.src.Modules.Role;
 
 namespace ItSupportServer.src.Modules.User.Employee
 {
-    public class EmployeeService(AppDbContext db, IMapper mapper, BaseCrud<Users, Guid> crud, GitHubImageService git, IMemoryCache _cache) : IEmployeeService
+    public class EmployeeService(AppDbContext db, BaseCrud<Employees, string> crud, IMemoryCache _cache) : IEmployeeService
     {
 
         public async Task<BaseResult<PaginatedResult<List<ListEmployeeDto>>>> GetEmployees(string? query, int page, int pageSize, SortOBJ? sort)
         {
             try
             {
-                var employees = await db.Users
+                var employees = await db.Employees
                     .Include(u => u.Account)
                     .ThenInclude(a => a.AccountRoles)
                     .Where(u => u.DeletedAt == null && u.Account.AccountRoles.Any(r => r.RoleId != EMP_CUS.customer.ToString())).Select(e => new ListEmployeeDto
                     {
-                        Id = e.Id,
-                        EmployeeCode = e.EmployeeCode,
-                        UserName = e.Account != null ? e.Account.UserName : null,
-                        Name = e.Name,
+                        EmpId = e.Id,
+                        EmpCode = e.EmployeeCode,
+                        Username = e.Account != null ? e.Account.Username : null,
+                        FullName = e.Name,
                         Email = e.Email,
                         PhoneNumber = e.PhoneNumber,
                         Position = e.Position,
@@ -56,24 +55,22 @@ namespace ItSupportServer.src.Modules.User.Employee
             }
         }
 
-        public async Task<BaseResult<DetailUserDto>> GetEmployee(string Id)
+        public async Task<BaseResult<DetailUserDto>> GetEmployee(string EmpId)
         {
             try
             {
-                var UserId = Guid.Parse(Id);
-                var employee = await db.Users.Include(u => u.Account)
+                var employee = await db.Employees.Include(u => u.Account)
                     .ThenInclude(a => a.AccountRoles)
                     .ThenInclude(ar => ar.Role)
                     .Where(u => u.DeletedAt == null)
                     .Select(e => new DetailUserDto
                     {
-                        Id = e.Id,
-                        Code = e.EmployeeCode,
-                        UserName = e.Account != null ? e.Account.UserName : null,
-                        Name = e.Name,
+                        EmpId = e.EmpId,
+                        EmpCode = e.EmpCode,
+                        Username = e.Account != null ? e.Account.Username : null,
+                        FullName = e.FullName,
                         Email = e.Email,
                         PhoneNumber = e.PhoneNumber,
-                        Address = e.Address,
                         Birthday = (DateTime)e.Birthday!,
                         CreatedAt = e.CreatedAt,
                         UpdatedAt = e.UpdatedAt,
@@ -82,11 +79,11 @@ namespace ItSupportServer.src.Modules.User.Employee
                         Status = e.Status,
                         Roles = e.Account.AccountRoles.Select(ar => new RolesDto
                         {
-                            Id = ar.Role.Id,
+                            RoleId = ar.Role.Id,
                             Name = ar.Role.Name,
                         }).ToList()
                     })
-                    .FirstOrDefaultAsync(e => e.Id == UserId);
+                    .FirstOrDefaultAsync(e => e.EmpId == EmpId);
 
                 if (employee is null) return BaseResult<DetailUserDto>.Fail("Nhân viên không tồn tại", 404);
 
@@ -103,18 +100,18 @@ namespace ItSupportServer.src.Modules.User.Employee
             using var transaction = await db.Database.BeginTransactionAsync();
             try
             {
-                var IsEmailExist = db.Users.Any(e => e.Email == dto.Email);
+                var IsEmailExist = db.Employees.Any(e => e.Email == dto.Email);
                 if (IsEmailExist)
                 {
                     return BaseResult<CreateEmployeeDto>.Fail("Email đã tồn tại", 400);
                 }
 
-                var employee = mapper.Map<Users>(dto);
+                var employee = mapper.Map<Employees>(dto);
 
                 employee.Birthday = DateTime.SpecifyKind(dto.Birthday, DateTimeKind.Utc);
                 employee.Position = ROLE.Employee.ToString();
 
-                var CountEmployee = await db.Users.CountAsync() + 1;
+                var CountEmployee = await db.Employees.CountAsync() + 1;
                 employee.EmployeeCode = $"NV{CountEmployee.ToString().PadLeft(3, '0')}";
                 if (dto.UrlImage is not null)
                 {
@@ -122,14 +119,14 @@ namespace ItSupportServer.src.Modules.User.Employee
                     employee.UrlImage = url.Url;
                 }
 
-                var NewEmployee = await db.Users.AddAsync(employee);
+                var NewEmployee = await db.Employees.AddAsync(employee);
                 await db.SaveChangesAsync();
 
                 var HashPassword = new PasswordHasher<CreateEmployeeDto>()
                     .HashPassword(dto, dto.Password);
                 var NewAccount = await db.Accounts.AddAsync(new Accounts
                 {
-                    UserId = NewEmployee.Entity.Id,
+                    AccountId = NewEmployee.Entity.Id,
                     Username = dto.Email,
                     Password = HashPassword
 
@@ -151,17 +148,17 @@ namespace ItSupportServer.src.Modules.User.Employee
             }
         }
 
-        public async Task<BaseResult<Users>> UpdateEmployee(string Id, UpdateEmployeeDto dto)
+        public async Task<BaseResult<Employees>> UpdateEmployee(string Id, UpdateEmployeeDto dto)
         {
             try
             {
-                var IsEmployeeExist = await db.Users.FirstOrDefaultAsync(e => e.Id.ToString() == Id && e.Position != ROLE.Supper_Admin.ToString());
-                if (IsEmployeeExist is null) return BaseResult<Users>.Fail("Nhân viên không tồn tại", 404);
+                var IsEmployeeExist = await db.Employees.FirstOrDefaultAsync(e => e.Id.ToString() == Id && e.Position != ROLE.Supper_Admin.ToString());
+                if (IsEmployeeExist is null) return BaseResult<Employees>.Fail("Nhân viên không tồn tại", 404);
 
-                var IsEmailExist = db.Users.Any(e => e.Email == dto.Email && e.Id.ToString() != Id);
+                var IsEmailExist = db.Employees.Any(e => e.Email == dto.Email && e.Id.ToString() != Id);
                 if (IsEmailExist)
                 {
-                    return BaseResult<Users>.Fail("Email đã tồn tại", 400);
+                    return BaseResult<Employees>.Fail("Email đã tồn tại", 400);
                 }
 
                 var UpdateEmployee = mapper.Map(dto, IsEmployeeExist);
@@ -173,14 +170,14 @@ namespace ItSupportServer.src.Modules.User.Employee
                 }
                 UpdateEmployee.Birthday = DateTime.SpecifyKind(dto.Birthday, DateTimeKind.Utc);
 
-                db.Users.Update(UpdateEmployee);
+                db.Employees.Update(UpdateEmployee);
                 await db.SaveChangesAsync();
 
-                return BaseResult<Users>.Ok(UpdateEmployee);
+                return BaseResult<Employees>.Ok(UpdateEmployee);
             }
             catch (Exception e)
             {
-                return BaseResult<Users>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
+                return BaseResult<Employees>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
             }
         }
 
@@ -194,7 +191,7 @@ namespace ItSupportServer.src.Modules.User.Employee
                     return BaseResult<STATUS_EMP>.Fail("ID không hợp lệ", 400);
                 }
 
-                var user = await db.Users
+                var user = await db.Employees
                     .Include(e => e.Account)
                     .ThenInclude(a => a.AccountRoles)
                     .FirstOrDefaultAsync(e => e.Id == userId && e.Position != ROLE.Supper_Admin.ToString());
@@ -225,29 +222,27 @@ namespace ItSupportServer.src.Modules.User.Employee
             }
         }
 
-        public async Task<BaseResult<ProfileDto>> Profile(string Id)
+        public async Task<BaseResult<ProfileDto>> Profile(string EmpId)
         {
             try
             {
-                var UserId = Guid.Parse(Id);
-                var employee = await db.Users.Include(e => e.Account)
+                var employee = await db.Employees.Include(e => e.Account)
                     .Select(e => new ProfileDto
                     {
-                        Id = e.Id,
-                        EmployeeCode = e.EmployeeCode,
-                        Name = e.Name,
+                        EmpId = e.Id,
+                        EmpCode = e.EmpCode,
+                        FullName = e.FullName,
                         Email = e.Email,
                         PhoneNumber = e.PhoneNumber,
-                        Address = e.Address,
                         Birthday = (DateTime)e.Birthday,
                         CreatedAt = e.CreatedAt,
                         Position = e.Position,
                         UpdatedAt = e.UpdatedAt,
                         UrlImage = e.UrlImage,
                         Status = e.Status,
-                        UserName = e.Account != null ? e.Account.UserName : null,
+                        Username = e.Account != null ? e.Account.Username : null,
                     })
-                    .FirstOrDefaultAsync(e => e.Id == UserId);
+                    .FirstOrDefaultAsync(e => e.EmpId == EmpId);
                 if (employee is null) return BaseResult<ProfileDto>.Fail("User không tồn tại", 404);
 
                 return BaseResult<ProfileDto>.Ok(employee);
@@ -263,7 +258,7 @@ namespace ItSupportServer.src.Modules.User.Employee
             try
             {
                 Guid UserId = Guid.Parse(Id);
-                var user = await db.Users.FindAsync(UserId);
+                var user = await db.Employees.FindAsync(UserId);
                 if (user is null) return BaseResult<ProfileDto>.Fail("User không tồn tại", 404);
 
                 mapper.Map(dto, user);
@@ -274,7 +269,7 @@ namespace ItSupportServer.src.Modules.User.Employee
                 }
                 if (dto.Email != user.Email)
                 {
-                    var IsEmailExist = db.Users.Any(e => e.Email == dto.Email && e.Id != UserId);
+                    var IsEmailExist = db.Employees.Any(e => e.Email == dto.Email && e.EmpId != UserId);
                     if (IsEmailExist)
                     {
                         return BaseResult<ProfileDto>.Fail("Email đã tồn tại", 400);
@@ -298,24 +293,23 @@ namespace ItSupportServer.src.Modules.User.Employee
                         user.Birthday = DateTime.SpecifyKind((DateTime)dto.Birthday!, DateTimeKind.Utc);
                     }
                 }
-                db.Users.Update(user);
+                db.Employees.Update(user);
                 await db.SaveChangesAsync();
 
                 return BaseResult<ProfileDto>.Ok(new ProfileDto
                 {
-                    Id = user.Id,
-                    EmployeeCode = user.EmployeeCode,
-                    Name = user.Name,
+                    EmpId = user.EmpId,
+                    EmpCode = user.EmpCode,
+                    FullName = user.FullName,
                     Email = user.Email,
                     PhoneNumber = user.PhoneNumber,
-                    Address = user.Address,
                     Birthday = (DateTime)user.Birthday!,
                     CreatedAt = user.CreatedAt,
                     Position = user.Position,
                     UpdatedAt = user.UpdatedAt,
                     UrlImage = user.UrlImage,
                     Status = user.Status,
-                    UserName = user.Account != null ? user.Account.UserName : null,
+                    Username = user.Account != null ? user.Account.Username : null,
                 });
             }
             catch (Exception e)
@@ -324,17 +318,16 @@ namespace ItSupportServer.src.Modules.User.Employee
             }
         }
 
-        public async Task<BaseResult<string>>? ChangeRole(string Id, ROLE newRole)
+        public async Task<BaseResult<string>>? ChangeRole(string EmpId, ROLE newRole)
         {
             try
             {
-                var UserId = Guid.Parse(Id);
-                var user = await db.Users.FindAsync(UserId);
+                var user = await db.Employees.FindAsync(EmpId);
                 if (user is null) return BaseResult<string>.Fail("User không tồn tại", 404);
                 user.Position = newRole.ToString();
-                db.Users.Update(user);
+                db.Employees.Update(user);
                 await db.SaveChangesAsync();
-                _cache.Remove($"User_Status_{UserId}");
+                _cache.Remove($"User_Status_{EmpId}");
                 return BaseResult<string>.Ok("Đổi vai trò thành công");
             }
             catch (Exception e)

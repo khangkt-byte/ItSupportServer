@@ -15,7 +15,7 @@ namespace ItSupportServer.src.Modules.Role
 
     public class UpdateRoleDto
     {
-        public string Id { get; set; }
+        public int RoleId { get; set; }
         [Required(ErrorMessage = "Tên vai trò là bắt buộc")]
         [MaxLength(200, ErrorMessage = "Tên không được quá 200 ký tự")]
         [RegularExpression(@"^[\p{L}\p{M}\p{N} _-]+$",
@@ -27,7 +27,7 @@ namespace ItSupportServer.src.Modules.Role
 
     public class RolesDto
     {
-        public string Id { get; set; }
+        public int RoleId { get; set; }
         public string Name { get; set; }
 
         public List<ClaimDto>? Claims { get; set; } = new List<ClaimDto>();
@@ -35,7 +35,7 @@ namespace ItSupportServer.src.Modules.Role
 
     public class ClaimDto
     {
-        public int Id { get; set; }
+        public int ClaimId { get; set; }
         public string Claim { get; set; }
         public string? Category { get; set; }
     }
@@ -45,13 +45,13 @@ namespace ItSupportServer.src.Modules.Role
         [Required(ErrorMessage = "Mã tài khoản là bắt buộc")]
         public required string AccountId { get; set; }
         [Required(ErrorMessage = "Mã vai trò là bắt buộc")]
-        public List<string> RoleId { get; set; } = new List<string>();
+        public List<int> RoleId { get; set; } = new List<int>();
     }
 
     public class AccountRoleResponseDto
     {
-        public Guid AccountId { get; set; }
+        public string AccountId { get; set; }
         public string? Username { get; set; }
-        public List<string> RoleId { get; set; } = new List<string>();
+        public List<int> RoleId { get; set; } = new List<int>();
     }
 }

@@ -9,11 +9,11 @@ namespace ItSupportServer.src.Modules.Authentication
         [RegularExpression(
            @"^(?:[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,63}|[A-Za-z0-9._\-]{3,32})$",
             ErrorMessage = "Tên đăng nhập hoặc email không đúng định dạng")]
-        public string UserNameOrEmail { get; set; }
+        required public string UserNameOrEmail { get; set; }
 
         [Required(ErrorMessage = "Mật khẩu là bắt buộc")]
         [MaxLength(100, ErrorMessage = "Mật khẩu không được quá 100 ký tự")]
-        public string Password { get; set; }
+        required public string Password { get; set; }
     }
 
     public class TokenResponseDto
@@ -37,6 +37,6 @@ namespace ItSupportServer.src.Modules.Authentication
         public string Otp { get; set; }
 
         [Required(ErrorMessage = "UserId là bắt buộc")]
-        public string AccountId { get; set; }
+        required public string AccountId { get; set; }
     }
 }

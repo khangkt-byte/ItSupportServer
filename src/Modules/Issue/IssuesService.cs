@@ -44,7 +44,7 @@ namespace ItSupportServer.src.Modules.Issue
             }
         }
 
-        public async Task<BaseResult<IssueDto>> GetIssueByIdAsync(string issueId)
+        public async Task<BaseResult<IssueDto>> GetIssueByIdAsync(long issueId)
         {
             try
             {
@@ -125,7 +125,7 @@ namespace ItSupportServer.src.Modules.Issue
             }
         }
 
-        public async Task<BaseResult<bool>> DeleteIssueAsync(List<string> issueIds, bool softDelete = true)
+        public async Task<BaseResult<bool>> DeleteIssuesAsync(List<long> issueIds, bool softDelete = true)
         {
             using var transaction = await db.Database.BeginTransactionAsync();
             try
