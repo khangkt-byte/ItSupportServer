@@ -1,5 +1,4 @@
-﻿using ItSupportServer.src.Shared.Attributes;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 
 namespace ItSupportServer.src.Modules.Authorization
