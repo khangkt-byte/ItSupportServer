@@ -1,5 +1,6 @@
 ﻿using ItSupportServer;
-using ItSupportServer.Data;
+using ItSupportServer.Data.Models;
+
 //using ItSupportServer.src.Shared.Attributes;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;

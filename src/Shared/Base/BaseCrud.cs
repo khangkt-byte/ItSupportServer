@@ -1,5 +1,5 @@
-﻿using ItSupportServer.Data;
-using ItSupportServer.src.Shared.Helper;
+﻿using ItSupportServer.Data.Models;
+using ItSupportServer.src.Shared.Helpers;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 

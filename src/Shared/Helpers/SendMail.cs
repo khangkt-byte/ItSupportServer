@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using System.Net.Mail;
 
-namespace ItSupportServer.src.Shared.Helper
+namespace ItSupportServer.src.Shared.Helpers
 {
     public class SendMail
     {

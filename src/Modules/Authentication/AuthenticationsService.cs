@@ -2,13 +2,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
-using ItSupportServer.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using static ItSupportServer.src.Shared.Base.BaseEnum;
 using ItSupportServer.src.Shared.Base;
-using ItSupportServer.src.Shared.Helper;
+using ItSupportServer.src.Shared.Helpers;
+using ItSupportServer.Data.Models;
 
 namespace ItSupportServer.src.Modules.Authentication
 {

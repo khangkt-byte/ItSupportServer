@@ -1,8 +1,8 @@
-﻿using ItSupportServer.Data;
-using ItSupportServer.src.Modules.User;
+﻿using ItSupportServer.src.Modules.User;
 using ItSupportServer.src.Shared.Base;
 using static ItSupportServer.src.Shared.Base.BaseEnum;
 using static ItSupportServer.src.Modules.User.UsersEnum;
+using ItSupportServer.Data.Models;
 
 namespace ItSupportServer.src.Modules.Employee
 {

@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ItSupportServer.Data
+namespace ItSupportServer.Data.Models
 {
     [Table("causes")]
     public class Causes : BaseEntity<long>
