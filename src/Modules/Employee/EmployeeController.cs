@@ -3,8 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using ItSupportServer.src.Shared.Base;
 using System.Security.Claims;
 using static ItSupportServer.src.Shared.Base.BaseEnum;
+using ItSupportServer.src.Modules.User;
 
-namespace ItSupportServer.src.Modules.User.Employee
+namespace ItSupportServer.src.Modules.Employee
 {
     //[Authorize]
     [Route("api/[controller]")]
@@ -62,9 +63,9 @@ namespace ItSupportServer.src.Modules.User.Employee
             return this.MyStatusCode(result);
         }
 
-        [Authorize(Roles = $"{RoleUser.Supper_Admin}")]
+        [Authorize(Roles = $"{RoleUser.Super_Admin}")]
         [HttpPatch("role/{Id}")]
-        public async Task<IActionResult> ChhangeRole([FromRoute] string Id, [FromBody] ROLE newRole)
+        public async Task<IActionResult> ChangeRole([FromRoute] string Id, [FromBody] ROLE newRole)
         {
             var idUser = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (Id == idUser)

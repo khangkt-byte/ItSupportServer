@@ -33,7 +33,7 @@ namespace ItSupportServer.src.Modules.Area
             }
         }
 
-        public async Task<BaseResult<AreaDto>> GetAreaByIdAsync(string areaId)
+        public async Task<BaseResult<AreaDto>> GetAreaByIdAsync(int areaId)
         {
             try
             {
@@ -111,7 +111,7 @@ namespace ItSupportServer.src.Modules.Area
             }
         }
 
-        public async Task<BaseResult<bool>> DeleteAreasAsync(List<string> areaIds, bool softDelete = true)
+        public async Task<BaseResult<bool>> DeleteAreasAsync(List<int> areaIds, bool softDelete = true)
         {
             using var transaction = await db.Database.BeginTransactionAsync();
             try
@@ -125,8 +125,8 @@ namespace ItSupportServer.src.Modules.Area
                 if (existing is null || existing.Count == 0) return BaseResult<bool>.Fail("Khu vực không tồn tại", 404);
 
                 var usedAreaIds = await db.Employees
-                                     .Where(e => e.AreaId.HasValue && areaIds.Contains(e.AreaId.Value))
-                                     .Select(e => e.CategoryId)
+                                     .Where(e => e.DeletedAt == null && areaIds.Contains(e.AreaId))
+                                     .Select(e => e.AreaId)
                                      .Distinct()
                                      .ToListAsync();
 

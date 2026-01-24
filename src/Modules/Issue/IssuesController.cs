@@ -1,4 +1,5 @@
-﻿using ItSupportServer.src.Shared.Base;
+﻿using ItSupportServer.src.Shared.Attributes;
+using ItSupportServer.src.Shared.Base;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,6 +10,7 @@ namespace ItSupportServer.src.Modules.Issue
     public class IssuesController(IIssuesService service) : ControllerBase
     {
         [HttpGet]
+        [HasPermission(Permissions.Issues.View)]
         public async Task<IActionResult> GetIssues(
             [FromQuery] string? query,
             [FromQuery] int page = 1,
@@ -19,14 +21,16 @@ namespace ItSupportServer.src.Modules.Issue
             return this.MyStatusCode(result);
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetIssueById([FromQuery] string issueId)
+        [HttpGet("{issueId}")]
+        [HasPermission(Permissions.Issues.View)]
+        public async Task<IActionResult> GetIssueById([FromRoute] long issueId)
         {
             var result = await service.GetIssueByIdAsync(issueId);
             return this.MyStatusCode(result);
         }
 
         [HttpPost]
+        [HasPermission(Permissions.Issues.Create)]
         public async Task<IActionResult> CreateIssue([FromBody] IssueCreateDto dto)
         {
             var result = await service.CreateIssueAsync(dto);
@@ -34,6 +38,7 @@ namespace ItSupportServer.src.Modules.Issue
         }
 
         [HttpPut]
+        [HasPermission(Permissions.Issues.Edit)]
         public async Task<IActionResult> UpdateIssue([FromBody] IssueUpdateDto dto)
         {
             var result = await service.UpdateIssueAsync(dto);
@@ -41,9 +46,10 @@ namespace ItSupportServer.src.Modules.Issue
         }
 
         [HttpDelete]
-        public async Task<IActionResult> DeleteIssue([FromBody] List<string> issueIds)
+        [HasPermission(Permissions.Issues.Delete)]
+        public async Task<IActionResult> DeleteIssue([FromBody] List<long> issueIds)
         {
-            var result = await service.DeleteIssueAsync(issueIds);
+            var result = await service.DeleteIssuesAsync(issueIds);
             return this.MyStatusCode(result);
         }
     }

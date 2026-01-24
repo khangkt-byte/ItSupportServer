@@ -43,14 +43,14 @@ namespace ItSupportServer.src.Modules.Role
     public class AccountRoleDto
     {
         [Required(ErrorMessage = "Mã tài khoản là bắt buộc")]
-        public required string AccountId { get; set; }
+        public required Guid AccountId { get; set; }
         [Required(ErrorMessage = "Mã vai trò là bắt buộc")]
         public List<int> RoleId { get; set; } = new List<int>();
     }
 
     public class AccountRoleResponseDto
     {
-        public string AccountId { get; set; }
+        public Guid AccountId { get; set; }
         public string? Username { get; set; }
         public List<int> RoleId { get; set; } = new List<int>();
     }

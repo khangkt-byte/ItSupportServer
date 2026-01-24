@@ -1,5 +1,4 @@
 ﻿using ItSupportServer.Data;
-using ItSupportServer.src.Modules.Area;
 using ItSupportServer.src.Shared.Base;
 using Microsoft.EntityFrameworkCore;
 
@@ -59,7 +58,7 @@ namespace ItSupportServer.src.Modules.Issue
                                     .FirstOrDefaultAsync();
 
                 if (issue is null)
-                    return BaseResult<IssueDto>.Fail("Vấn đề không tồn tại", 404);
+                    return BaseResult<IssueDto>.Fail("Vấn đề không tồn tại.", 404);
 
                 return BaseResult<IssueDto>.Ok(issue);
             }
@@ -78,7 +77,7 @@ namespace ItSupportServer.src.Modules.Issue
                                        .FirstOrDefaultAsync();
 
                 if (existing is not null)
-                    return BaseResult<IssueCreateDto>.Fail("Vấn đề đã tồn tại", 400);
+                    return BaseResult<IssueCreateDto>.Fail("Vấn đề đã tồn tại.", 400);
 
                 var newIssue = new Issues()
                 {
@@ -106,7 +105,7 @@ namespace ItSupportServer.src.Modules.Issue
                                     .FirstOrDefaultAsync();
 
                 if (issue is null)
-                    return BaseResult<IssueUpdateDto>.Fail("Vấn đề không tồn tại", 404);
+                    return BaseResult<IssueUpdateDto>.Fail("Vấn đề không tồn tại.", 404);
 
                 if (!string.IsNullOrEmpty(dto.Name))
                     issue.Name = dto.Name;
@@ -131,16 +130,18 @@ namespace ItSupportServer.src.Modules.Issue
             try
             {
                 if (issueIds == null || issueIds.Count == 0)
-                    return BaseResult<bool>.Fail("Vui lòng chọn khu vực để xóa", 400);
+                    return BaseResult<bool>.Fail("Vui lòng chọn khu vực để xóa.", 400);
 
                 var existing = await db.Issues
-                                       .Where(c => issueIds.Contains(c.IssId))
+                                       .Where(i => issueIds.Contains(i.IssId) && i.DeletedAt == null)
                                        .ToListAsync();
-                if (existing is null || existing.Count == 0) return BaseResult<bool>.Fail("Khu vực không tồn tại", 404);
 
-                var usedIssueIds = await db.Reasons
-                                     .Where(e => e.IssId.HasValue && issueIds.Contains(e.IssId.Value))
-                                     .Select(e => e.CategoryId)
+                if (existing is null || existing.Count == 0)
+                    return BaseResult<bool>.Fail("Khu vực không tồn tại.", 404);
+
+                var usedIssueIds = await db.Causes
+                                     .Where(e => e.DeletedAt == null && issueIds.Contains(e.IssId))
+                                     .Select(e => e.IssId)
                                      .Distinct()
                                      .ToListAsync();
 
@@ -151,7 +152,7 @@ namespace ItSupportServer.src.Modules.Issue
                                             .Distinct()
                                             .ToList();
 
-                    return BaseResult<bool>.Fail($"Xóa thất bại. Không thể xóa vấn đề {string.Join(", ", usedIssueNames)} vì đang được sử dụng", 400);
+                    return BaseResult<bool>.Fail($"Xóa thất bại. Không thể xóa vấn đề {string.Join(", ", usedIssueNames)} vì đang được sử dụng.", 400);
                 }
 
                 if (softDelete)

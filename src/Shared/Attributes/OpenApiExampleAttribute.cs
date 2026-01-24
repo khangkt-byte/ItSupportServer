@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
-using Microsoft.OpenApi.Any;
-using Microsoft.OpenApi.Models;
 using System.Reflection;
+using System.Text.Json.Nodes;
 
 namespace ItSupportServer.src.Shared.Attributes
 {
@@ -31,8 +30,7 @@ namespace ItSupportServer.src.Shared.Attributes
                 if (exampleAttr != null)
                 {
                     // Gán giá trị vào Example
-                    // Lưu ý: Cần convert string sang OpenApiString hoặc kiểu tương ứng
-                    schema.Example = new OpenApiString(exampleAttr.Value);
+                    schema.Example = JsonValue.Create(exampleAttr.Value);
                 }
             }
             return Task.CompletedTask;

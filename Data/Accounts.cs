@@ -7,14 +7,14 @@ namespace ItSupportServer.Data
 {
     [Table("accounts")]
     [Index(nameof(Username), IsUnique = true)]
-    public class Accounts : BaseEntity<string>
+    public class Accounts : BaseEntity<Guid>
     {
         [Key]
         [Column("user_id")]
         [ForeignKey(nameof(Employee))]
         [Required]
-        required public string AccountId { get; set; }
-        public override string Id => AccountId;
+        required public Guid AccountId { get; set; }
+        public override Guid Id => AccountId;
 
         public Employees Employee { get; set; }
 

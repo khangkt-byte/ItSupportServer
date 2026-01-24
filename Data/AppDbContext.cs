@@ -13,7 +13,7 @@ namespace ItSupportServer.Data
         public DbSet<Devices> Devices { get; set; }
         public DbSet<IssueLogs> IssueLogs { get; set; }
         public DbSet<Issues> Issues { get; set; }
-        public DbSet<Reasons> Reasons { get; set; }
+        public DbSet<Causes> Causes { get; set; }
         public DbSet<Accounts> Accounts { get; set; }
         public DbSet<Roles> Roles { get; set; }
         public DbSet<Claims> Claims { get; set; }

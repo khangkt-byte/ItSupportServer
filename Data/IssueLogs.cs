@@ -5,23 +5,23 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace ItSupportServer.Data
 {
     [Table("issue_logs")]
-    public class IssueLogs : BaseEntity<long>
+    public class IssueLogs : BaseEntity<Guid>
     {
         [Key]
         [Column("iss_log_id")]
         [Required]
-        public long IssLogId { get; set; }
-        public override long Id => IssLogId;
+        public Guid IssLogId { get; set; }
+        public override Guid Id => IssLogId;
 
         [Column("operator_id")]
         [Required]
-        required public string OperatorId { get; set; }
+        required public Guid OperatorId { get; set; }
 
         [ForeignKey(nameof(OperatorId))]
         public Employees Operator { get; set; }
 
         [Column("requester_id")]
-        public string? RequesterId { get; set; }
+        public Guid? RequesterId { get; set; }
 
         [ForeignKey(nameof(RequesterId))]
         public Employees? Requester { get; set; }
@@ -42,6 +42,9 @@ namespace ItSupportServer.Data
 
         [Column("resolution")]
         public string? Resolution { get; set; }
+
+        [Column("permanent_fix")]
+        public string? PermanentFix { get; set; }
 
         [Column("area_id")]
         [Required]

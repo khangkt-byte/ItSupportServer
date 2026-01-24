@@ -1,6 +1,6 @@
 ﻿using ItSupportServer;
 using ItSupportServer.Data;
-using ItSupportServer.src.Shared.Attributes;
+//using ItSupportServer.src.Shared.Attributes;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -82,20 +82,21 @@ builder.Services.AddOpenApi(options =>
             Description = "Nhập JWT Token vào đây "
         });
 
-        document.SecurityRequirements.Add(new OpenApiSecurityRequirement
-        {
-            {
-                new OpenApiSecurityScheme
-                {
-                    Reference = new OpenApiReference
-                    {
-                        Type = ReferenceType.SecurityScheme,
-                        Id = "Bearer"
-                    }
-                },
-                Array.Empty<string>()
-            }
-        });
+        //document.SecurityRequirements.Add(new OpenApiSecurityRequirement
+        //{
+        //    {
+        //        new OpenApiSecurityScheme
+        //        {
+        //            Reference = new OpenApiReference
+        //            {
+        //                Type = ReferenceType.SecurityScheme,
+        //                Id = "Bearer"
+        //            }
+        //        },
+        //        Array.Empty<string>()
+        //    }
+        //});
+
         // Sửa thông tin Info của tài liệu
         document.Info = new OpenApiInfo
         {
@@ -111,7 +112,7 @@ builder.Services.AddOpenApi(options =>
             }
         };
 
-        options.AddSchemaTransformer<ExampleSchemaTransformer>();
+        //options.AddSchemaTransformer<ExampleSchemaTransformer>();
 
         return Task.CompletedTask;
     });

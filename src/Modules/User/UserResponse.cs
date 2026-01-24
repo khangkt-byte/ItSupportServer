@@ -8,7 +8,7 @@ namespace ItSupportServer.src.Modules.User
     {
         [Description("Mã định danh duy nhất của người dùng (GUID)")]
         [OpenApiExample("3fa85f64-5717-4562-b3fc-2c963f66afa6")]
-        required public string EmpId { get; set; }
+        required public Guid EmpId { get; set; }
 
         [Description("Tên đăng nhập dùng để truy cập hệ thống")]
         [OpenApiExample("nguyenvana")]

@@ -19,7 +19,7 @@ namespace ItSupportServer.Data
 
         [Column("id_account")]
         [Required]
-        required public string AccountId { get; set; }
+        required public Guid AccountId { get; set; }
 
         [ForeignKey(nameof(AccountId))]
         public Accounts Account { get; set; }

@@ -9,8 +9,7 @@ namespace ItSupportServer.Data.Seeds
             modelBuilder.Entity<Employees>().HasData(
                 new Employees
                 {
-                    //EmpId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                    EmpId = "NV001",
+                    EmpId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
                     EmpCode = "NV001",
                     FullName = "Nguyễn Văn A",
                     Email = "nguyenvana@gmail.com",
@@ -24,7 +23,7 @@ namespace ItSupportServer.Data.Seeds
             modelBuilder.Entity<Accounts>().HasData(
                 new Accounts
                 {
-                    AccountId = "TK001",
+                    AccountId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
                     Username = "adminA",
                     Password = "AQAAAAIAAYagAAAAEEms0ysPRm2n5vnXRawAsarpqN71JIBmAsB6o/LwNQElvYkETT9sR3eCUBaE9SpJtA==",//admin1234
                     CreatedAt = new DateTime(2025, 10, 30, 9, 38, 50, DateTimeKind.Utc)
@@ -33,8 +32,8 @@ namespace ItSupportServer.Data.Seeds
             modelBuilder.Entity<AccountRoles>().HasData(
                 new AccountRoles
                 {
-                    AccountId = "TK001",
-                    RoleId = 1 // Supper_Admin
+                    AccountId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                    RoleId = 0 // Super_Admin
                 });
         }
     }
