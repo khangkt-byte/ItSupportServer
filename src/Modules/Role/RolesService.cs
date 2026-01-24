@@ -154,7 +154,7 @@ namespace ItSupportServer.src.Modules.Role
             }
         }
 
-        public async Task<BaseResult<bool>> DeleteRoleAsync(int roleId)
+        public async Task<BaseResult<bool>> DeleteRoleAsync(int roleId, bool softDelete = true)
         {
             try
             {

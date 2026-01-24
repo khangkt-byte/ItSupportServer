@@ -13,18 +13,8 @@ namespace ItSupportServer.Data
         public Guid IssLogId { get; set; }
         public override Guid Id => IssLogId;
 
-        [Column("operator_id")]
-        [Required]
-        required public Guid OperatorId { get; set; }
-
-        [ForeignKey(nameof(OperatorId))]
-        public Employees Operator { get; set; }
-
-        [Column("requester_id")]
-        public Guid? RequesterId { get; set; }
-
-        [ForeignKey(nameof(RequesterId))]
-        public Employees? Requester { get; set; }
+        [Column("requester")]
+        public string? Requester { get; set; }
 
         [Column("dpt_id")]
         [Required]
@@ -62,5 +52,7 @@ namespace ItSupportServer.Data
 
         [Column("status")]
         public string? Status { get; set; }
+
+        public ICollection<IssueLogEmployees> Operators { get; set; } = new List<IssueLogEmployees>();
     }
 }

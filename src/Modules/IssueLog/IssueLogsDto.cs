@@ -15,8 +15,8 @@ namespace ItSupportServer.src.Modules.IssueLog
     public class IssueLogDto
     {
         public Guid IssLogId { get; set; }
-        public Guid OperatorId { get; set; }
-        public Guid? RequesterId { get; set; }
+        public List<string> OperatorNames { get; set; }
+        public string? Requester { get; set; }
         public int DptId { get; set; }
         public int AreaId { get; set; }
         public string IssueDescription { get; set; } = null!;
@@ -31,8 +31,8 @@ namespace ItSupportServer.src.Modules.IssueLog
     public class IssueLogsCreateDto
     {
         [Required(ErrorMessage = "Người thực hiện là bắt buộc")]
-        required public Guid OperatorId { get; set; }
-        public Guid? RequesterId { get; set; }
+        required public List<Guid> OperatorId { get; set; }
+        public string? Requester { get; set; }
         [Required(ErrorMessage = "Bộ phận là bắt buộc")]
         public int DptId { get; set; }
         [Required(ErrorMessage = "Tình trạng lỗi là bắt buộc")]
@@ -51,7 +51,7 @@ namespace ItSupportServer.src.Modules.IssueLog
     public class IssueLogsUpdateDto
     {
         public Guid? OperatorId { get; set; }
-        public Guid? RequesterId { get; set; }
+        public string? Requester { get; set; }
         public int? DptId { get; set; }
         public int? AreaId { get; set; }
         public string? IssueDescription { get; set; }

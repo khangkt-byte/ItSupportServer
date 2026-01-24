@@ -13,10 +13,10 @@ namespace ItSupportServer.src.Modules.User
         [Authorize]
         [HttpGet("me")]
         [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
-        public async Task<IActionResult> Profile()
+        public async Task<IActionResult> GetProfileAsync()
         {
             var UserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var result = await service.Profile(UserId);
+            var result = await service.GetProfileAsync(UserId);
             return this.MyStatusCode(result);
         }
 
@@ -26,7 +26,7 @@ namespace ItSupportServer.src.Modules.User
         public async Task<IActionResult> UpdateAvt([FromForm] updateProfileDto dto)
         {
             var UserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var result = await service.UpdateProfile(UserId, dto);
+            var result = await service.UpdateProfileAsync(UserId, dto);
             return this.MyStatusCode(result);
         }
     }

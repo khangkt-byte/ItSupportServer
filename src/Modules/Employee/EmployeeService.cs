@@ -13,7 +13,7 @@
 //    public class EmployeeService(AppDbContext db, BaseCrud<Employees, Guid> crud, IMemoryCache _cache) : IEmployeeService
 //    {
 
-//        public async Task<BaseResult<PaginatedResult<List<ListEmployeeDto>>>> GetEmployees(string? query, int page, int pageSize, SortOBJ? sort)
+//        public async Task<BaseResult<PaginatedResult<List<ListEmployeeDto>>>> GetEmployeesAsync(string? query, int page, int pageSize, SortOBJ? sort)
 //        {
 //            try
 //            {
@@ -54,7 +54,7 @@
 //            }
 //        }
 
-//        public async Task<BaseResult<DetailUserDto>> GetEmployee(string EmpId)
+//        public async Task<BaseResult<DetailUserDto>> GetEmployeeAsync(string EmpId)
 //        {
 //            try
 //            {
@@ -96,7 +96,7 @@
 //            }
 //        }
 
-//        public async Task<BaseResult<CreateEmployeeDto>> CreateEmployee(CreateEmployeeDto dto)
+//        public async Task<BaseResult<CreateEmployeeDto>> CreateEmployeeAsync(CreateEmployeeDto dto)
 //        {
 //            using var transaction = await db.Database.BeginTransactionAsync();
 //            try
@@ -169,7 +169,7 @@
 //            }
 //        }
 
-//        public async Task<BaseResult<Employees>> UpdateEmployee(string Id, UpdateEmployeeDto dto)
+//        public async Task<BaseResult<Employees>> UpdateEmployeeAsync(string Id, UpdateEmployeeDto dto)
 //        {
 //            try
 //            {
@@ -202,7 +202,7 @@
 //            }
 //        }
 
-//        public async Task<BaseResult<STATUS_EMP>> ChangeStatus(string idString, STATUS_EMP status)
+//        public async Task<BaseResult<STATUS_EMP>> ChangeStatusAsync(string idString, STATUS_EMP status)
 //        {
 //            try
 //            {
@@ -243,7 +243,7 @@
 //            }
 //        }
 
-//        public async Task<BaseResult<ProfileDto>> Profile(string EmpId)
+//        public async Task<BaseResult<ProfileDto>> GetProfileAsync(string EmpId)
 //        {
 //            try
 //            {
@@ -276,7 +276,7 @@
 //            }
 //        }
 
-//        public async Task<BaseResult<ProfileDto>> UpdateProfile(string Id, updateProfileDto dto)
+//        public async Task<BaseResult<ProfileDto>> UpdateProfileAsync(string Id, updateProfileDto dto)
 //        {
 //            try
 //            {
@@ -334,7 +334,7 @@
 //            }
 //        }
 
-//        public async Task<BaseResult<string>>? ChangeRole(string EmpId, ROLE newRole)
+//        public async Task<BaseResult<string>>? ChangeRoleAsync(string EmpId, ROLE newRole)
 //        {
 //            try
 //            {
