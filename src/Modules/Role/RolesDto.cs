@@ -2,56 +2,40 @@
 
 namespace ItSupportServer.src.Modules.Role
 {
-    public class CreateRoleDto
-    {
-        [Required(ErrorMessage = "Tên vai trò là bắt buộc")]
-        [MaxLength(200, ErrorMessage = "Tên không được quá 200 ký tự")]
-        [RegularExpression(@"^[\p{L}\p{M}\p{N} _-]+$",
-        ErrorMessage = "Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_)")]
-        public string Name { get; set; }
+    public record CreateRoleDto(
+        string Name,
+        string? Description,
+        List<int>? ClaimIds
+        );
 
-        public List<int>? ClaimIds { get; set; } = new List<int>();
-    }
+    public record UpdateRoleDto(
+        int RoleId,
+        string Name,
+        string? Description,
+        List<int>? ClaimIds
+        );
 
-    public class UpdateRoleDto
-    {
-        public int RoleId { get; set; }
-        [Required(ErrorMessage = "Tên vai trò là bắt buộc")]
-        [MaxLength(200, ErrorMessage = "Tên không được quá 200 ký tự")]
-        [RegularExpression(@"^[\p{L}\p{M}\p{N} _-]+$",
-        ErrorMessage = "Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_)")]
-        public string Name { get; set; }
+    public record RolesDto(
+        int RoleId,
+        string Name,
+        string? Description,
+        List<ClaimDto>? Claims
+        );
 
-        public List<int>? ClaimIds { get; set; } = new List<int>();
-    }
+    public record ClaimDto(
+        int ClaimId,
+        string Claim,
+        string? Category
+        );
 
-    public class RolesDto
-    {
-        public int RoleId { get; set; }
-        public string Name { get; set; }
+    public record AccountRoleDto(
+        Guid AccountId,
+        List<int> RoleId
+        );
 
-        public List<ClaimDto>? Claims { get; set; } = new List<ClaimDto>();
-    }
-
-    public class ClaimDto
-    {
-        public int ClaimId { get; set; }
-        public string Claim { get; set; }
-        public string? Category { get; set; }
-    }
-
-    public class AccountRoleDto
-    {
-        [Required(ErrorMessage = "Mã tài khoản là bắt buộc")]
-        public required Guid AccountId { get; set; }
-        [Required(ErrorMessage = "Mã vai trò là bắt buộc")]
-        public List<int> RoleId { get; set; } = new List<int>();
-    }
-
-    public class AccountRoleResponseDto
-    {
-        public Guid AccountId { get; set; }
-        public string? Username { get; set; }
-        public List<int> RoleId { get; set; } = new List<int>();
-    }
+    public record AccountRoleResponseDto(
+        Guid AccountId,
+        string? Username,
+        List<int> RoleId
+        );
 }

@@ -2,30 +2,19 @@
 
 namespace ItSupportServer.src.Modules.Area
 {
-    public class AreaDto
-    {
-        public string Name { get; set; }
-        public string? Description { get; set; }
-    }
+    public record AreaDto(
+        string Name,
+        string? Description
+        );
 
-    public class AreaCreateDto
-    {
-        [Required(ErrorMessage = "Tên là bắt buộc")]
-        [MaxLength(255, ErrorMessage = "Tên không được quá 255 ký tự")]
-        [RegularExpression(@"^[\p{L}\p{M}\p{N} _-]+$",
-        ErrorMessage = "Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_)")]
-        public string Name { get; set; }
-        public string? Description { get; set; }
-    }
+    public record CreateAreaDto(
+        string Name,
+        string? Description
+        );
 
-    public class AreaUpdateDto
-    {
-        [Required]
-        required public string AreaId { get; set; }
-        [MaxLength(255, ErrorMessage = "Tên không được quá 255 ký tự")]
-        [RegularExpression(@"^[\p{L}\p{M}\p{N} _-]+$",
-        ErrorMessage = "Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_)")]
-        public string? Name { get; set; }
-        public string? Description { get; set; }
-    }
+    public record UpdateAreaDto(
+        string AreaId,
+        string? Name,
+        string? Description
+        );
 }

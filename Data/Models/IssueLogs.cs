@@ -13,6 +13,10 @@ namespace ItSupportServer.Data.Models
         public Guid IssLogId { get; set; }
         public override Guid Id => IssLogId;
 
+        [Column("operator")]
+        [Required]
+        public string Operator { get; set; }
+
         [Column("requester")]
         public string? Requester { get; set; }
 
@@ -53,6 +57,6 @@ namespace ItSupportServer.Data.Models
         [Column("status")]
         public string? Status { get; set; }
 
-        public ICollection<IssueLogEmployees> Operators { get; set; } = new List<IssueLogEmployees>();
+        //public ICollection<IssueLogEmployees> Operators { get; set; } = new List<IssueLogEmployees>();
     }
 }

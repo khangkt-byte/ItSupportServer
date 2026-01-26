@@ -10,54 +10,46 @@ namespace ItSupportServer.src.Modules.IssueLog
     //    CLOSED = 4
     //}
 
-    public class IssueLogDto
-    {
-        public Guid IssLogId { get; set; }
-        public List<string> OperatorNames { get; set; }
-        public string? Requester { get; set; }
-        public int DptId { get; set; }
-        public int AreaId { get; set; }
-        public string IssueDescription { get; set; } = null!;
-        public string? Cause { get; set; }
-        public string? Resolution { get; set; }
-        public string? PermanentFix { get; set; }
-        public string? Notes { get; set; }
-        public DateTime DateReported { get; set; }
-        public string? Status { get; set; }
-    }
+    public record IssueLogDto(
+        Guid IssLogId,
+        List<string> Operators,
+        string? Requester,
+        int DptId,
+        int AreaId,
+        string IssueDescription,
+        string? Cause,
+        string? Resolution,
+        string? PermanentFix,
+        string? Notes,
+        DateTime DateReported,
+        string? Status
+        );
 
-    public class IssueLogsCreateDto
-    {
-        [Required(ErrorMessage = "Người thực hiện là bắt buộc")]
-        required public List<Guid> OperatorId { get; set; }
-        public string? Requester { get; set; }
-        [Required(ErrorMessage = "Bộ phận là bắt buộc")]
-        public int DptId { get; set; }
-        [Required(ErrorMessage = "Tình trạng lỗi là bắt buộc")]
-        public int AreaId { get; set; }
-        required public string IssueDescription { get; set; }
-        public string? Cause { get; set; }
-        public string? Resolution { get; set; }
-        public string? PermanentFix { get; set; }
-        [Required(ErrorMessage = "Khu vực là bắt buộc")]
-        public string? Notes { get; set; }
-        [Required(ErrorMessage = "Ngày thực hiện là bắt buộc")]
-        public DateTime DateReported { get; set; }
-        public string? Status { get; set; }
-    }
+    public record CreateIssueLogDto(
+        string Operator,
+        string? Requester,
+        int DptId,
+        int AreaId,
+        string IssueDescription,
+        string? Cause,
+        string? Resolution,
+        string? PermanentFix,
+        string? Notes,
+        DateTime DateReported,
+        string? Status
+        );
 
-    public class IssueLogsUpdateDto
-    {
-        public Guid? OperatorId { get; set; }
-        public string? Requester { get; set; }
-        public int? DptId { get; set; }
-        public int? AreaId { get; set; }
-        public string? IssueDescription { get; set; }
-        public string? Cause { get; set; }
-        public string? Resolution { get; set; }
-        public string? PermanentFix { get; set; }
-        public string? Notes { get; set; }
-        public DateTime? DateReported { get; set; }
-        public string? Status { get; set; }
-    }
+    public record UpdateIssueLogDto(
+        string? Operator,
+        string? Requester,
+        int? DptId,
+        int? AreaId,
+        string? IssueDescription,
+        string? Cause,
+        string? Resolution,
+        string? PermanentFix,
+        string? Notes,
+        DateTime? DateReported,
+        string? Status
+        );
 }

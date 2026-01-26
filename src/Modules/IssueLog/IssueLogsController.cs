@@ -1,4 +1,5 @@
-﻿using ItSupportServer.src.Modules.Authorization;
+﻿using FluentValidation;
+using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Attributes;
 using ItSupportServer.src.Shared.Base;
 using Microsoft.AspNetCore.Mvc;
@@ -32,15 +33,22 @@ namespace ItSupportServer.src.Modules.IssueLog
 
         [HttpPost]
         [HasPermission(Permissions.IssueLogs.Create)]
-        public async Task<IActionResult> CreateIssueLogAsync([FromBody] IssueLogsCreateDto dto)
+        public async Task<IActionResult> CreateIssueLogAsync(
+            [FromBody] CreateIssueLogDto dto,
+            [FromServices] IValidator<CreateIssueLogDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var result = await service.CreateIssueLogAsync(dto);
             return this.MyStatusCode(result);
         }
 
         [HttpPut("{issLogId}")]
         [HasPermission(Permissions.IssueLogs.Edit)]
-        public async Task<IActionResult> UpdateIssueLogAsync([FromRoute] Guid issLogId, [FromBody] IssueLogsUpdateDto dto)
+        public async Task<IActionResult> UpdateIssueLogAsync([FromRoute] Guid issLogId, [FromBody] UpdateIssueLogDto dto)
         {
             var result = await service.UpdateIssueLogAsync(issLogId, dto);
             return this.MyStatusCode(result);

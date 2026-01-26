@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using ItSupportServer.src.Shared.Base;
+using FluentValidation;
 
 namespace ItSupportServer.src.Modules.Authentication
 {
@@ -8,8 +9,25 @@ namespace ItSupportServer.src.Modules.Authentication
     public class AuthenticationsController(IAuthenticationsService service) : ControllerBase
     {
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginDto dto)
+        public async Task<IActionResult> Login(
+            [FromBody] LoginDto dto,
+            [FromServices] IValidator<LoginDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+
+            //if (!validationResult.IsValid)
+            //{
+            //    var errors = validationResult.Errors
+            //        .Select(e => e.ErrorMessage)
+            //        .ToList();
+            //    var errorMessage = string.Join("; ", errors);
+            //    var errorResult = BaseResult<TokenResponseDto>.Fail(errorMessage, 400);
+            //    return this.MyStatusCode(errorResult);
+            //}
+
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var result = await service.LoginAsync(dto);
             return this.MyStatusCode(result!);
         }
@@ -22,8 +40,15 @@ namespace ItSupportServer.src.Modules.Authentication
         }
 
         [HttpPost("/confirm-otp")]
-        public async Task<IActionResult> ConfirmOtp([FromBody] OtpDto dto)
+        public async Task<IActionResult> ConfirmOtp(
+            [FromBody] OtpDto dto,
+            [FromServices] IValidator<OtpDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var result = await service.ConfirmOtp(dto);
             return this.MyStatusCode(result!);
         }

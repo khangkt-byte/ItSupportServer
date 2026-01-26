@@ -23,7 +23,7 @@ namespace ItSupportServer.Data.Models
         required public string Username { get; set; }
 
         [Column("password")]
-        [Required, MinLength(8)]
+        [Required, MinLength(6)]
         required public string Password { get; set; }
 
         [Column("current_points")]

@@ -8,7 +8,7 @@ namespace ItSupportServer.src.Modules.User
 {
     [Route("api/users")]
     [ApiController]
-    public class UsersController(IEmployeeService service) : ControllerBase
+    public class UsersController(IEmployeesService service) : ControllerBase
     {
         [Authorize]
         [HttpGet("me")]
@@ -23,7 +23,8 @@ namespace ItSupportServer.src.Modules.User
         [Authorize]
         [HttpPut("me")]
         [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
-        public async Task<IActionResult> UpdateAvt([FromForm] updateProfileDto dto)
+        public async Task<IActionResult> UpdateAvt(
+            [FromForm] updateProfileDto dto)
         {
             var UserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var result = await service.UpdateProfileAsync(UserId, dto);
