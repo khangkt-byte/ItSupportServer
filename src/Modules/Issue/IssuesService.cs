@@ -4,21 +4,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ItSupportServer.src.Modules.Issue
 {
-    public class IssuesService(AppDbContext db) : IIssuesService
+    public class IssuesService(AppDbContext db, IssuesMapper mapper) : IIssuesService
     {
         public async Task<BaseResult<PaginatedResult<List<IssueDto>>>> GetIssuesAsync(string? query, int page, int pageSize, SortOBJ? sort)
         {
             try
             {
-                var issuesQuery = db.Issues
-                                           .Where(i => i.DeletedAt != null)
-                                           .Select(i => new IssueDto
-                                           {
-                                               Name = i.Name,
-                                               Description = i.Description
-                                           })
-                                           .AsNoTracking();
-                                           //.ToListAsync();
+                var issuesQuery = mapper.ProjectToIssueDto(db.Issues
+                                                             .Where(i => i.DeletedAt == null)
+                                                             .AsNoTracking());
 
                 //return BaseResult<PaginatedResult<List<IssueDto>>>.Ok(new PaginatedResult<List<IssueDto>>
                 //{
@@ -47,15 +41,10 @@ namespace ItSupportServer.src.Modules.Issue
         {
             try
             {
-                var issue = await db.Issues
-                                    .Where(i => i.IssId == issueId && i.DeletedAt == null)
-                                    .Select(i => new IssueDto
-                                    {
-                                        Name = i.Name,
-                                        Description = i.Description
-                                    })
-                                    .AsNoTracking()
-                                    .FirstOrDefaultAsync();
+                var issue = await mapper.ProjectToIssueDto(db.Issues
+                                                             .Where(i => i.IssId == issueId && i.DeletedAt == null))
+                                                             .AsNoTracking()
+                                                             .FirstOrDefaultAsync();
 
                 if (issue is null)
                     return BaseResult<IssueDto>.Fail("Vấn đề không tồn tại.", 404);
@@ -68,59 +57,52 @@ namespace ItSupportServer.src.Modules.Issue
             }
         }
 
-        public async Task<BaseResult<CreateIssueDto>> CreateIssueAsync(CreateIssueDto dto)
+        public async Task<BaseResult<IssueDto>> CreateIssueAsync(CreateIssueDto dto)
         {
             try
             {
                 var existing = await db.Issues
                                        .Where(i => i.Name == dto.Name && i.DeletedAt == null)
-                                       .FirstOrDefaultAsync();
+                                       .AnyAsync();
 
-                if (existing is not null)
-                    return BaseResult<CreateIssueDto>.Fail("Vấn đề đã tồn tại.", 400);
+                if (existing)
+                    return BaseResult<IssueDto>.Fail("Vấn đề đã tồn tại.", 400);
 
-                var newIssue = new Issues()
-                {
-                    Name = dto.Name,
-                    Description = dto.Description
-                };
+                var newIssue = mapper.MapToIssue(dto);
+                newIssue.CreatedAt = DateTime.UtcNow;
 
                 await db.Issues.AddAsync(newIssue);
                 await db.SaveChangesAsync();
 
-                return BaseResult<CreateIssueDto>.Ok(dto);
+                var issueDto = mapper.MapToIssueDto(newIssue);
+                return BaseResult<IssueDto>.Ok(issueDto);
             }
             catch (Exception ex)
             {
-                return BaseResult<CreateIssueDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
+                return BaseResult<IssueDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
             }
         }
 
-        public async Task<BaseResult<UpdateIssueDto>> UpdateIssueAsync(UpdateIssueDto dto)
+        public async Task<BaseResult<IssueDto>> UpdateIssueAsync(UpdateIssueDto dto)
         {
             try
             {
-                var issue = await db.Issues
-                                    .Where(i => i.IssId == dto.IssId && i.DeletedAt == null)
-                                    .FirstOrDefaultAsync();
+                var issue = await db.Issues.FindAsync(dto.IssId);
 
-                if (issue is null)
-                    return BaseResult<UpdateIssueDto>.Fail("Vấn đề không tồn tại.", 404);
+                if (issue is null || issue.DeletedAt != null)
+                    return BaseResult<IssueDto>.Fail("Vấn đề không tồn tại.", 404);
 
-                if (!string.IsNullOrEmpty(dto.Name))
-                    issue.Name = dto.Name;
-                if (!string.IsNullOrEmpty(dto.Description))
-                    issue.Description = dto.Description;
+                mapper.MapToIssue(dto, issue);
                 issue.UpdatedAt = DateTime.UtcNow;
 
-                db.Issues.Update(issue);
                 await db.SaveChangesAsync();
 
-                return BaseResult<UpdateIssueDto>.Ok(dto);
+                var issueDto = mapper.MapToIssueDto(issue);
+                return BaseResult<IssueDto>.Ok(issueDto);
             }
             catch (Exception ex)
             {
-                return BaseResult<UpdateIssueDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
+                return BaseResult<IssueDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
             }
         }
 

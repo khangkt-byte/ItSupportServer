@@ -12,10 +12,12 @@ namespace ItSupportServer.src.Modules.IssueLog
 
     public record IssueLogDto(
         Guid IssLogId,
-        List<string> Operators,
+        string Operator,
         string? Requester,
-        int DptId,
-        int AreaId,
+        //int DptId,
+        //int AreaId,
+        string Department,
+        string Area,
         string IssueDescription,
         string? Cause,
         string? Resolution,
@@ -26,30 +28,37 @@ namespace ItSupportServer.src.Modules.IssueLog
         );
 
     public record CreateIssueLogDto(
+        Guid IssLogId,
         string Operator,
         string? Requester,
-        int DptId,
-        int AreaId,
+        //int DptId,
+        //int AreaId,
+        string Department,
+        string Area,
         string IssueDescription,
         string? Cause,
         string? Resolution,
         string? PermanentFix,
         string? Notes,
         DateTime DateReported,
-        string? Status
+        string? Status,
+        DateTime CreatedAt
         );
 
     public record UpdateIssueLogDto(
         string? Operator,
         string? Requester,
-        int? DptId,
-        int? AreaId,
+        //int? DptId,
+        //int? AreaId,
+        string? Department,
+        string? Area,
         string? IssueDescription,
         string? Cause,
         string? Resolution,
         string? PermanentFix,
         string? Notes,
         DateTime? DateReported,
-        string? Status
+        string? Status,
+        DateTime UpdatedAt
         );
 }

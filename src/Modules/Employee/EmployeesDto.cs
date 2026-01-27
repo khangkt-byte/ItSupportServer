@@ -6,6 +6,7 @@ using static ItSupportServer.src.Modules.User.UsersEnum;
 namespace ItSupportServer.src.Modules.Employee
 {
     public record CreateEmployeeDto(
+        Guid EmpId,
         string? EmpCode,
         string FullName,
         string? PhoneNumber,
@@ -13,70 +14,73 @@ namespace ItSupportServer.src.Modules.Employee
         int DptId,
         int AreaId,
         string? Position,
-        string Password,
+        DateTime CreatedAt
+        //string Password,
 
-        [DataType(DataType.Date, ErrorMessage = "Ngày sinh không đúng định dạng.")]
-        [CustomValidation(typeof(MyValidate), nameof(MyValidate.ValidateBirthdayStaff))]
-        DateTime? Birthday,
-        GENDER? Gender,
-        IFormFile? UrlImage
+        //[DataType(DataType.Date, ErrorMessage = "Ngày sinh không đúng định dạng.")]
+        //[CustomValidation(typeof(MyValidate), nameof(MyValidate.ValidateBirthdayStaff))]
+        //DateTime? Birthday,
+        //GENDER? Gender,
+        //IFormFile? UrlImage
         );
 
     public record UpdateEmployeeDto(
         string? EmpCode,
         string FullName,
-        string PhoneNumber,
-        string Email,
-        int DptId,
-        int AreaId,
-        [Required(ErrorMessage = "Ngày sinh là bắt buộc.")]
-        [DataType(DataType.Date, ErrorMessage = "Ngày sinh không đúng định dạng.")]
-        [CustomValidation(typeof(MyValidate), nameof(MyValidate.ValidateBirthdayStaff))]
-        DateTime Birthday,
-        GENDER? Gender,
-        string Position,
-        string? UrlImage,
-        IFormFile? NewImage
-        );
-
-    public record ListEmployeeDto(
-        Guid EmpId,
-        string EmpCode,
-        string FullName,
-        string Email,
-        string? PhoneNumber,
-        string Position,
-        string? UrlImage,
-        bool? Status,
-        DateTime CreatedAt
-        );
-
-    public record updateProfileDto(
-        string Name,
-        string? PhoneNumber,
-        string? Address,
-        GENDER? Gender,
-        string Email,
-        [DataType(DataType.Date, ErrorMessage = "Ngày sinh không đúng định dạng.")]
-        DateTime? Birthday,
-        IFormFile? Img
-        );
-
-    public record DetailUserDto(
-        Guid EmpId,
-        string EmpCode,
-        string FullName,
-        DateTime? Birthday,
-        string? Gender,
         string? PhoneNumber,
         string? Email,
         int DptId,
         int AreaId,
+        //[Required(ErrorMessage = "Ngày sinh là bắt buộc.")]
+        //[DataType(DataType.Date, ErrorMessage = "Ngày sinh không đúng định dạng.")]
+        //[CustomValidation(typeof(MyValidate), nameof(MyValidate.ValidateBirthdayStaff))]
+        //DateTime Birthday,
+        //GENDER? Gender,
         string? Position,
-        string? UrlImage,
-        bool? Status,
-        DateTime CreatedAt,
-        DateTime? UpdatedAt,
-        List<RolesDto>? Roles
+        DateTime? UpdatedAt
+        //string? UrlImage,
+        //IFormFile? NewImage
         );
+
+    public record ListEmployeeDto(
+        Guid EmpId,
+        string? EmpCode,
+        string FullName,
+        string? Email,
+        string? PhoneNumber,
+        string? Position,
+        //string? UrlImage,
+        //bool? Status,
+        DateTime CreatedAt
+        );
+
+    public record UpdateProfileDto(
+        string FullName,
+        string? PhoneNumber,
+        //GENDER? Gender,
+        string? Email,
+        DateTime? UpdatedAt
+        //[DataType(DataType.Date, ErrorMessage = "Ngày sinh không đúng định dạng.")]
+        //DateTime? Birthday,
+        //IFormFile? Img
+        );
+
+    public record DetailUserDto
+    {
+        public Guid EmpId { get; init; }
+        public string? EmpCode { get; init; }
+        public string FullName { get; init; }
+        //DateTime? Birthday,
+        //string? Gender,
+        public string? PhoneNumber { get; init; }
+        public string? Email { get; init; }
+        public int DptId { get; init; }
+        public int AreaId { get; init; }
+        string? Position { get; init; }
+        //string? UrlImage,
+        //bool? Status,
+        public DateTime CreatedAt { get; init; }
+        public DateTime? UpdatedAt { get; init; }
+        public List<RolesDto>? Roles { get; init; }
+    };
 }

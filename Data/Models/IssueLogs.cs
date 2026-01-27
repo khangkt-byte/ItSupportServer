@@ -20,12 +20,16 @@ namespace ItSupportServer.Data.Models
         [Column("requester")]
         public string? Requester { get; set; }
 
-        [Column("dpt_id")]
-        [Required]
-        public int DptId { get; set; }
+        //[Column("dpt_id")]
+        //[Required]
+        //public int DptId { get; set; }
 
-        [ForeignKey(nameof(DptId))]
-        public Departments Department { get; set; }
+        //[ForeignKey(nameof(DptId))]
+        //public Departments Department { get; set; }
+
+        [Column("department")]
+        [Required]
+        public string Department { get; set; }
 
         [Column("issue_description")]
         [Required]
@@ -40,12 +44,16 @@ namespace ItSupportServer.Data.Models
         [Column("permanent_fix")]
         public string? PermanentFix { get; set; }
 
-        [Column("area_id")]
-        [Required]
-        public int AreaId { get; set; }
+        //[Column("area_id")]
+        //[Required]
+        //public int AreaId { get; set; }
 
-        [ForeignKey(nameof(AreaId))]
-        public Areas Area { get; set; }
+        //[ForeignKey(nameof(AreaId))]
+        //public Areas Area { get; set; }
+
+        [Column("area")]
+        [Required]
+        public string Area { get; set; }
 
         [Column("notes")]
         public string? Notes { get; set; }

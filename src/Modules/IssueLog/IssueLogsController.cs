@@ -11,7 +11,7 @@ namespace ItSupportServer.src.Modules.IssueLog
     public class IssueLogsController(IIssueLogsService service) : ControllerBase
     {
         [HttpGet]
-        [HasPermission(Permissions.IssueLogs.View)]
+        [HasPermission(Permissions.IssueLogClaims.View)]
         public async Task<IActionResult> GetIssueLogsAsync(
             [FromQuery] string? query,
             [FromQuery] int page = 1,
@@ -24,7 +24,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         }
 
         [HttpGet("{issLogId}")]
-        [HasPermission(Permissions.IssueLogs.View)]
+        [HasPermission(Permissions.IssueLogClaims.View)]
         public async Task<IActionResult> GetIssueLogByIdAsync([FromRoute] Guid issLogId)
         {
             var result = await service.GetIssueLogByIdAsync(issLogId);
@@ -32,13 +32,12 @@ namespace ItSupportServer.src.Modules.IssueLog
         }
 
         [HttpPost]
-        [HasPermission(Permissions.IssueLogs.Create)]
+        [HasPermission(Permissions.IssueLogClaims.Create)]
         public async Task<IActionResult> CreateIssueLogAsync(
             [FromBody] CreateIssueLogDto dto,
             [FromServices] IValidator<CreateIssueLogDto> validator)
         {
             var validationResult = await validator.ValidateAsync(dto);
-
             if (!validationResult.IsValid)
                 return BadRequest(validationResult.Errors);
 
@@ -47,15 +46,17 @@ namespace ItSupportServer.src.Modules.IssueLog
         }
 
         [HttpPut("{issLogId}")]
-        [HasPermission(Permissions.IssueLogs.Edit)]
-        public async Task<IActionResult> UpdateIssueLogAsync([FromRoute] Guid issLogId, [FromBody] UpdateIssueLogDto dto)
+        [HasPermission(Permissions.IssueLogClaims.Edit)]
+        public async Task<IActionResult> UpdateIssueLogAsync(
+            [FromRoute] Guid issLogId,
+            [FromBody] UpdateIssueLogDto dto)
         {
             var result = await service.UpdateIssueLogAsync(issLogId, dto);
             return this.MyStatusCode(result);
         }
 
         [HttpDelete]
-        [HasPermission(Permissions.IssueLogs.Delete)]
+        [HasPermission(Permissions.IssueLogClaims.Delete)]
         public async Task<IActionResult> DeleteIssueLogsAsync([FromBody] List<Guid> issLogId)
         {
             var result = await service.DeleteIssueLogsAsync(issLogId);

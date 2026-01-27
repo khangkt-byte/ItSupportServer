@@ -1,17 +1,22 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using ItSupportServer.Data.Models;
+using ItSupportServer.src.Modules.User;
 using ItSupportServer.src.Shared.Base;
-using ItSupportServer.Data.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace ItSupportServer.src.Modules.Authorization
 {
     public class AuthorizationService(AppDbContext db)
     {
-        public async Task<BaseResult<bool>> RoleHasClaimAsync(string EmployeeId, string claimType)
+        public async Task<BaseResult<bool>> RoleHasClaimAsync(string empId, string claimType)
         {
-            var AccountId = Guid.Parse(EmployeeId);
+            if (!Guid.TryParse(empId, out Guid accId))
+            {
+                return BaseResult<bool>.Fail("Id không hợp lệ.", 400);
+            }
+
             var hasPermission = await db.Accounts
                 .AsNoTracking()
-                .Where(a => a.AccountId == AccountId)
+                .Where(a => a.AccountId == accId)
                 .AnyAsync(a =>
                     a.AccountClaims.Any(ac =>
                         ac.Claim.Claim == claimType || ac.Claim.Claim == "Admin") ||
@@ -25,9 +30,13 @@ namespace ItSupportServer.src.Modules.Authorization
                 : BaseResult<bool>.Fail("Bạn không có quyền truy cập chức năng này", 403);
         }
 
-        public async Task<BaseResult<bool>> RoleHasListClaimAsync(string EmployeeId, string[] claimTypes)
+        public async Task<BaseResult<bool>> RoleHasListClaimAsync(string empId, string[] claimTypes)
         {
-            var AccountId = Guid.Parse(EmployeeId);
+            if (!Guid.TryParse(empId, out Guid AccountId))
+            {
+                return BaseResult<bool>.Fail("Id không hợp lệ.", 400);
+            }
+
             var hasPermission = await db.Accounts
                 .AsNoTracking()
                 .Where(a => a.AccountId == AccountId)

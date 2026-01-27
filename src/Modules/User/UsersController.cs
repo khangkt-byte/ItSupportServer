@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using ItSupportServer.src.Shared.Base;
 using System.Security.Claims;
 using ItSupportServer.src.Modules.Employee;
+using FluentValidation;
 
 namespace ItSupportServer.src.Modules.User
 {
@@ -24,8 +25,13 @@ namespace ItSupportServer.src.Modules.User
         [HttpPut("me")]
         [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
         public async Task<IActionResult> UpdateAvt(
-            [FromForm] updateProfileDto dto)
+            [FromForm] UpdateProfileDto dto,
+            [FromServices] IValidator<UpdateProfileDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var UserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var result = await service.UpdateProfileAsync(UserId, dto);
             return this.MyStatusCode(result);

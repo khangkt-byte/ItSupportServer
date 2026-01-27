@@ -7,6 +7,7 @@ using ItSupportServer.src.Modules.IssueLog;
 using ItSupportServer.src.Modules.Role;
 using Microsoft.AspNetCore.Authorization;
 using FluentValidation;
+using ItSupportServer.src.Modules.Account;
 
 namespace ItSupportServer
 {
@@ -26,7 +27,12 @@ namespace ItSupportServer
             services.AddValidatorsFromAssemblyContaining<CreateAreaDtoValidator>();
 
             // Đăng ký Mapperly Mapper
+            services.AddSingleton<AccountsMapper>();
+            services.AddSingleton<RolesMapper>();
             services.AddSingleton<EmployeesMapper>();
+            services.AddSingleton<AreasMapper>();
+            services.AddSingleton<IssuesMapper>();
+            services.AddSingleton<IssueLogsMapper>();
 
             // Đăng ký Handler xử lý logic
             services.AddSingleton<IAuthorizationHandler, PermissionHandler>();

@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ItSupportServer.src.Modules.User
 {
-    public class ProfileDto
+    public record ProfileDto
     {
         [Description("Mã định danh duy nhất của người dùng (GUID)")]
         [OpenApiExample("3fa85f64-5717-4562-b3fc-2c963f66afa6")]

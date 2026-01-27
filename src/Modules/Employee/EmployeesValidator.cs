@@ -31,13 +31,13 @@ namespace ItSupportServer.src.Modules.Employee
             RuleFor(x => x.Position)
                 .MaximumLength(150).WithMessage("Chức vụ không được quá 150 ký tự.");
 
-            RuleFor(x => x.Password)
-                .NotEmpty().WithMessage("Mật khẩu là bắt buộc.")
-                .Length(8, 100).WithMessage("Mật khẩu phải có độ dài từ 8 đến 100 ký tự.")
-                .Matches(@"^[a-zA-Z0-9_@#]+$").WithMessage("Mật khẩu chỉ được chứa chữ cái, @, #, gạch ngang (-) và gạch dưới (_).");
+            //RuleFor(x => x.Password)
+            //    .NotEmpty().WithMessage("Mật khẩu là bắt buộc.")
+            //    .Length(6, 100).WithMessage("Mật khẩu phải có độ dài từ 8 đến 100 ký tự.")
+            //    .Matches(@"^[a-zA-Z0-9_@#]+$").WithMessage("Mật khẩu chỉ được chứa chữ cái, @, #, gạch ngang (-) và gạch dưới (_).");
 
-            RuleFor(x => x.Birthday)
-                .Must(date => date == null || date <= DateTime.Today).WithMessage("Ngày sinh không được lớn hơn ngày hiện tại.");
+            //RuleFor(x => x.Birthday)
+            //    .Must(date => date == null || date <= DateTime.Today).WithMessage("Ngày sinh không được lớn hơn ngày hiện tại.");
 
         }
     }
@@ -71,16 +71,16 @@ namespace ItSupportServer.src.Modules.Employee
             RuleFor(x => x.Position)
                 .MaximumLength(150).WithMessage("Chức vụ không được quá 150 ký tự.");
 
-            RuleFor(x => x.Birthday)
-                .Must(date => date <= DateTime.Today).WithMessage("Ngày sinh không được lớn hơn ngày hiện tại.");
+            //RuleFor(x => x.Birthday)
+            //    .Must(date => date <= DateTime.Today).WithMessage("Ngày sinh không được lớn hơn ngày hiện tại.");
         }
     }
 
-    public class updateProfileDtoValidator : AbstractValidator<updateProfileDto>
+    public class UpdateProfileDtoValidator : AbstractValidator<UpdateProfileDto>
     {
-        public updateProfileDtoValidator()
+        public UpdateProfileDtoValidator()
         {
-            RuleFor(x => x.Name)
+            RuleFor(x => x.FullName)
                 .NotEmpty().WithMessage("Tên là bắt buộc.")
                 .MaximumLength(150).WithMessage("Tên không được quá 150 ký tự.")
                 .Matches(@"^[\p{L}\p{M}\p{N} _-]+$").WithMessage("Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_).");

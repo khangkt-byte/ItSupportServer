@@ -8,11 +8,14 @@ namespace ItSupportServer.src.Modules.Account
 {
     public class AccountsService(AppDbContext db) : IAccountsService
     {
-        public async Task<BaseResult<ProfileDto>> GetProfileAsync(string EmpId)
+        public async Task<BaseResult<ProfileDto>> GetProfileAsync(string empId)
         {
             try
             {
-                var _empId = Guid.Parse(EmpId);
+                if (!Guid.TryParse(empId, out Guid _empId))
+                {
+                    return BaseResult<ProfileDto>.Fail("Id không hợp lệ.", 400);
+                }
 
                 var employee = await db.Employees.Include(e => e.Account)
                     .Select(e => new ProfileDto
@@ -41,12 +44,16 @@ namespace ItSupportServer.src.Modules.Account
             }
         }
 
-        public async Task<BaseResult<ProfileDto>> UpdateProfileAsync(string Id, updateProfileDto dto)
+        public async Task<BaseResult<ProfileDto>> UpdateProfileAsync(string accId, UpdateProfileDto dto)
         {
             try
             {
-                Guid UserId = Guid.Parse(Id);
-                var user = await db.Employees.FindAsync(UserId);
+                if (!Guid.TryParse(accId, out Guid _accId))
+                {
+                    return BaseResult<ProfileDto>.Fail("Id không hợp lệ.", 400);
+                }
+
+                var user = await db.Employees.FindAsync(_accId);
                 if (user is null) return BaseResult<ProfileDto>.Fail("User không tồn tại", 404);
 
                 mapper.Map(dto, user);
@@ -58,7 +65,7 @@ namespace ItSupportServer.src.Modules.Account
                 //}
                 if (dto.Email != user.Email)
                 {
-                    var IsEmailExist = db.Employees.Any(e => e.Email == dto.Email && e.EmpId != UserId);
+                    var IsEmailExist = db.Employees.Any(e => e.Email == dto.Email && e.EmpId != _accId);
                     if (IsEmailExist)
                     {
                         return BaseResult<ProfileDto>.Fail("Email đã tồn tại", 400);

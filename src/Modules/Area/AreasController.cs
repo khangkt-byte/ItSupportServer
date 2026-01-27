@@ -6,66 +6,89 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ItSupportServer.src.Modules.Area
 {
-    [Route("api/areas")]
     [ApiController]
-    public class AreasController(IAreasService service) : ControllerBase
+    [Route("api/[controller]")]
+    public class AreasController : ControllerBase
     {
+        private readonly IAreasService _service;
+
+        public AreasController(IAreasService service)
+        {
+            _service = service;
+        }
+
+        /// <summary>
+        /// Get paginated list of areas
+        /// </summary>
         [HttpGet]
-        [HasPermission(Permissions.Areas.View)]
-        public async Task<IActionResult> GetAreasAsync(
+        [ProducesResponseType(typeof(PaginatedResult<List<AreaDto>>), 200)]
+        [ProducesResponseType(typeof(ProblemDetails), 500)]
+        public async Task<ActionResult<PaginatedResult<List<AreaDto>>>> GetAreas(
             [FromQuery] string? query,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] SortOBJ? sort = null)
         {
-            var result = await service.GetAreasAsync(query, page, pageSize, sort);
-            return this.MyStatusCode(result);
+            var result = await _service.GetAreasAsync(query, page, pageSize, sort);
+            return Ok(result);
         }
 
-        [HttpGet("{areaId}")]
-        [HasPermission(Permissions.Areas.View)]
-        public async Task<IActionResult> GetAreaByIdAsync([FromRoute] int areaId)
+        /// <summary>
+        /// Get area by ID
+        /// </summary>
+        [HttpGet("{id}")]
+        [ProducesResponseType(typeof(AreaDto), 200)]
+        [ProducesResponseType(typeof(ProblemDetails), 404)]
+        [ProducesResponseType(typeof(ProblemDetails), 500)]
+        public async Task<ActionResult<AreaDto>> GetArea(int id)
         {
-            var result = await service.GetAreaByIdAsync(areaId);
-            return this.MyStatusCode(result);
+            var result = await _service.GetAreaByIdAsync(id);
+            return Ok(result);
         }
 
+        /// <summary>
+        /// Create new area
+        /// </summary>
         [HttpPost]
-        [HasPermission(Permissions.Areas.Create)]
-        public async Task<IActionResult> CreateAreaAsync(
-            [FromBody] CreateAreaDto dto,
-            [FromServices] IValidator<CreateAreaDto> validator)
+        [ProducesResponseType(typeof(AreaDto), 201)]
+        [ProducesResponseType(typeof(ProblemDetails), 400)]
+        [ProducesResponseType(typeof(ProblemDetails), 409)]
+        [ProducesResponseType(typeof(ProblemDetails), 500)]
+        public async Task<ActionResult<AreaDto>> CreateArea([FromBody] CreateAreaDto dto)
         {
-            var validationResult = await validator.ValidateAsync(dto);
-
-            if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
-
-            var result = await service.CreateAreaAsync(dto);
-            return this.MyStatusCode(result);
+            var result = await _service.CreateAreaAsync(dto);
+            return CreatedAtAction(nameof(GetArea), new { id = result.AreaId }, result);
         }
 
-        [HttpPut]
-        [HasPermission(Permissions.Areas.Edit)]
-        public async Task<IActionResult> UpdateAreaAsync(
-            [FromBody] UpdateAreaDto dto,
-            [FromServices] IValidator<UpdateAreaDto> validator)
+        /// <summary>
+        /// Update existing area
+        /// </summary>
+        [HttpPut("{id}")]
+        [ProducesResponseType(typeof(AreaDto), 200)]
+        [ProducesResponseType(typeof(ProblemDetails), 404)]
+        [ProducesResponseType(typeof(ProblemDetails), 500)]
+        public async Task<ActionResult<AreaDto>> UpdateArea(int id, [FromBody] UpdateAreaDto dto)
         {
-            var validationResult = await validator.ValidateAsync(dto);
-
-            if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
-
-            var result = await service.UpdateAreaAsync(dto);
-            return this.MyStatusCode(result);
+            dto.AreaId = id;
+            var result = await _service.UpdateAreaAsync(dto);
+            return Ok(result);
         }
 
+        /// <summary>
+        /// Delete areas
+        /// </summary>
         [HttpDelete]
-        [HasPermission(Permissions.Areas.Delete)]
-        public async Task<IActionResult> DeleteAreasAsync([FromBody] List<int> areaId)
+        [ProducesResponseType(typeof(bool), 200)]
+        [ProducesResponseType(typeof(ProblemDetails), 400)]
+        [ProducesResponseType(typeof(ProblemDetails), 404)]
+        [ProducesResponseType(typeof(ProblemDetails), 422)]
+        [ProducesResponseType(typeof(ProblemDetails), 500)]
+        public async Task<ActionResult<bool>> DeleteAreas(
+            [FromBody] List<int> areaIds,
+            [FromQuery] bool softDelete = true)
         {
-            var result = await service.DeleteAreasAsync(areaId);
-            return this.MyStatusCode(result);
+            var result = await _service.DeleteAreasAsync(areaIds, softDelete);
+            return Ok(result);
         }
     }
 }
