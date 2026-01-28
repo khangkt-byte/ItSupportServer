@@ -53,6 +53,10 @@ namespace ItSupportServer.src.Shared.Middleware
                 UnauthorizedException => StatusCodes.Status401Unauthorized,
                 ForbiddenException => StatusCodes.Status403Forbidden,
                 ConflictException => StatusCodes.Status409Conflict,
+                BusinessRuleException => StatusCodes.Status422UnprocessableEntity,
+                TooManyAttemptsException => StatusCodes.Status429TooManyRequests,
+                ExternalServiceException => StatusCodes.Status502BadGateway,
+                OtpRequiredException => StatusCodes.Status403Forbidden,
                 _ => StatusCodes.Status500InternalServerError
             };
 
@@ -84,6 +88,13 @@ namespace ItSupportServer.src.Shared.Middleware
             {
                 problemDetails.Extensions["stackTrace"] = exception.StackTrace;
                 problemDetails.Extensions["exceptionType"] = exception.GetType().Name;
+            }
+
+            // Handle OtpRequiredException specially
+            if (exception is OtpRequiredException otpEx)
+            {
+                problemDetails.Extensions["accountId"] = otpEx.AccountId;
+                problemDetails.Extensions["requiresOtp"] = true;
             }
 
             return problemDetails;

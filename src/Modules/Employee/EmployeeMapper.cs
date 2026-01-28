@@ -1,5 +1,4 @@
 ﻿using ItSupportServer.Data.Models;
-using ItSupportServer.src.Modules.Role;
 using Riok.Mapperly.Abstractions;
 
 namespace ItSupportServer.src.Modules.Employee
@@ -7,66 +6,81 @@ namespace ItSupportServer.src.Modules.Employee
     [Mapper]
     public partial class EmployeeMapper
     {
-        [UseMapper]
-        private readonly RoleMapper _rolesMapper;
-
-        [MapperIgnoreTarget(nameof(Employees.Department))]
-        [MapperIgnoreTarget(nameof(Employees.Area))]
-        [MapperIgnoreTarget(nameof(Employees.Account))]
-        [MapperIgnoreTarget(nameof(Employees.UpdatedAt))]
-        [MapperIgnoreTarget(nameof(Employees.DeletedAt))]
-        public partial Employees MapToEmployee(CreateEmployeeDto createEmpDto);
-
-        [MapperIgnoreTarget(nameof(Employees.EmpId))]
-        [MapperIgnoreTarget(nameof(Employees.Department))]
-        [MapperIgnoreTarget(nameof(Employees.Area))]
-        [MapperIgnoreTarget(nameof(Employees.Account))]
-        [MapperIgnoreTarget(nameof(Employees.CreatedAt))]
-        [MapperIgnoreTarget(nameof(Employees.DeletedAt))]
-        public partial void MapToEmployee(UpdateEmployeeDto updateEmpDto, Employees employee);
+        // ===== Entity → DTOs =====
 
         [MapperIgnoreSource(nameof(Employees.Id))]
-        [MapperIgnoreSource(nameof(Employees.DptId))]
+        [MapperIgnoreSource(nameof(Employees.Area))]
         [MapperIgnoreSource(nameof(Employees.Department))]
+        [MapperIgnoreSource(nameof(Employees.Account))]
+        [MapperIgnoreSource(nameof(Employees.DeletedAt))]
+        public partial EmployeeDto MapToEmployeeDto(Employees employee);
+
+        [MapperIgnoreSource(nameof(Employees.Id))]
         [MapperIgnoreSource(nameof(Employees.AreaId))]
         [MapperIgnoreSource(nameof(Employees.Area))]
+        [MapperIgnoreSource(nameof(Employees.DptId))]
+        [MapperIgnoreSource(nameof(Employees.Department))]
         [MapperIgnoreSource(nameof(Employees.Account))]
-        [MapperIgnoreSource(nameof(Employees.UpdatedAt))]
         [MapperIgnoreSource(nameof(Employees.DeletedAt))]
-        private partial ListEmployeeDto MapToListEmployeeDto(Employees employee);
+        [MapperIgnoreSource(nameof(Employees.UpdatedAt))]
+        public partial ListEmployeeDto MapToListEmployeeDto(Employees employee);
+
+        [MapperIgnoreSource(nameof(Employees.Id))]
+        [MapperIgnoreSource(nameof(Employees.Area))]
+        [MapperIgnoreSource(nameof(Employees.Department))]
+        [MapperIgnoreSource(nameof(Employees.Account))]
+        [MapperIgnoreSource(nameof(Employees.DeletedAt))]
+        [MapperIgnoreTarget(nameof(DetailEmployeeDto.Roles))]
+        public partial DetailEmployeeDto MapToDetailEmployeeDto(Employees employee);
+
+        [MapperIgnoreSource(nameof(Employees.Id))]
+        [MapperIgnoreSource(nameof(Employees.Area))]
+        [MapperIgnoreSource(nameof(Employees.Department))]
+        [MapperIgnoreSource(nameof(Employees.Account))]
+        [MapperIgnoreSource(nameof(Employees.DeletedAt))]
+        [MapperIgnoreTarget(nameof(ProfileDto.Username))]
+        public partial ProfileDto MapToProfileDto(Employees employee);
+
+        // ===== DTOs → Entity =====
+
+        [MapperIgnoreTarget(nameof(Employees.EmpId))]  // Set in service
+        [MapperIgnoreTarget(nameof(Employees.Id))]
+        [MapperIgnoreTarget(nameof(Employees.Area))]
+        [MapperIgnoreTarget(nameof(Employees.Department))]
+        [MapperIgnoreTarget(nameof(Employees.CreatedAt))]  // Interceptor
+        [MapperIgnoreTarget(nameof(Employees.UpdatedAt))]
+        [MapperIgnoreTarget(nameof(Employees.DeletedAt))]
+        [MapperIgnoreTarget(nameof(Employees.Account))]  // Navigation property
+        public partial Employees MapToEmployee(CreateEmployeeDto dto);
+
+        [MapperIgnoreTarget(nameof(Employees.EmpId))]  // Never change
+        [MapperIgnoreTarget(nameof(Employees.Id))]
+        [MapperIgnoreTarget(nameof(Employees.Area))]
+        [MapperIgnoreTarget(nameof(Employees.Department))]
+        [MapperIgnoreTarget(nameof(Employees.CreatedAt))]  // Never change
+        [MapperIgnoreTarget(nameof(Employees.UpdatedAt))]  // Interceptor
+        [MapperIgnoreTarget(nameof(Employees.DeletedAt))]
+        [MapperIgnoreTarget(nameof(Employees.Account))]
+        public partial void MapToEmployee(UpdateEmployeeDto dto, Employees employee);
 
         [MapperIgnoreTarget(nameof(Employees.EmpId))]
+        [MapperIgnoreTarget(nameof(Employees.Id))]
         [MapperIgnoreTarget(nameof(Employees.EmpCode))]
         [MapperIgnoreTarget(nameof(Employees.DptId))]
         [MapperIgnoreTarget(nameof(Employees.Department))]
         [MapperIgnoreTarget(nameof(Employees.AreaId))]
         [MapperIgnoreTarget(nameof(Employees.Area))]
-        [MapperIgnoreTarget(nameof(Employees.Account))]
         [MapperIgnoreTarget(nameof(Employees.Position))]
         [MapperIgnoreTarget(nameof(Employees.CreatedAt))]
+        [MapperIgnoreTarget(nameof(Employees.UpdatedAt))]
         [MapperIgnoreTarget(nameof(Employees.DeletedAt))]
-        public partial void MapToEmployee(UpdateProfileDto updateProfileDto, Employees employee);
+        [MapperIgnoreTarget(nameof(Employees.Account))]
+        public partial void MapToEmployee(UpdateProfileDto dto, Employees employee);
 
-        [MapperIgnoreSource(nameof(Employees.Id))]
-        [MapperIgnoreSource(nameof(Employees.Department))]
-        [MapperIgnoreSource(nameof(Employees.Area))]
-        [MapperIgnoreSource(nameof(Employees.Position))]
-        [MapperIgnoreSource(nameof(Employees.Account))]
-        [MapperIgnoreSource(nameof(Employees.DeletedAt))]
-        [MapPropertyFromSource(nameof(DetailUserDto.Roles), Use = nameof(MapRoles))]
-        private partial DetailUserDto MapToDetailUserDto(Employees employee);
+        // ===== Projections for EF Core =====
 
-        private List<RolesDto>? MapRoles(Employees employee)
-        {
-            if (employee.Account?.AccountRoles == null)
-                return null;
-
-            return employee.Account.AccountRoles
-                .Select(ar => _rolesMapper.MapToRolesDto(ar.Role))
-                .ToList();
-        }
-
-        public partial IQueryable<ListEmployeeDto> ProjectToListEmployeeDto(IQueryable<Employees> employees);
-        public partial IQueryable<DetailUserDto> ProjectToDetailUserDto(IQueryable<Employees> employees);
+        public partial IQueryable<ListEmployeeDto> ProjectToListEmployeeDto(IQueryable<Employees> query);
+        public partial IQueryable<DetailEmployeeDto> ProjectToDetailEmployeeDto(IQueryable<Employees> query);
+        public partial IQueryable<ProfileDto> ProjectToProfileDto(IQueryable<Employees> query);
     }
 }

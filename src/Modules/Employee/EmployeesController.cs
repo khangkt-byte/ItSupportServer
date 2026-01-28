@@ -1,104 +1,162 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using ItSupportServer.src.Shared.Base;
-using System.Security.Claims;
-using static ItSupportServer.src.Shared.Base.BaseEnum;
+﻿using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Attributes;
-using ItSupportServer.src.Modules.Authorization;
-using FluentValidation;
+using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Exceptions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace ItSupportServer.src.Modules.Employee
 {
-    //[Authorize]
-    [Route("api/[controller]")]
+    /// <summary>
+    /// API quản lý nhân viên
+    /// </summary>
     [ApiController]
-    [Authorize(Roles = RoleUser.GroupAdmin)]
-    public class EmployeesController(IEmployeeService service, IConfiguration configuration) : ControllerBase
+    [Route("api/employees")]
+    [Produces("application/json")]
+    public class EmployeesController : ControllerBase
     {
+        private readonly IEmployeeService _service;
+
+        public EmployeesController(IEmployeeService service)
+        {
+            _service = service;
+        }
+
+        /// <summary>
+        /// Lấy danh sách nhân viên (có phân trang)
+        /// </summary>
         [HttpGet]
         [HasPermission(Permissions.EmployeeClaims.View)]
-        public async Task<IActionResult> GetEmployeesAsync(
-           [FromQuery] string? query,
-           [FromQuery] int page = 1,
-           [FromQuery] int pageSize = 10,
-           [FromQuery] SortOBJ? sort = null
-            )
+        [ProducesResponseType(typeof(PaginatedResult<ListEmployeeDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        public async Task<ActionResult<PaginatedResult<ListEmployeeDto>>> GetEmployees(
+            [FromQuery] QueryParameters parameters)
         {
-            var result = await service.GetEmployeesAsync(query, page, pageSize, sort);
-            return this.MyStatusCode(result);
+            var result = await _service.GetEmployeesAsync(parameters);
+            return Ok(result);
         }
 
-        [HttpGet("{Id}")]
+        /// <summary>
+        /// Lấy thông tin chi tiết nhân viên (bao gồm roles)
+        /// </summary>
+        [HttpGet("{id}")]
         [HasPermission(Permissions.EmployeeClaims.View)]
-        public async Task<IActionResult> GetEmployeeAsync([FromRoute] string Id)
+        [ProducesResponseType(typeof(DetailEmployeeDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<DetailEmployeeDto>> GetEmployee(Guid id)
         {
-            var result = await service.GetEmployeeAsync(Id);
-            return this.MyStatusCode(result);
+            var result = await _service.GetEmployeeByIdAsync(id);
+            return Ok(result);
         }
 
+        /// <summary>
+        /// Tạo nhân viên mới
+        /// </summary>
         [HttpPost]
         [HasPermission(Permissions.EmployeeClaims.Create)]
-        public async Task<IActionResult> CreateEmployeeAsync(
-            [FromForm] CreateEmployeeDto dto,
-            [FromServices] IValidator<CreateEmployeeDto> validator)
+        [ProducesResponseType(typeof(EmployeeDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<EmployeeDto>> CreateEmployee([FromBody] CreateEmployeeDto dto)
         {
-            var validationResult = await validator.ValidateAsync(dto);
-            if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
-
-            var result = await service.CreateEmployeeAsync(dto);
-            return this.MyStatusCode(result);
+            var result = await _service.CreateEmployeeAsync(dto);
+            return CreatedAtAction(nameof(GetEmployee), new { id = result.EmpId }, result);
         }
 
-        [HttpPut("{Id}")]
+        /// <summary>
+        /// Cập nhật thông tin nhân viên
+        /// </summary>
+        /// <remarks>
+        /// **Lưu ý:** Không thể tự cập nhật chính mình. Vui lòng sử dụng API profile.
+        /// </remarks>
+        [HttpPut("{id}")]
         [HasPermission(Permissions.EmployeeClaims.Edit)]
-        public async Task<IActionResult> UpdateEmployeeAsync(
-            [FromRoute] string Id,
-            [FromForm] UpdateEmployeeDto dto,
-            [FromServices] IValidator<UpdateEmployeeDto> validator)
+        [ProducesResponseType(typeof(EmployeeDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<EmployeeDto>> UpdateEmployee(
+            [FromRoute] Guid id,
+            [FromBody] UpdateEmployeeDto dto)
         {
-            var validationResult = await validator.ValidateAsync(dto);
-            if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
-
-            var idUser = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (Id == idUser)
+            // Prevent self-edit
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (currentUserId != null && Guid.Parse(currentUserId) == id)
             {
-                return BadRequest("Không thể tự chỉnh sửa tài khoản hiện tại");
-            }
-            var result = await service.UpdateEmployeeAsync(Id, dto);
-            return this.MyStatusCode(result);
-        }
-
-
-        //[HttpPatch("{Id}/status")]
-        //[HasPermission(Permissions.Employees.Edit)]
-        //public async Task<IActionResult> ChangeStatusAsync([FromRoute] string Id, [FromBody] UsersEnum.STATUS_EMP status)
-        //{
-        //    var idUser = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        //    if (Id == idUser)
-        //    {
-        //        return BadRequest("Không thể tự chỉnh sửa tài khoản hiện tại");
-        //    }
-        //    var result = await service.ChangeStatusAsync(Id, status);
-        //    return this.MyStatusCode(result);
-        //}
-
-        //[Authorize(Roles = $"{RoleUser.Super_Admin}")]
-        [HttpPatch("role/{Id}")]
-        [HasPermission(Permissions.EmployeeClaims.Edit)]
-        public async Task<IActionResult> ChangeRoleAsync([FromRoute] string Id, [FromBody] ROLE newRole)
-        {
-            var idUser = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (Id == idUser)
-            {
-                return BadRequest("Không thể tự chỉnh sửa tài khoản hiện tại");
+                throw new BusinessRuleException(
+                    "Không thể tự chỉnh sửa tài khoản của mình. Vui lòng sử dụng API /api/employees/profile.");
             }
 
-            var result = await service.ChangeRoleAsync(Id, newRole);
-
-            return this.MyStatusCode(result);
+            var result = await _service.UpdateEmployeeAsync(id, dto);
+            return Ok(result);
         }
 
+        /// <summary>
+        /// Xóa nhiều nhân viên
+        /// </summary>
+        [HttpDelete]
+        [HasPermission(Permissions.EmployeeClaims.Delete)]
+        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        public async Task<ActionResult<bool>> DeleteEmployees(
+            [FromBody] List<Guid> empIds,
+            [FromQuery] bool softDelete = true)
+        {
+            var result = await _service.DeleteEmployeesAsync(empIds, softDelete);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Lấy thông tin profile của user hiện tại
+        /// </summary>
+        [HttpGet("profile")]
+        [Authorize]
+        [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ProfileDto>> GetProfile()
+        {
+            var empId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.GetProfileAsync(empId);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Cập nhật profile của user hiện tại (self-service)
+        /// </summary>
+        [HttpPut("profile")]
+        [Authorize]
+        [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<ProfileDto>> UpdateProfile([FromBody] UpdateProfileDto dto)
+        {
+            var empId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.UpdateProfileAsync(empId, dto);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Gán roles cho nhân viên
+        /// </summary>
+        [HttpPost("{id}/roles")]
+        [HasPermission(Permissions.RoleClaims.SetRole)]
+        [ProducesResponseType(typeof(DetailEmployeeDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<DetailEmployeeDto>> AssignRoles(
+            [FromRoute] Guid id,
+            [FromBody] List<int> roleIds)
+        {
+            // Prevent self-role-change
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (currentUserId != null && Guid.Parse(currentUserId) == id)
+            {
+                throw new BusinessRuleException("Không thể tự thay đổi roles của mình");
+            }
+
+            var result = await _service.AssignRolesToEmployeeAsync(id, roleIds);
+            return Ok(result);
+        }
     }
 }

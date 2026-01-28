@@ -4,13 +4,44 @@ namespace ItSupportServer.src.Modules.Role
 {
     public interface IRoleService
     {
-        Task<BaseResult<PaginatedResult<List<RolesDto>>>> GetRolesAsync(string? query, int page, int pageSize, SortOBJ? sort);
-        Task<BaseResult<RolesDto>> GetRoleAsync(int roleId);
+        /// <summary>
+        /// Get paginated list of roles with their claims
+        /// </summary>
+        Task<PaginatedResult<RoleDto>> GetRolesAsync(QueryParameters parameters);
 
-        Task<BaseResult<CreateRoleDto>> CreateRoleAsync(CreateRoleDto dto);
-        Task<BaseResult<UpdateRoleDto>> UpdateRoleAsync(UpdateRoleDto dto);
-        Task<BaseResult<bool>> DeleteRoleAsync(int roleId, bool softDelete = true);
-        Task<BaseResult<List<ClaimDto>>> GetAllClaimsAsync();
-        Task<BaseResult<AccountRoleResponseDto>> SetRoleAsync(AccountRoleDto dto);
+        /// <summary>
+        /// Get role by ID with claims
+        /// </summary>
+        Task<RoleDto> GetRoleByIdAsync(int roleId);
+
+        /// <summary>
+        /// Create new role
+        /// </summary>
+        Task<RoleDto> CreateRoleAsync(CreateRoleDto dto);
+
+        /// <summary>
+        /// Update existing role (partial update supported)
+        /// </summary>
+        Task<RoleDto> UpdateRoleAsync(int roleId, UpdateRoleDto dto);
+
+        /// <summary>
+        /// Delete role (soft delete by default)
+        /// </summary>
+        Task<bool> DeleteRoleAsync(int roleId, bool softDelete = true);
+
+        /// <summary>
+        /// Delete multiple roles
+        /// </summary>
+        Task<bool> DeleteRolesAsync(List<int> roleIds, bool softDelete = true);
+
+        /// <summary>
+        /// Get all available claims
+        /// </summary>
+        Task<List<ClaimDto>> GetAllClaimsAsync();
+
+        /// <summary>
+        /// Assign roles to an account
+        /// </summary>
+        Task<AccountRolesDto> AssignRolesToAccountAsync(AssignRolesDto dto);
     }
 }

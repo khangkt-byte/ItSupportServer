@@ -1,6 +1,6 @@
 ﻿using ItSupportServer;
 using ItSupportServer.Data.Models;
-using ItSupportServer.Data.Interceptors;  // ✅ ADD THIS
+using ItSupportServer.Data.Interceptors;
 using ItSupportServer.src.Shared.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +50,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(option =>
 {
-    option.RequireHttpsMetadata = false;
+    option.RequireHttpsMetadata = true;  // ✅ Enforce HTTPS in production
     option.SaveToken = true;
     option.TokenValidationParameters = new TokenValidationParameters
     {
@@ -59,10 +59,24 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidAudience = builder.Configuration["AppSettings:Audience"],
         ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(
                 builder.Configuration["AppSettings:Token"]!)),
-        ValidateIssuerSigningKey = true,
+        ClockSkew = TimeSpan.Zero  // ✅ No tolerance for expired tokens
+    };
+    
+    // ✅ Handle authentication failures
+    option.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+            {
+                context.Response.Headers.Add("Token-Expired", "true");
+            }
+            return Task.CompletedTask;
+        }
     };
 })
 .AddCookie();
@@ -71,9 +85,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorPolicy", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("https://yourdomain.com")  // ✅ Specify allowed origins
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 

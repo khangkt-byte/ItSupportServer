@@ -116,4 +116,31 @@
         {
         }
     }
+
+    public class OtpRequiredException : ApplicationException
+    {
+        public Guid AccountId { get; }
+
+        public OtpRequiredException(Guid accountId)
+            : base("Tài khoản chưa xác minh OTP", "OTP_REQUIRED")
+        {
+            AccountId = accountId;
+        }
+    }
+
+    public class TooManyAttemptsException : ApplicationException
+    {
+        public TooManyAttemptsException(string message)
+            : base(message, "TOO_MANY_ATTEMPTS")
+        {
+        }
+    }
+
+    public class ExternalServiceException : ApplicationException
+    {
+        public ExternalServiceException(string message)
+            : base(message, "EXTERNAL_SERVICE_ERROR")
+        {
+        }
+    }
 }

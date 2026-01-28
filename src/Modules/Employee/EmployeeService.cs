@@ -1,364 +1,522 @@
-﻿using ItSupportServer.Data.Models;
-using ItSupportServer.src.Modules.Role;
-using ItSupportServer.src.Modules.User;
+﻿using FluentValidation;
+using ItSupportServer.Data.Models;
 using ItSupportServer.src.Shared.Base;
-using Microsoft.AspNetCore.Identity;
+using ItSupportServer.src.Shared.Exceptions;
+using ItSupportServer.src.Shared.Extensions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using static ItSupportServer.src.Modules.Authorization.Permissions;
-using static ItSupportServer.src.Shared.Base.BaseEnum;
+using Microsoft.Extensions.Logging;
 
 namespace ItSupportServer.src.Modules.Employee
 {
-    public class EmployeeService(AppDbContext db, EmployeeMapper mapper, BaseCrud<Employees, Guid> crud, IMemoryCache _cache) : IEmployeeService
+    public class EmployeeService : IEmployeeService
     {
+        private readonly AppDbContext _db;
+        private readonly EmployeeMapper _mapper;
+        private readonly ILogger<EmployeeService> _logger;
+        private readonly IValidator<CreateEmployeeDto> _createValidator;
+        private readonly IValidator<UpdateEmployeeDto> _updateValidator;
+        private readonly IValidator<UpdateProfileDto> _profileValidator;
 
-        public async Task<BaseResult<PaginatedResult<List<ListEmployeeDto>>>> GetEmployeesAsync(string? query, int page, int pageSize, SortOBJ? sort)
+        public EmployeeService(
+            AppDbContext db,
+            EmployeeMapper mapper,
+            ILogger<EmployeeService> logger,
+            IValidator<CreateEmployeeDto> createValidator,
+            IValidator<UpdateEmployeeDto> updateValidator,
+            IValidator<UpdateProfileDto> profileValidator)
         {
-            try
-            {
-                var employees = await db.Employees
-                    .Include(u => u.Account)
-                    .ThenInclude(a => a.AccountRoles)
-                    .Where(u => u.DeletedAt == null && u.Account.AccountRoles.Any()).Select(e => new ListEmployeeDto
-                    {
-                        EmpId = e.Id,
-                        EmpCode = e.EmpCode,
-                        FullName = e.FullName,
-                        Email = e.Email,
-                        PhoneNumber = e.PhoneNumber,
-                        Position = e.Position,
-                        //UrlImage = e.UrlImage,
-                        //Status = e.Status,
-                        CreatedAt = e.CreatedAt,
-                    }).ToListAsync();
-                if (!string.IsNullOrEmpty(query))
-                {
-                    query = query.ToLower();
-                    employees = employees.Where(e =>
-                        e.FullName.ToLower().Contains(query) ||
-                        e.Email.Contains(query) ||
-                        e.EmpCode.ToLower().Contains(query) ||
-                        e.PhoneNumber!.Contains(query) ||
-                        e.Position.ToLower().Contains(query) ||
-                        e.EmpId.ToString() == query).ToList();
-                }
-
-                var result = Pagination<ListEmployeeDto>.PaginationList(employees, page, pageSize, sort);
-
-                return BaseResult<PaginatedResult<List<ListEmployeeDto>>>.Ok(result);
-            }
-            catch (Exception e)
-            {
-                return BaseResult<PaginatedResult<List<ListEmployeeDto>>>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
-            }
+            _db = db;
+            _mapper = mapper;
+            _logger = logger;
+            _createValidator = createValidator;
+            _updateValidator = updateValidator;
+            _profileValidator = profileValidator;
         }
 
-        public async Task<BaseResult<DetailUserDto>> GetEmployeeAsync(string EmpId)
+        public async Task<PaginatedResult<ListEmployeeDto>> GetEmployeesAsync(QueryParameters parameters)
         {
-            try
+            _logger.LogInformation("Fetching employees with search: {Search}, page: {Page}",
+                parameters.Search, parameters.Page);
+
+            var query = _mapper.ProjectToListEmployeeDto(_db.Employees
+                .Where(e => e.DeletedAt == null)
+                .AsNoTracking());
+
+            // Apply search filter
+            if (!string.IsNullOrWhiteSpace(parameters.Search))
             {
-                if (!Guid.TryParse(EmpId, out Guid _empId))
-                {
-                    return BaseResult<DetailUserDto>.Fail("Id không hợp lệ.", 400);
-                }
-
-                var employee = await db.Employees.Include(u => u.Account)
-                    .ThenInclude(a => a.AccountRoles)
-                    .ThenInclude(ar => ar.Role)
-                    .Where(u => u.DeletedAt == null)
-                    .Select(e => new DetailUserDto
-                    {
-                        EmpId = e.EmpId,
-                        EmpCode = e.EmpCode,
-                        //Username = e.Account != null ? e.Account.Username : null,
-                        FullName = e.FullName,
-                        Email = e.Email,
-                        PhoneNumber = e.PhoneNumber,
-                        //Birthday = (DateTime)e.Birthday!,
-                        CreatedAt = e.CreatedAt,
-                        UpdatedAt = e.UpdatedAt,
-                        Position = e.Position,
-                        //UrlImage = e.UrlImage,
-                        //Status = e.Status,
-                        Roles = e.Account.AccountRoles.Select(ar => new RolesDto
-                        {
-                            RoleId = ar.Role.Id,
-                            Name = ar.Role.Name,
-                        }).ToList()
-                    })
-                    .FirstOrDefaultAsync(e => e.EmpId == _empId);
-
-                if (employee is null) return BaseResult<DetailUserDto>.Fail("Nhân viên không tồn tại", 404);
-
-                return BaseResult<DetailUserDto>.Ok(employee);
+                query = query.Where(e =>
+                    e.FullName.Contains(parameters.Search) ||
+                    (e.Email != null && e.Email.Contains(parameters.Search)) ||
+                    (e.EmpCode != null && e.EmpCode.Contains(parameters.Search)) ||
+                    (e.PhoneNumber != null && e.PhoneNumber.Contains(parameters.Search)) ||
+                    (e.Position != null && e.Position.Contains(parameters.Search)));
             }
-            catch (Exception e)
-            {
-                return BaseResult<DetailUserDto>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
-            }
+
+            // Use extension method
+            var result = await query.ToPaginatedResultAsync(parameters, defaultSortField: "CreatedAt");
+
+            _logger.LogInformation("Retrieved {Count} employees", result.TotalCount);
+
+            return result;
         }
 
-        public async Task<BaseResult<CreateEmployeeDto>> CreateEmployeeAsync(CreateEmployeeDto dto)
+        public async Task<DetailEmployeeDto> GetEmployeeByIdAsync(Guid empId)
         {
-            using var transaction = await db.Database.BeginTransactionAsync();
+            _logger.LogInformation("Fetching employee {EmpId}", empId);
+
+            var employee = await _mapper.ProjectToDetailEmployeeDto(_db.Employees
+                .Include(e => e.Account)
+                    .ThenInclude(a => a.AccountRoles)
+                        .ThenInclude(ar => ar.Role)
+                .Where(e => e.EmpId == empId && e.DeletedAt == null)
+                .AsNoTracking())
+                .FirstOrDefaultAsync();
+
+            if (employee is null)
+            {
+                _logger.LogWarning("Employee {EmpId} not found", empId);
+                throw new NotFoundException("Nhân viên", empId);
+            }
+
+            return employee;
+        }
+
+        public async Task<EmployeeDto> CreateEmployeeAsync(CreateEmployeeDto dto)
+        {
+            _logger.LogInformation("Creating new employee: {FullName}", dto.FullName);
+
+            var validationResult = await _createValidator.ValidateAsync(dto);
+            validationResult.ThrowIfInvalid();
+
+            // Check duplicate email
+            if (!string.IsNullOrWhiteSpace(dto.Email))
+            {
+                var emailExists = await _db.Employees
+                    .Where(e => e.Email == dto.Email && e.DeletedAt == null)
+                    .AnyAsync();
+
+                if (emailExists)
+                {
+                    _logger.LogWarning("Email {Email} already exists", dto.Email);
+                    throw new ConflictException("Email", dto.Email);
+                }
+            }
+
+            // Check if EmpCode is provided and is unique
+            if (!string.IsNullOrWhiteSpace(dto.EmpCode))
+            {
+                var codeExists = await _db.Employees
+                    .Where(e => e.EmpCode == dto.EmpCode && e.DeletedAt == null)
+                    .AnyAsync();
+
+                if (codeExists)
+                {
+                    throw new ConflictException("Mã nhân viên", dto.EmpCode);
+                }
+            }
+
+            // Validate Department exists
+            var deptExists = await _db.Departments
+                .Where(d => d.DptId == dto.DptId && d.DeletedAt == null)
+                .AnyAsync();
+
+            if (!deptExists)
+            {
+                throw new NotFoundException("Phòng ban", dto.DptId);
+            }
+
+            // Validate Area exists
+            var areaExists = await _db.Areas
+                .Where(a => a.AreaId == dto.AreaId && a.DeletedAt == null)
+                .AnyAsync();
+
+            if (!areaExists)
+            {
+                throw new NotFoundException("Khu vực", dto.AreaId);
+            }
+
+            using var transaction = await _db.Database.BeginTransactionAsync();
+
             try
             {
-                var IsEmailExist = db.Employees.Any(e => e.Email == dto.Email);
-                if (IsEmailExist)
+                var newEmployee = _mapper.MapToEmployee(dto);
+                newEmployee.EmpId = Guid.CreateVersion7();
+
+                // Auto-generate EmpCode if not provided
+                if (string.IsNullOrWhiteSpace(newEmployee.EmpCode))
                 {
-                    return BaseResult<CreateEmployeeDto>.Fail("Email đã tồn tại", 400);
+                    var count = await _db.Employees.CountAsync() + 1;
+                    newEmployee.EmpCode = $"NV{count:D4}";
                 }
 
-                //var CountEmployee = await db.Employees.CountAsync() + 1;
-                //employee.EmpCode = $"NV{CountEmployee.ToString().PadLeft(3, '0')}";
-
-                var employee = new Employees
-                {
-                    EmpId = Guid.CreateVersion7(),
-                    EmpCode = dto.EmpCode,
-                    FullName = dto.FullName,
-                    //Birthday = dto.Birthday,
-                    //Gender = dto.Gender.ToString(),
-                    PhoneNumber = dto.PhoneNumber,
-                    Email = dto.Email,
-                    DptId = dto.DptId,
-                    AreaId = dto.AreaId,
-                    Position = dto.Position,
-                    CreatedAt = DateTime.UtcNow,
-                    //Status = true
-                };
-
-                //employee.Birthday = dto.Birthday != null
-                //    ? DateTime.SpecifyKind((global::System.DateTime)dto.Birthday, DateTimeKind.Utc)
-                //    : null;
-                //employee.Position = ROLE.Employee.ToString();
-
-                //if (dto.UrlImage is not null)
-                //{
-                //    var url = await git.UpdateOneImg(dto.UrlImage, EMP_CUS.user.ToString());
-                //    employee.UrlImage = url.Url;
-                //}
-
-                var NewEmployee = await db.Employees.AddAsync(employee);
-                await db.SaveChangesAsync();
-
-                #region NewAccount
-                //var HashPassword = new PasswordHasher<CreateEmployeeDto>()
-                //    .HashPassword(dto, dto.Password);
-                //var NewAccount = await db.Accounts.AddAsync(new Accounts
-                //{
-                //    AccountId = NewEmployee.Entity.Id,
-                //    Username = dto.Email,
-                //    Password = HashPassword
-
-                //});
-
-                //await db.AccountRoles.AddAsync(new AccountRoles
-                //{
-                //    AccountId = NewEmployee.Entity.Id,
-                //    RoleId = EMP_CUS.employee.ToString()
-                //});
-                #endregion
-
-                await db.SaveChangesAsync();
+                await _db.Employees.AddAsync(newEmployee);
+                await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
-                return BaseResult<CreateEmployeeDto>.Ok(dto);
+
+                _logger.LogInformation("Successfully created employee {EmpId}", newEmployee.EmpId);
+
+                return _mapper.MapToEmployeeDto(newEmployee);
             }
-            catch (Exception e)
+            catch
             {
                 await transaction.RollbackAsync();
-                return BaseResult<CreateEmployeeDto>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
+                throw;
             }
         }
 
-        public async Task<BaseResult<Employees>> UpdateEmployeeAsync(string EmpId, UpdateEmployeeDto dto)
+        public async Task<EmployeeDto> UpdateEmployeeAsync(Guid empId, UpdateEmployeeDto dto)
         {
-            try
-            {
-                var IsEmployeeExist = await db.Employees.FirstOrDefaultAsync(e => e.Id.ToString() == EmpId && e.Position != ROLE.Super_Admin.ToString());
-                if (IsEmployeeExist is null) return BaseResult<Employees>.Fail("Nhân viên không tồn tại", 404);
+            _logger.LogInformation("Updating employee {EmpId}", empId);
 
-                var IsEmailExist = db.Employees.Any(e => e.Email == dto.Email && e.Id.ToString() != EmpId);
-                if (IsEmailExist)
+            var validationResult = await _updateValidator.ValidateAsync(dto);
+            validationResult.ThrowIfInvalid();
+
+            var employee = await _db.Employees.FindAsync(empId);
+
+            if (employee is null || employee.DeletedAt != null)
+            {
+                _logger.LogWarning("Employee {EmpId} not found", empId);
+                throw new NotFoundException("Nhân viên", empId);
+            }
+
+            bool hasChanges = false;
+
+            // EmpCode
+            if (dto.EmpCode != null && employee.EmpCode != dto.EmpCode)
+            {
+                var codeExists = await _db.Employees
+                    .Where(e => e.EmpCode == dto.EmpCode && e.EmpId != empId && e.DeletedAt == null)
+                    .AnyAsync();
+
+                if (codeExists)
                 {
-                    return BaseResult<Employees>.Fail("Email đã tồn tại", 400);
+                    throw new ConflictException("Mã nhân viên", dto.EmpCode);
                 }
 
-                mapper.MapToEmployee(dto, IsEmployeeExist);
-
-                //if (dto.NewImage is not null)
-                //{
-                //    var url = await git.UpdateOneImg(dto.NewImage, EMP_CUS.user.ToString());
-                //    UpdateEmployee.UrlImage = url.Url;
-                //}
-                //UpdateEmployee.Birthday = DateTime.SpecifyKind(dto.Birthday, DateTimeKind.Utc);
-
-                db.Employees.Update(IsEmployeeExist);
-                await db.SaveChangesAsync();
-
-                return BaseResult<Employees>.Ok(IsEmployeeExist);
+                employee.EmpCode = dto.EmpCode;
+                hasChanges = true;
             }
-            catch (Exception e)
+
+            // FullName
+            if (dto.FullName != null && employee.FullName != dto.FullName)
             {
-                return BaseResult<Employees>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
+                employee.FullName = dto.FullName;
+                hasChanges = true;
             }
+
+            // PhoneNumber
+            if (dto.PhoneNumber != null && employee.PhoneNumber != dto.PhoneNumber)
+            {
+                employee.PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber) ? null : dto.PhoneNumber;
+                hasChanges = true;
+            }
+
+            // Email
+            if (dto.Email != null && employee.Email != dto.Email)
+            {
+                var emailExists = await _db.Employees
+                    .Where(e => e.Email == dto.Email && e.EmpId != empId && e.DeletedAt == null)
+                    .AnyAsync();
+
+                if (emailExists)
+                {
+                    throw new ConflictException("Email", dto.Email);
+                }
+
+                employee.Email = dto.Email;
+                hasChanges = true;
+            }
+
+            // DptId
+            if (dto.DptId.HasValue && employee.DptId != dto.DptId.Value)
+            {
+                var deptExists = await _db.Departments
+                    .Where(d => d.DptId == dto.DptId.Value && d.DeletedAt == null)
+                    .AnyAsync();
+
+                if (!deptExists)
+                {
+                    throw new NotFoundException("Phòng ban", dto.DptId.Value);
+                }
+
+                employee.DptId = dto.DptId.Value;
+                hasChanges = true;
+            }
+
+            // AreaId
+            if (dto.AreaId.HasValue && employee.AreaId != dto.AreaId.Value)
+            {
+                var areaExists = await _db.Areas
+                    .Where(a => a.AreaId == dto.AreaId.Value && a.DeletedAt == null)
+                    .AnyAsync();
+
+                if (!areaExists)
+                {
+                    throw new NotFoundException("Khu vực", dto.AreaId.Value);
+                }
+
+                employee.AreaId = dto.AreaId.Value;
+                hasChanges = true;
+            }
+
+            // Position
+            if (dto.Position != null && employee.Position != dto.Position)
+            {
+                employee.Position = string.IsNullOrWhiteSpace(dto.Position) ? null : dto.Position;
+                hasChanges = true;
+            }
+
+            if (hasChanges)
+            {
+                await _db.SaveChangesAsync();
+                _logger.LogInformation("Successfully updated employee {EmpId}", empId);
+            }
+            else
+            {
+                _logger.LogInformation("No changes detected for employee {EmpId}", empId);
+            }
+
+            return _mapper.MapToEmployeeDto(employee);
         }
 
-        //public async Task<BaseResult<STATUS_EMP>> ChangeStatusAsync(string idString, STATUS_EMP status)
-        //{
-        //    try
-        //    {
-        //        // 1. Parse ID sang Guid trước để Query nhanh hơn (Tận dụng Index SQL)
-        //        if (!Guid.TryParse(idString, out Guid userId))
-        //        {
-        //            return BaseResult<STATUS_EMP>.Fail("ID không hợp lệ", 400);
-        //        }
-
-        //        var user = await db.Employees
-        //            .Include(e => e.Account)
-        //            .ThenInclude(a => a.AccountRoles)
-        //            .FirstOrDefaultAsync(e => e.Id == userId && e.Position != ROLE.Super_Admin.ToString());
-
-        //        if (user is null)
-        //            return BaseResult<STATUS_EMP>.Fail("User không tồn tại hoặc là Admin", 404);
-
-        //        bool newStatusValue = (status == STATUS_EMP.Active);
-
-        //        if (user.Status == newStatusValue)
-        //        {
-        //            string statusStr = newStatusValue ? "Hoạt động" : "Không hoạt động";
-        //            return BaseResult<STATUS_EMP>.Fail($"User đã ở trạng thái {statusStr}", 400);
-        //        }
-
-        //        // 4. Cập nhật Database
-        //        user.Status = newStatusValue;
-
-        //        await db.SaveChangesAsync();
-
-        //        _cache.Remove($"User_Status_{idString}");
-
-        //        return BaseResult<STATUS_EMP>.Ok(status);
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        return BaseResult<STATUS_EMP>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
-        //    }
-        //}
-
-        public async Task<BaseResult<ProfileDto>> GetProfileAsync(string EmpId)
+        public async Task<bool> DeleteEmployeesAsync(List<Guid> empIds, bool softDelete = true)
         {
+            _logger.LogInformation("Deleting {Count} employees (soft: {SoftDelete})",
+                empIds?.Count ?? 0, softDelete);
+
+            ArgumentNullException.ThrowIfNull(empIds);
+
+            if (empIds.Count == 0)
+            {
+                throw new Shared.Exceptions.ValidationException("empIds",
+                    "Vui lòng chọn nhân viên để xóa");
+            }
+
+            using var transaction = await _db.Database.BeginTransactionAsync();
+
             try
             {
-                if (!Guid.TryParse(EmpId, out Guid _empId))
+                var existing = await _db.Employees
+                    .Include(e => e.Account)
+                    .Where(e => empIds.Contains(e.EmpId) && e.DeletedAt == null)
+                    .ToListAsync();
+
+                if (existing.Count == 0)
                 {
-                    return BaseResult<ProfileDto>.Fail("Id không hợp lệ.", 400);
+                    throw new NotFoundException("Không tìm thấy nhân viên để xóa");
                 }
 
-                var employee = await db.Employees.Include(e => e.Account)
-                    .Select(e => new ProfileDto
+                // Check for Super_Admin protection
+                var hasSuperAdmin = existing.Any(e => e.Position == "Super_Admin");
+                if (hasSuperAdmin)
+                {
+                    throw new BusinessRuleException("Không thể xóa tài khoản Super Admin");
+                }
+
+                // Check if employee has related data
+                var hasIssueLogs = await _db.IssueLogs
+                    .Where(il => il.DeletedAt == null &&
+                           empIds.Any(id => il.Operator.Contains(id.ToString())))
+                    .AnyAsync();
+
+                if (hasIssueLogs)
+                {
+                    throw new BusinessRuleException(
+                        "Không thể xóa nhân viên đang có liên kết với nhật ký sự cố");
+                }
+
+                if (softDelete)
+                {
+                    foreach (var item in existing)
                     {
-                        EmpId = e.EmpId,
-                        EmpCode = e.EmpCode,
-                        FullName = e.FullName,
-                        Email = e.Email,
-                        PhoneNumber = e.PhoneNumber,
-                        //Birthday = (DateTime?)e.Birthday,
-                        CreatedAt = e.CreatedAt,
-                        Position = e.Position,
-                        UpdatedAt = e.UpdatedAt,
-                        //UrlImage = e.UrlImage,
-                        //Status = e.Status,
-                        Username = e.Account != null ? e.Account.Username : null,
-                    })
-                    .FirstOrDefaultAsync(e => e.EmpId == _empId);
-                if (employee is null) return BaseResult<ProfileDto>.Fail("User không tồn tại", 404);
+                        item.DeletedAt = DateTime.UtcNow;
 
-                return BaseResult<ProfileDto>.Ok(employee);
-            }
-            catch (Exception e)
-            {
-                return BaseResult<ProfileDto>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
-            }
-        }
-
-        public async Task<BaseResult<ProfileDto>> UpdateProfileAsync(string AccId, UpdateProfileDto dto)
-        {
-            try
-            {
-                if (!Guid.TryParse(AccId, out Guid _accId))
-                {
-                    return BaseResult<ProfileDto>.Fail("Id không hợp lệ.", 400);
-                }
-
-                var user = await db.Employees.FindAsync(_accId);
-                if (user is null) return BaseResult<ProfileDto>.Fail("User không tồn tại", 404);
-
-                mapper.MapToEmployee(dto, user);
-
-                //if (dto.Img is not null)
-                //{
-                //    var url = await git.UpdateOneImg(dto.Img, EMP_CUS.user.ToString());
-                //    user.UrlImage = url.Url;
-                //}
-                if (dto.Email != user.Email)
-                {
-                    var IsEmailExist = db.Employees.Any(e => e.Email == dto.Email && e.EmpId != _accId);
-                    if (IsEmailExist)
-                    {
-                        return BaseResult<ProfileDto>.Fail("Email đã tồn tại", 400);
+                        // Also soft delete associated account
+                        if (item.Account != null)
+                        {
+                            item.Account.DeletedAt = DateTime.UtcNow;
+                        }
                     }
+                    _db.Employees.UpdateRange(existing);
                 }
-                //user.Gender = dto.Gender.ToString();
-                //if (dto.Birthday is not null)
-                //{
-                //    var today = DateTime.UtcNow;
-                //    var ageYears = today.Year - dto.Birthday.Value.Year;
-
-                //    if (ageYears < 16)
-                //        return BaseResult<ProfileDto>.Fail("Nhân viên phải từ 16 tuổi trở lên", 400);
-                //    user.Birthday = DateTime.SpecifyKind((DateTime)dto.Birthday!, DateTimeKind.Utc);
-                //}
-                db.Employees.Update(user);
-                await db.SaveChangesAsync();
-
-                return BaseResult<ProfileDto>.Ok(new ProfileDto
+                else
                 {
-                    EmpId = user.EmpId,
-                    EmpCode = user.EmpCode,
-                    FullName = user.FullName,
-                    Email = user.Email,
-                    PhoneNumber = user.PhoneNumber,
-                    //Birthday = (DateTime)user.Birthday!,
-                    CreatedAt = user.CreatedAt,
-                    Position = user.Position,
-                    UpdatedAt = user.UpdatedAt,
-                    //UrlImage = user.UrlImage,
-                    //Status = user.Status,
-                    Username = user.Account != null ? user.Account.Username : null,
-                });
+                    // Hard delete accounts first (FK constraint)
+                    var accountsToDelete = existing
+                        .Where(e => e.Account != null)
+                        .Select(e => e.Account!)
+                        .ToList();
+
+                    if (accountsToDelete.Any())
+                    {
+                        _db.Accounts.RemoveRange(accountsToDelete);
+                    }
+
+                    _db.Employees.RemoveRange(existing);
+                }
+
+                await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Successfully deleted {Count} employees", existing.Count);
+
+                return true;
             }
-            catch (Exception e)
+            catch
             {
-                return BaseResult<ProfileDto>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
+                await transaction.RollbackAsync();
+                throw;
             }
         }
 
-        public async Task<BaseResult<string>>? ChangeRoleAsync(string EmpId, ROLE newRole)
+        public async Task<ProfileDto> GetProfileAsync(Guid empId)
         {
+            _logger.LogInformation("Fetching profile for employee {EmpId}", empId);
+
+            var profile = await _mapper.ProjectToProfileDto(_db.Employees
+                .Include(e => e.Account)
+                .Where(e => e.EmpId == empId && e.DeletedAt == null)
+                .AsNoTracking())
+                .FirstOrDefaultAsync();
+
+            if (profile is null)
+            {
+                _logger.LogWarning("Employee {EmpId} not found", empId);
+                throw new NotFoundException("Nhân viên", empId);
+            }
+
+            return profile;
+        }
+
+        public async Task<ProfileDto> UpdateProfileAsync(Guid empId, UpdateProfileDto dto)
+        {
+            _logger.LogInformation("Updating profile for employee {EmpId}", empId);
+
+            var validationResult = await _profileValidator.ValidateAsync(dto);
+            validationResult.ThrowIfInvalid();
+
+            var employee = await _db.Employees
+                .Include(e => e.Account)
+                .FirstOrDefaultAsync(e => e.EmpId == empId && e.DeletedAt == null);
+
+            if (employee is null)
+            {
+                _logger.LogWarning("Employee {EmpId} not found", empId);
+                throw new NotFoundException("Nhân viên", empId);
+            }
+
+            bool hasChanges = false;
+
+            // FullName
+            if (employee.FullName != dto.FullName)
+            {
+                employee.FullName = dto.FullName;
+                hasChanges = true;
+            }
+
+            // PhoneNumber
+            if (dto.PhoneNumber != null && employee.PhoneNumber != dto.PhoneNumber)
+            {
+                employee.PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber)
+                    ? null
+                    : dto.PhoneNumber;
+                hasChanges = true;
+            }
+
+            // Email
+            if (dto.Email != null && employee.Email != dto.Email)
+            {
+                var emailExists = await _db.Employees
+                    .Where(e => e.Email == dto.Email && e.EmpId != empId && e.DeletedAt == null)
+                    .AnyAsync();
+
+                if (emailExists)
+                {
+                    throw new ConflictException("Email", dto.Email);
+                }
+
+                employee.Email = dto.Email;
+                hasChanges = true;
+            }
+
+            if (hasChanges)
+            {
+                await _db.SaveChangesAsync();
+                _logger.LogInformation("Successfully updated profile for {EmpId}", empId);
+            }
+            else
+            {
+                _logger.LogInformation("No changes detected for employee {EmpId}", empId);
+            }
+
+            return _mapper.MapToProfileDto(employee);
+        }
+
+        public async Task<DetailEmployeeDto> AssignRolesToEmployeeAsync(Guid empId, List<int> roleIds)
+        {
+            _logger.LogInformation("Assigning roles to employee {EmpId}", empId);
+
+            ArgumentNullException.ThrowIfNull(roleIds);
+
+            var employee = await _db.Employees
+                .Include(e => e.Account)
+                    .ThenInclude(a => a!.AccountRoles)
+                .FirstOrDefaultAsync(e => e.EmpId == empId && e.DeletedAt == null);
+
+            if (employee is null)
+            {
+                throw new NotFoundException("Nhân viên", empId);
+            }
+
+            if (employee.Account is null)
+            {
+                throw new BusinessRuleException("Nhân viên chưa có tài khoản");
+            }
+
+            // Validate all roles exist
+            var existingRoles = await _db.Roles
+                .Where(r => roleIds.Contains(r.RoleId) && r.DeletedAt == null)
+                .Select(r => r.RoleId)
+                .ToListAsync();
+
+            var missingRoles = roleIds.Except(existingRoles).ToList();
+            if (missingRoles.Any())
+            {
+                throw new NotFoundException($"Roles không tồn tại: {string.Join(", ", missingRoles)}");
+            }
+
+            using var transaction = await _db.Database.BeginTransactionAsync();
+
             try
             {
-                var user = await db.Employees.FindAsync(EmpId);
-                if (user is null) return BaseResult<string>.Fail("User không tồn tại", 404);
-                user.Position = newRole.ToString();
-                db.Employees.Update(user);
-                await db.SaveChangesAsync();
-                _cache.Remove($"User_Status_{EmpId}");
-                return BaseResult<string>.Ok("Đổi vai trò thành công");
+                // Remove existing roles
+                var currentRoles = await _db.AccountRoles
+                    .Where(ar => ar.AccountId == employee.EmpId)
+                    .ToListAsync();
+
+                _db.AccountRoles.RemoveRange(currentRoles);
+
+                // Add new roles
+                var newRoles = roleIds.Select(roleId => new AccountRoles
+                {
+                    AccountId = employee.EmpId,
+                    RoleId = roleId
+                });
+
+                await _db.AccountRoles.AddRangeAsync(newRoles);
+                await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Successfully assigned {Count} roles to employee {EmpId}",
+                    roleIds.Count, empId);
+
+                return await GetEmployeeByIdAsync(empId);
             }
-            catch (Exception e)
+            catch
             {
-                return BaseResult<string>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
+                await transaction.RollbackAsync();
+                throw;
             }
         }
     }

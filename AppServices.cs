@@ -5,9 +5,9 @@ using ItSupportServer.src.Modules.Employee;
 using ItSupportServer.src.Modules.Issue;
 using ItSupportServer.src.Modules.IssueLog;
 using ItSupportServer.src.Modules.Role;
+using ItSupportServer.src.Modules.Account;
 using Microsoft.AspNetCore.Authorization;
 using FluentValidation;
-using ItSupportServer.src.Modules.Account;
 
 namespace ItSupportServer
 {
@@ -15,29 +15,33 @@ namespace ItSupportServer
     {
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
-            // Register application services here
+            // ✅ Register Services (Scoped - per request)
             services.AddScoped<IAuthenticationService, AuthenticationService>();
+            services.AddScoped<AuthorizationService>();  // ✅ Added for PermissionHandler
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IAreaService, AreaService>();
             services.AddScoped<IEmployeeService, EmployeeService>();
             services.AddScoped<IIssueService, IssueService>();
             services.AddScoped<IIssueLogService, IssueLogService>();
+            services.AddScoped<IAccountService, AccountService>();  // ✅ If you have this
 
-            // Đăng ký Fluent Validation Validators
+            // ✅ Register FluentValidation Validators (auto-discovery)
             services.AddValidatorsFromAssemblyContaining<CreateAreaDtoValidator>();
+            // This automatically registers all validators in the assembly:
+            // - CreateAreaDtoValidator, UpdateAreaDtoValidator
+            // - LoginDtoValidator, OtpDtoValidator
+            // - CreateIssueLogDtoValidator, etc.
 
-            // Đăng ký Mapperly Mapper
+            // ✅ Register Mapperly Mappers (Singleton - stateless)
             services.AddSingleton<AccountMapper>();
             services.AddSingleton<RoleMapper>();
             services.AddSingleton<EmployeeMapper>();
             services.AddSingleton<AreaMapper>();
             services.AddSingleton<IssueMapper>();
-            services.AddSingleton<IssueLogsMapper>();
+            services.AddSingleton<IssueLogMapper>();  // ✅ Fixed name
 
-            // Đăng ký Handler xử lý logic
+            // ✅ Register Authorization Handler & Policy Provider (Singleton)
             services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
-
-            // Đăng ký Provider để tự động nhận diện Permission từ Attribute
             services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 
             return services;

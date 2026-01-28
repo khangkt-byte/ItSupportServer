@@ -1,265 +1,465 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using static ItSupportServer.src.Shared.Base.BaseEnum;
-using ItSupportServer.src.Shared.Base;
-using ItSupportServer.src.Shared.Helpers;
 using ItSupportServer.Data.Models;
+using ItSupportServer.src.Shared.Exceptions;
+using ItSupportServer.src.Shared.Helpers;
+using FluentValidation;
+using Microsoft.Extensions.Caching.Memory;
+using ItSupportServer.src.Shared.Extensions;
 
 namespace ItSupportServer.src.Modules.Authentication
 {
-    public class AuthenticationService(AppDbContext db, IConfiguration configuration, IMemoryCache _cache) : IAuthenticationService
+    public class AuthenticationService : IAuthenticationService
     {
+        private readonly AppDbContext _db;
+        private readonly IConfiguration _configuration;
+        private readonly IMemoryCache _cache;
+        private readonly ILogger<AuthenticationService> _logger;
+        private readonly IValidator<LoginDto> _loginValidator;
+        private readonly IValidator<OtpDto> _otpValidator;
 
-        //tạo token
-        private async Task<string> CreateToken(Accounts user)
+        public AuthenticationService(
+            AppDbContext db,
+            IConfiguration configuration,
+            IMemoryCache cache,
+            ILogger<AuthenticationService> logger,
+            IValidator<LoginDto> loginValidator,
+            IValidator<OtpDto> otpValidator)
         {
-            var userRoles = await db.Employees.FindAsync(user.AccountId);
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.NameIdentifier, user.AccountId.ToString()),
-                //new Claim(ClaimTypes.Role, userRoles.Position),
-
-            };
-
-            //vì dùng user id để tìm role của user đó nên không cần lặp qua roles nữa
-            //foreach (var role in user.TaiKhoanRoles)
-            //{
-            //    claims.Add(new Claim(ClaimTypes.Role, role.RoleId));
-            //}
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(configuration.GetValue<string>("AppSettings:Token")!)
-                );
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
-
-            var tokenDes = new JwtSecurityToken(
-                issuer: configuration.GetValue<string>("AppSettings:Issuer"),
-                audience: configuration.GetValue<string>("AppSettings:Audience"),
-                claims: claims,
-                expires: DateTime.UtcNow.AddMonths(10),
-                signingCredentials: creds
-                );
-
-            return new JwtSecurityTokenHandler().WriteToken(tokenDes);
+            _db = db;
+            _configuration = configuration;
+            _cache = cache;
+            _logger = logger;
+            _loginValidator = loginValidator;
+            _otpValidator = otpValidator;
         }
 
-        //kiểm tra token có còn hợp lệ
-        private async Task<Accounts?> ValidateRefreshTokenAsync(string refreshToken)
+        public async Task<TokenResponseDto> LoginAsync(LoginDto dto)
         {
-            var token = await db.AccountTokens
-        .FirstOrDefaultAsync(t => t.AccountTokenId.ToString() == refreshToken);
+            _logger.LogInformation("Login attempt for: {Identifier}", dto.Identifier);
 
-            if (token is null) return null;
+            // ✅ FIX: Sử dụng extension method để tránh xung đột
+            var validationResult = await _loginValidator.ValidateAsync(dto);
+            validationResult.ThrowIfInvalid();  // ✅ Throws custom ValidationException
 
-            // load user kèm role 
-            return await db.Accounts
+            var user = await _db.Accounts
+                .Include(u => u.Employee)
                 .Include(u => u.AccountRoles)
-                .ThenInclude(tr => tr.Role)
-                .FirstOrDefaultAsync(u => u.AccountId == token.AccountId);
+                    .ThenInclude(ar => ar.Role)
+                .FirstOrDefaultAsync(u =>
+                    u.Username == dto.Identifier ||
+                    u.Employee.Email == dto.Identifier);
+
+            // ✅ Consistent error message (không để lộ user có tồn tại hay không)
+            if (user is null)
+            {
+                _logger.LogWarning("Login failed: Invalid credentials for {Identifier}", dto.Identifier);
+                throw new UnauthorizedException("Tên đăng nhập hoặc mật khẩu không đúng");
+            }
+
+            // ✅ Check account status
+            if (user.DeletedAt != null)
+            {
+                _logger.LogWarning("Login blocked: Account deleted {AccountId}", user.AccountId);
+                throw new ForbiddenException("Tài khoản đã bị khóa");
+            }
+
+            // Check OTP verification
+            if (!string.IsNullOrEmpty(user.Otp) && user.ExpiredOtp != null)
+            {
+                _logger.LogInformation("OTP verification required for {AccountId}", user.AccountId);
+                throw new OtpRequiredException(user.AccountId);
+            }
+
+            // ✅ Verify password
+            var result = new PasswordHasher<Accounts>().VerifyHashedPassword(
+                user, user.Password, dto.Password);
+
+            if (result == PasswordVerificationResult.Failed)
+            {
+                _logger.LogWarning("Login failed: Invalid password for {Identifier}", dto.Identifier);
+                
+                // ✅ TODO: Implement account lockout after N failed attempts
+                // await IncrementFailedLoginAttempts(user.AccountId);
+                
+                throw new UnauthorizedException("Tên đăng nhập hoặc mật khẩu không đúng");
+            }
+
+            // ✅ Password rehashing if needed (security best practice)
+            if (result == PasswordVerificationResult.SuccessRehashNeeded)
+            {
+                user.Password = new PasswordHasher<Accounts>().HashPassword(user, dto.Password);
+                await _db.SaveChangesAsync();
+            }
+
+            // ✅ Revoke old refresh tokens (optional, for better security)
+            await RevokeOldRefreshTokensAsync(user.AccountId);
+
+            _logger.LogInformation("Login successful for {AccountId}", user.AccountId);
+
+            return await CreateTokenResponseAsync(user);
         }
 
-        //tạo vào lưu token mới
-        private async Task<string> GenerateAndSaveRefreshToken(Guid accountId)
+        public async Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto req)
         {
-            var token = await db.AccountTokens.AddAsync(new AccountTokens
+            _logger.LogInformation("Refresh token attempt");
+
+            var tokenRecord = await _db.AccountTokens
+                .Include(t => t.Account)
+                    .ThenInclude(a => a.AccountRoles)
+                        .ThenInclude(ar => ar.Role)
+                .FirstOrDefaultAsync(t => t.AccountTokenId.ToString() == req.RefreshToken);
+
+            if (tokenRecord is null)
             {
-                AccountId = accountId,
-                ExpiryTime = DateTime.UtcNow.AddDays(2)
-            });
+                _logger.LogWarning("Refresh token not found");
+                throw new UnauthorizedException("Refresh token không hợp lệ");
+            }
 
-            await db.SaveChangesAsync();
+            // ✅ Check if token is revoked
+            if (tokenRecord.RevokedAt != null)
+            {
+                _logger.LogWarning("Refresh token was revoked");
+                throw new UnauthorizedException("Refresh token đã bị thu hồi");
+            }
 
-            return token.Entity.AccountTokenId.ToString();
+            // ✅ Check expiration
+            if (tokenRecord.ExpiryTime < DateTime.UtcNow)
+            {
+                _logger.LogInformation("Refresh token expired, removing");
+                _db.AccountTokens.Remove(tokenRecord);
+                await _db.SaveChangesAsync();
+                throw new UnauthorizedException("Refresh token đã hết hạn");
+            }
+
+            var user = tokenRecord.Account;
+
+            // ✅ Check account status
+            if (user.DeletedAt != null)
+            {
+                throw new ForbiddenException("Tài khoản đã bị khóa");
+            }
+
+            _logger.LogInformation("Refresh token successful for {AccountId}", user.AccountId);
+
+            // ✅ Rotate refresh token (security best practice)
+            return await CreateTokenResponseAsync(user, shouldRotateRefreshToken: true, oldTokenId: tokenRecord.AccountTokenId);
         }
 
-        //tạo token trả về
-        private async Task<TokenResponseDto> CreateTokenResponseAsync(Accounts user, bool isTokenExpry, string? refToken)
+        public async Task<bool> LogoutAsync(Guid accountId, string refreshToken)
         {
-            if (isTokenExpry is true)
+            _logger.LogInformation("Logout for {AccountId}", accountId);
+
+            if (Guid.TryParse(refreshToken, out var tokenId))
             {
-                return new TokenResponseDto
+                var token = await _db.AccountTokens.FindAsync(tokenId);
+                if (token != null && token.AccountId == accountId)
                 {
-                    AccessToken = await CreateToken(user),
-                    RefreshToken = refToken
+                    // ✅ Soft delete / revoke token
+                    token.RevokedAt = DateTime.UtcNow;
+                    await _db.SaveChangesAsync();
+                }
+            }
+
+            _logger.LogInformation("Logout successful for {AccountId}", accountId);
+            return true;
+        }
+
+        public async Task<OtpResponseDto> ConfirmOtpAsync(OtpDto dto)
+        {
+            _logger.LogInformation("OTP confirmation for {AccountId}", dto.AccountId);
+
+            // ✅ FIX: Sử dụng extension method
+            var validationResult = await _otpValidator.ValidateAsync(dto);
+            validationResult.ThrowIfInvalid();
+
+            var user = await _db.Accounts
+                .Include(u => u.Employee)
+                .Include(u => u.AccountRoles)
+                    .ThenInclude(ar => ar.Role)
+                .FirstOrDefaultAsync(u => u.AccountId == dto.AccountId);
+
+            if (user is null)
+            {
+                throw new NotFoundException("Tài khoản", dto.AccountId);
+            }
+
+            // ✅ Check OTP attempts (prevent brute force)
+            var cacheKey = $"OTP_Attempts_{dto.AccountId}";
+            var attempts = _cache.Get<int>(cacheKey);
+            
+            if (attempts >= 5)
+            {
+                _logger.LogWarning("Too many OTP attempts for {AccountId}", dto.AccountId);
+                throw new TooManyAttemptsException("Quá nhiều lần nhập OTP sai. Vui lòng yêu cầu OTP mới.");
+            }
+
+            // ✅ Verify OTP (should be hashed in production)
+            if (user.Otp != dto.Otp || user.ExpiredOtp < DateTime.UtcNow)
+            {
+                // Increment failed attempts
+                _cache.Set(cacheKey, attempts + 1, TimeSpan.FromMinutes(15));
+                
+                _logger.LogWarning("Invalid or expired OTP for {AccountId}", dto.AccountId);
+                throw new UnauthorizedException("Mã OTP không đúng hoặc đã hết hạn");
+            }
+
+            // ✅ Clear OTP
+            user.Otp = null;
+            user.ExpiredOtp = null;
+            await _db.SaveChangesAsync();
+
+            // Clear cache
+            _cache.Remove(cacheKey);
+
+            _logger.LogInformation("OTP confirmed successfully for {AccountId}", dto.AccountId);
+
+            return new OtpResponseDto
+            {
+                Token = await CreateTokenResponseAsync(user)
+            };
+        }
+
+        public async Task<OtpSentResponseDto> RefreshOtpAsync(string email)
+        {
+            _logger.LogInformation("OTP refresh request for {Email}", email);
+
+            var user = await _db.Accounts
+                .Include(u => u.Employee)
+                .FirstOrDefaultAsync(u => u.Employee.Email == email);
+
+            if (user is null)
+            {
+                throw new NotFoundException("Email không tồn tại");
+            }
+
+            if (string.IsNullOrEmpty(user.Otp) && user.ExpiredOtp == null)
+            {
+                throw new BusinessRuleException("Tài khoản đã được xác minh");
+            }
+
+            // ✅ Rate limiting
+            var rateLimitKey = $"OTP_RateLimit_{email}";
+            if (_cache.TryGetValue(rateLimitKey, out _))
+            {
+                throw new TooManyAttemptsException("Vui lòng đợi ít nhất 60 giây trước khi yêu cầu OTP mới");
+            }
+
+            using var transaction = await _db.Database.BeginTransactionAsync();
+            try
+            {
+                // Generate new OTP
+                var newOtp = RandomString.GenerateRandomNumericString(6);
+                user.Otp = newOtp;  // ✅ TODO: Hash this in production
+                user.ExpiredOtp = DateTime.UtcNow.AddMinutes(5);
+                
+                await _db.SaveChangesAsync();
+
+                // Send email
+                var emailSent = await SendMail.SendMailAsync(
+                    _configuration,
+                    email,
+                    "Xác thực email",
+                    "Mã OTP của bạn (hết hạn sau 5 phút):",
+                    newOtp);
+
+                if (!emailSent)
+                {
+                    await transaction.RollbackAsync();
+                    throw new ExternalServiceException("Không thể gửi email. Vui lòng thử lại.");
+                }
+
+                await transaction.CommitAsync();
+
+                // Set rate limit
+                _cache.Set(rateLimitKey, true, TimeSpan.FromSeconds(60));
+
+                _logger.LogInformation("OTP sent successfully to {Email}", email);
+
+                return new OtpSentResponseDto
+                {
+                    AccountId = user.AccountId,
+                    Message = "Mã OTP đã được gửi đến email của bạn"
                 };
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task<bool> ForgotPasswordAsync(string emailOrUsername)
+        {
+            _logger.LogInformation("Forgot password request for {Identifier}", emailOrUsername);
+
+            // ✅ Rate limiting
+            var rateLimitKey = $"ForgotPassword_{emailOrUsername}";
+            if (_cache.TryGetValue(rateLimitKey, out _))
+            {
+                throw new TooManyAttemptsException("Vui lòng đợi ít nhất 5 phút trước khi yêu cầu lại");
+            }
+
+            var user = await _db.Accounts
+                .Include(u => u.Employee)
+                .FirstOrDefaultAsync(u =>
+                    u.Employee.Email == emailOrUsername ||
+                    u.Username == emailOrUsername);
+
+            // ✅ Security: Không nên reveal user có tồn tại hay không
+            // Luôn return success để prevent user enumeration
+            if (user is null)
+            {
+                _logger.LogWarning("Forgot password: User not found {Identifier}", emailOrUsername);
+                // Fake delay to prevent timing attacks
+                await Task.Delay(Random.Shared.Next(100, 500));
+                return true; // Pretend success
+            }
+
+            using var transaction = await _db.Database.BeginTransactionAsync();
+            try
+            {
+                var newPassword = RandomString.GenerateRandomString(12);
+                var hashedPassword = new PasswordHasher<Accounts>().HashPassword(user, newPassword);
+                user.Password = hashedPassword;
+
+                await _db.SaveChangesAsync();
+
+                var emailSent = await SendMail.SendMailAsync(
+                    _configuration,
+                    user.Employee.Email,
+                    "Đặt lại mật khẩu",
+                    "Mật khẩu tạm thời của bạn:",
+                    newPassword + "\n\nVui lòng đổi mật khẩu sau khi đăng nhập.");
+
+                if (!emailSent)
+                {
+                    await transaction.RollbackAsync();
+                    throw new ExternalServiceException("Không thể gửi email");
+                }
+
+                await transaction.CommitAsync();
+
+                // Set rate limit
+                _cache.Set(rateLimitKey, true, TimeSpan.FromMinutes(5));
+
+                _logger.LogInformation("Password reset successful for {AccountId}", user.AccountId);
+
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        #region Private Helper Methods
+
+        private async Task<TokenResponseDto> CreateTokenResponseAsync(
+            Accounts user,
+            bool shouldRotateRefreshToken = false,
+            Guid? oldTokenId = null)
+        {
+            // Generate new access token
+            var accessToken = await CreateAccessTokenAsync(user);
+
+            // Generate or reuse refresh token
+            string refreshToken;
+
+            if (shouldRotateRefreshToken && oldTokenId.HasValue)
+            {
+                // ✅ Rotate refresh token (revoke old, create new)
+                var oldToken = await _db.AccountTokens.FindAsync(oldTokenId.Value);
+                if (oldToken != null)
+                {
+                    oldToken.RevokedAt = DateTime.UtcNow;
+                }
+                refreshToken = await GenerateAndSaveRefreshTokenAsync(user.AccountId);
             }
             else
             {
-                return new TokenResponseDto
-                {
-                    AccessToken = await CreateToken(user),
-                    RefreshToken = await GenerateAndSaveRefreshToken(user.AccountId)
-                };
+                refreshToken = await GenerateAndSaveRefreshTokenAsync(user.AccountId);
             }
 
+            return new TokenResponseDto
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken
+            };
         }
 
-        public async Task<BaseResult<TokenResponseDto>?> LoginAsync(LoginDto dto)
+        private async Task<string> CreateAccessTokenAsync(Accounts user)
         {
-            try
+            var claims = new List<Claim>
             {
-                var user = await db.Accounts
-                    .Include(u => u.Employee)
-                    .Include(u => u.AccountRoles)
-                    .ThenInclude(ar => ar.Role)
-                    .FirstOrDefaultAsync(u => u.Username == dto.Identifier || u.Employee.Email == dto.Identifier);
+                new(ClaimTypes.Name, user.Username),
+                new(ClaimTypes.NameIdentifier, user.AccountId.ToString()),
+                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()), // ✅ Unique token ID
+                new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()) // ✅ Issued at
+            };
 
-                if (user is null) return BaseResult<TokenResponseDto>.Fail("Tài khoản hoặc mật khẩu không đúng", 400);
-
-                //if (user.Employee.Status is false) return BaseResult<TokenResponseDto>.Fail("Tài khoản đã bị khóa", 400);
-
-                if (!string.IsNullOrEmpty(user.Otp) && user.ExpiredOtp != null) return BaseResult<TokenResponseDto>.Fail("Tài khoản chưa xác minh email", 403, new TokenResponseDto { AccountId = user.AccountId });
-
-                if (new PasswordHasher<Accounts>().VerifyHashedPassword(user, user.Password, dto.Password)
-                   == PasswordVerificationResult.Failed)
-                {
-                    return BaseResult<TokenResponseDto>.Fail("Không đúng mật khẩu", 400);
-                }
-
-                return BaseResult<TokenResponseDto>.Ok(await CreateTokenResponseAsync(user, false, null));
-            }
-            catch (Exception e)
+            // ✅ Add roles
+            foreach (var role in user.AccountRoles)
             {
-                return BaseResult<TokenResponseDto>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
+                claims.Add(new Claim(ClaimTypes.Role, role.Role.Name));
             }
+
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_configuration["AppSettings:Token"]!));
+            
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+
+            var tokenDescriptor = new JwtSecurityToken(
+                issuer: _configuration["AppSettings:Issuer"],
+                audience: _configuration["AppSettings:Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(30),  // ✅ 30 minutes (not 10 months!)
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
         }
 
-        public async Task<BaseResult<TokenResponseDto>?> RefreshTokenAsync(RefreshTokenRequestDto req)
+        private async Task<string> GenerateAndSaveRefreshTokenAsync(Guid accountId)
         {
-            try
+            var refreshToken = new AccountTokens
             {
-                var user = await ValidateRefreshTokenAsync(req.RefreshToken);
-                if (user is null) return BaseResult<TokenResponseDto>.Fail("RefreshToken không hợp lệ", 400);
-                var refToken = await db.AccountTokens
-                    .FirstOrDefaultAsync(t => t.AccountTokenId.ToString() == req.RefreshToken);
-                if (refToken.ExpiryTime < DateTime.UtcNow)
-                {
-                    db.AccountTokens.Remove(refToken);
-                    await db.SaveChangesAsync();
-                    return BaseResult<TokenResponseDto>.Ok(await CreateTokenResponseAsync(user, false, null));
-                }
+                AccountId = accountId,
+                ExpiryTime = DateTime.UtcNow.AddDays(7)
+                // CreatedAt tự động set bởi AuditInterceptor
+            };
 
+            await _db.AccountTokens.AddAsync(refreshToken);
+            await _db.SaveChangesAsync();
 
-                return BaseResult<TokenResponseDto>.Ok(await CreateTokenResponseAsync(user, true, req.RefreshToken));
-            }
-            catch (Exception e)
-            {
-                return BaseResult<TokenResponseDto>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
-            }
+            return refreshToken.AccountTokenId.ToString();
         }
 
-        #region Otp
-        public async Task<BaseResult<TokenResponseDto>?> ConfirmOtp(OtpDto dto)
+        private async Task RevokeOldRefreshTokensAsync(Guid accountId)
         {
-            try
+            // ✅ Optional: Keep only last N refresh tokens per user
+            var oldTokens = await _db.AccountTokens
+                .Where(t => t.AccountId == accountId && t.RevokedAt == null)
+                .OrderByDescending(t => t.CreatedAt)
+                .Skip(5) // Keep latest 5 tokens
+                .ToListAsync();
+
+            foreach (var token in oldTokens)
             {
-                var IsUserExit = await db.Accounts
-                    .Include(u => u.Employee)
-                    .FirstOrDefaultAsync(u => u.AccountId == dto.AccountId);
-
-                if (IsUserExit is null) return BaseResult<TokenResponseDto>.Fail("Người dùng không tồn tại", 400);
-
-                if (IsUserExit.Otp != dto.Otp || IsUserExit.ExpiredOtp < DateTime.UtcNow)
-                {
-                    return BaseResult<TokenResponseDto>.Fail("Mã xác minh không đúng hoặc đã hết hạn", 400);
-                }
-
-                if (IsUserExit.Otp == dto.Otp && IsUserExit.ExpiredOtp >= DateTime.UtcNow)
-                {
-                    IsUserExit.Otp = null;
-                    IsUserExit.ExpiredOtp = null;
-                    //IsUserExit.Employee.Status = true;
-                    db.Accounts.Update(IsUserExit);
-                    await db.SaveChangesAsync();
-                    _cache.Remove($"User_Status_{dto.AccountId}");
-                    return BaseResult<TokenResponseDto>.Ok(await CreateTokenResponseAsync(IsUserExit, false, null));
-                }
-                return BaseResult<TokenResponseDto>.Fail("Xác minh không thành công", 400);
+                token.RevokedAt = DateTime.UtcNow;
             }
-            catch (Exception e)
+
+            if (oldTokens.Any())
             {
-                return BaseResult<TokenResponseDto>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
+                await _db.SaveChangesAsync();
             }
         }
-
-        public async Task<BaseResult<TokenResponseDto>?> RefreshOtp(string email)
-        {
-            using var transaction = await db.Database.BeginTransactionAsync();
-            try
-            {
-                var IsUserExit = await db.Accounts
-                    .Include(u => u.Employee)
-                    .FirstOrDefaultAsync(u => u.Employee.Email == email);
-                if (IsUserExit is null) return BaseResult<TokenResponseDto>.Fail("Người dùng không tồn tại", 400);
-
-                if (string.IsNullOrEmpty(IsUserExit.Otp) || IsUserExit.ExpiredOtp == null)
-                {
-                    return BaseResult<TokenResponseDto>.Fail("Tài khoản đã xác minh email", 400);
-                }
-
-                var newOtp = RandomString.GenerateRandomNumericString(6);
-                IsUserExit.Otp = newOtp;
-                IsUserExit.ExpiredOtp = DateTime.UtcNow.AddMinutes(5);
-                db.Accounts.Update(IsUserExit);
-                await db.SaveChangesAsync();
-
-                //gửi email
-                var emailService = await SendMail.SendMailAsync(configuration, email, "Xác thực email của bạn", "Đây là mã otp của bạn, mã sẽ hết hạn sau 5 phút!", newOtp);
-                if (!emailService)
-                {
-                    await transaction.RollbackAsync();
-                    return BaseResult<TokenResponseDto>.Fail("Gửi mã xác minh không thành công, vui lòng thử lại", 500);
-                }
-                await transaction.CommitAsync();
-
-                return BaseResult<TokenResponseDto>.Ok(new TokenResponseDto { AccountId = IsUserExit.AccountId }, 200, "Gửi mã xác minh thành công");
-            }
-            catch (Exception e)
-            {
-                await transaction.RollbackAsync();
-                return BaseResult<TokenResponseDto>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
-            }
-        }
-
 
         #endregion
-        public async Task<BaseResult<bool>> ForgotPassword(string emailOrUserName)
-        {
-            using var transaction = await db.Database.BeginTransactionAsync();
-            try
-            {
-                var IsUserExit = await db.Accounts
-                    .Include(u => u.Employee)
-                    .FirstOrDefaultAsync(u => u.Employee.Email == emailOrUserName || u.Username == emailOrUserName);
-                if (IsUserExit is null) return BaseResult<bool>.Fail("Người dùng không tồn tại", 400, false);
-
-                var newPassword = RandomString.GenerateRandomString(8);
-                var hashedPassword = new PasswordHasher<Accounts>().HashPassword(IsUserExit, newPassword);
-                IsUserExit.Password = hashedPassword;
-
-                db.Accounts.Update(IsUserExit);
-                await db.SaveChangesAsync();
-
-                var SendEmail = await SendMail.SendMailAsync(configuration, IsUserExit.Employee.Email, "Quên mật khẩu", "Mật khẩu mới của bạn là: ", newPassword);
-                if (!SendEmail)
-                {
-                    await transaction.RollbackAsync();
-                    return BaseResult<bool>.Fail("Gửi mật khẩu mới không thành công, vui lòng thử lại", 500, false);
-                }
-
-                await transaction.CommitAsync();
-                return BaseResult<bool>.Ok(true, 200, "Gửi mật khẩu mới thành công, vui lòng kiểm tra email");
-            }
-            catch (Exception e)
-            {
-                await transaction.RollbackAsync();
-                return BaseResult<bool>.Fail($"Lỗi Hệ thống: {e.Message}", 500);
-            }
-        }
     }
 }

@@ -4,10 +4,11 @@ namespace ItSupportServer.src.Modules.Authentication
 {
     public interface IAuthenticationService
     {
-        Task<BaseResult<TokenResponseDto>?> LoginAsync(LoginDto dto);
-        Task<BaseResult<TokenResponseDto>?> RefreshTokenAsync(RefreshTokenRequestDto req);
-        Task<BaseResult<TokenResponseDto>?> ConfirmOtp(OtpDto dto);
-        Task<BaseResult<TokenResponseDto>?> RefreshOtp(string email);
-        Task<BaseResult<bool>> ForgotPassword(string EmailOrUserName);
+        Task<TokenResponseDto> LoginAsync(LoginDto dto);
+        Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto req);
+        Task<OtpResponseDto> ConfirmOtpAsync(OtpDto dto);
+        Task<OtpSentResponseDto> RefreshOtpAsync(string email);
+        Task<bool> ForgotPasswordAsync(string emailOrUsername);
+        Task<bool> LogoutAsync(Guid accountId, string refreshToken);
     }
 }

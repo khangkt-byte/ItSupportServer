@@ -1,66 +1,146 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using ItSupportServer.src.Shared.Base;
-using FluentValidation;
+﻿using ItSupportServer.src.Modules.Authorization;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ItSupportServer.src.Modules.Authentication
 {
-    [Route("api/authentications")]
+    /// <summary>
+    /// Authentication API
+    /// </summary>
+    [Route("api/auth")]
     [ApiController]
-    public class AuthenticationsController(IAuthenticationService service) : ControllerBase
+    public class AuthenticationController : ControllerBase
     {
+        private readonly IAuthenticationService _service;
+
+        public AuthenticationController(IAuthenticationService service)
+        {
+            _service = service;
+        }
+
+        /// <summary>
+        /// Đăng nhập
+        /// </summary>
         [HttpPost("login")]
-        public async Task<IActionResult> Login(
-            [FromBody] LoginDto dto,
-            [FromServices] IValidator<LoginDto> validator)
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(TokenResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<TokenResponseDto>> Login([FromBody] LoginDto dto)
         {
-            var validationResult = await validator.ValidateAsync(dto);
-            //if (!validationResult.IsValid)
-            //{
-            //    var errors = validationResult.Errors
-            //        .Select(e => e.ErrorMessage)
-            //        .ToList();
-            //    var errorMessage = string.Join("; ", errors);
-            //    var errorResult = BaseResult<TokenResponseDto>.Fail(errorMessage, 400);
-            //    return this.MyStatusCode(errorResult);
-            //}
-            if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
+            var result = await _service.LoginAsync(dto);
 
-            var result = await service.LoginAsync(dto);
-            return this.MyStatusCode(result!);
+            // ✅ Set refresh token in HTTP-Only cookie
+            Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddDays(7)
+            });
+
+            return Ok(new { accessToken = result.AccessToken });
         }
 
+        /// <summary>
+        /// Refresh access token
+        /// </summary>
         [HttpPost("refresh-token")]
-        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto dto)
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(TokenResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<TokenResponseDto>> RefreshToken()
         {
-            var result = await service.RefreshTokenAsync(dto);
-            return this.MyStatusCode(result!);
+            // ✅ Read refresh token from cookie
+            if (!Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
+            {
+                return Unauthorized(new { error = "Refresh token không tồn tại" });
+            }
+
+            var result = await _service.RefreshTokenAsync(new RefreshTokenRequestDto
+            {
+                RefreshToken = refreshToken
+            });
+
+            // Update cookie
+            Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddDays(7)
+            });
+
+            return Ok(new { accessToken = result.AccessToken });
         }
 
-        [HttpPost("/confirm-otp")]
-        public async Task<IActionResult> ConfirmOtp(
-            [FromBody] OtpDto dto,
-            [FromServices] IValidator<OtpDto> validator)
+        /// <summary>
+        /// Đăng xuất
+        /// </summary>
+        [HttpPost("logout")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<ActionResult> Logout()
         {
-            var validationResult = await validator.ValidateAsync(dto);
-            if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
+            var accountId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
 
-            var result = await service.ConfirmOtp(dto);
-            return this.MyStatusCode(result!);
+            if (Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
+            {
+                await _service.LogoutAsync(accountId, refreshToken);
+            }
+
+            // Clear cookie
+            Response.Cookies.Delete("refreshToken");
+
+            return Ok(new { message = "Đăng xuất thành công" });
         }
 
-        [HttpPost("/refresh-otp")]
-        public async Task<IActionResult> RefreshOtp([FromBody] string email)
+        /// <summary>
+        /// Xác nhận OTP
+        /// </summary>
+        [HttpPost("confirm-otp")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(OtpResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<OtpResponseDto>> ConfirmOtp([FromBody] OtpDto dto)
         {
-            var result = await service.RefreshOtp(email);
-            return this.MyStatusCode(result!);
+            var result = await _service.ConfirmOtpAsync(dto);
+
+            // Set refresh token cookie
+            Response.Cookies.Append("refreshToken", result.Token.RefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddDays(7)
+            });
+
+            return Ok(new { accessToken = result.Token.AccessToken });
         }
-        [HttpPost("/forgot-password")]
-        public async Task<IActionResult> ForgotPassword([FromBody] string EmailOrUserName)
+
+        /// <summary>
+        /// Yêu cầu OTP mới
+        /// </summary>
+        [HttpPost("resend-otp")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(OtpSentResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+        public async Task<ActionResult<OtpSentResponseDto>> ResendOtp([FromBody] string email)
         {
-            var result = await service.ForgotPassword(EmailOrUserName);
-            return this.MyStatusCode(result);
+            var result = await _service.RefreshOtpAsync(email);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Quên mật khẩu
+        /// </summary>
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<ActionResult> ForgotPassword([FromBody] string emailOrUsername)
+        {
+            await _service.ForgotPasswordAsync(emailOrUsername);
+            return Ok(new { message = "Nếu email tồn tại, mật khẩu mới đã được gửi" });
         }
     }
 }
