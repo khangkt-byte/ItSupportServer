@@ -5,7 +5,7 @@ namespace ItSupportServer.src.Modules.Account
 {
     [Route("api/accounts")]
     [ApiController]
-    public class AccountsController(IAccountsService service) : ControllerBase
+    public class AccountsController(IAccountService service) : ControllerBase
     {
 
     }

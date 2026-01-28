@@ -16,22 +16,22 @@ namespace ItSupportServer
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
             // Register application services here
-            services.AddScoped<IAuthenticationsService, AuthenticationsService>();
-            services.AddScoped<IRolesService, RolesService>();
-            services.AddScoped<IAreasService, AreasService>();
-            services.AddScoped<IEmployeesService, EmployeesService>();
-            services.AddScoped<IIssuesService, IssuesService>();
-            services.AddScoped<IIssueLogsService, IssueLogsService>();
+            services.AddScoped<IAuthenticationService, AuthenticationService>();
+            services.AddScoped<IRoleService, RoleService>();
+            services.AddScoped<IAreaService, AreaService>();
+            services.AddScoped<IEmployeeService, EmployeeService>();
+            services.AddScoped<IIssueService, IssueService>();
+            services.AddScoped<IIssueLogService, IssueLogService>();
 
             // Đăng ký Fluent Validation Validators
             services.AddValidatorsFromAssemblyContaining<CreateAreaDtoValidator>();
 
             // Đăng ký Mapperly Mapper
-            services.AddSingleton<AccountsMapper>();
-            services.AddSingleton<RolesMapper>();
-            services.AddSingleton<EmployeesMapper>();
-            services.AddSingleton<AreasMapper>();
-            services.AddSingleton<IssuesMapper>();
+            services.AddSingleton<AccountMapper>();
+            services.AddSingleton<RoleMapper>();
+            services.AddSingleton<EmployeeMapper>();
+            services.AddSingleton<AreaMapper>();
+            services.AddSingleton<IssueMapper>();
             services.AddSingleton<IssueLogsMapper>();
 
             // Đăng ký Handler xử lý logic

@@ -1,7 +1,4 @@
-﻿using FluentValidation;
-using ItSupportServer.src.Modules.Authorization;
-using ItSupportServer.src.Shared.Attributes;
-using ItSupportServer.src.Shared.Base;
+﻿using ItSupportServer.src.Shared.Base;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ItSupportServer.src.Modules.Area
@@ -10,9 +7,9 @@ namespace ItSupportServer.src.Modules.Area
     [Route("api/[controller]")]
     public class AreasController : ControllerBase
     {
-        private readonly IAreasService _service;
+        private readonly IAreaService _service;
 
-        public AreasController(IAreasService service)
+        public AreasController(IAreaService service)
         {
             _service = service;
         }
@@ -69,8 +66,7 @@ namespace ItSupportServer.src.Modules.Area
         [ProducesResponseType(typeof(ProblemDetails), 500)]
         public async Task<ActionResult<AreaDto>> UpdateArea(int id, [FromBody] UpdateAreaDto dto)
         {
-            dto.AreaId = id;
-            var result = await _service.UpdateAreaAsync(dto);
+            var result = await _service.UpdateAreaAsync(id, dto);
             return Ok(result);
         }
 

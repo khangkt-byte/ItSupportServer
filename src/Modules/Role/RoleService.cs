@@ -4,7 +4,7 @@ using ItSupportServer.Data.Models;
 
 namespace ItSupportServer.src.Modules.Role
 {
-    public class RolesService(AppDbContext db) : IRolesService
+    public class RoleService(AppDbContext db) : IRoleService
     {
         public async Task<BaseResult<PaginatedResult<List<RolesDto>>>> GetRolesAsync(string? query, int page, int pageSize, SortOBJ? sort)
         {

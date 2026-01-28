@@ -13,7 +13,7 @@ namespace ItSupportServer.src.Modules.Employee
     [Route("api/[controller]")]
     [ApiController]
     [Authorize(Roles = RoleUser.GroupAdmin)]
-    public class EmployeesController(IEmployeesService service, IConfiguration configuration) : ControllerBase
+    public class EmployeesController(IEmployeeService service, IConfiguration configuration) : ControllerBase
     {
         [HttpGet]
         [HasPermission(Permissions.EmployeeClaims.View)]

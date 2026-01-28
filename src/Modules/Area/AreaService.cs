@@ -1,22 +1,33 @@
-﻿using ItSupportServer.Data.Models;
+﻿using FluentValidation;
+using ItSupportServer.Data.Models;
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Exceptions;
+using ItSupportServer.src.Shared.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace ItSupportServer.src.Modules.Area
 {
-    public class AreasService : IAreasService
+    public class AreaService : IAreaService
     {
         private readonly AppDbContext _db;
-        private readonly AreasMapper _mapper;
-        private readonly ILogger<AreasService> _logger;
+        private readonly AreaMapper _mapper;
+        private readonly ILogger<AreaService> _logger;
+        private readonly IValidator<CreateAreaDto> _createValidator;
+        private readonly IValidator<UpdateAreaDto> _updateValidator;
 
-        public AreasService(AppDbContext db, AreasMapper mapper, ILogger<AreasService> logger)
+        public AreaService(
+            AppDbContext db, 
+            AreaMapper mapper, 
+            ILogger<AreaService> logger,
+            IValidator<CreateAreaDto> createValidator,
+            IValidator<UpdateAreaDto> updateValidator)
         {
             _db = db;
             _mapper = mapper;
             _logger = logger;
+            _createValidator = createValidator;
+            _updateValidator = updateValidator;
         }
 
         public async Task<PaginatedResult<List<AreaDto>>> GetAreasAsync(string? query, int page, int pageSize, SortOBJ? sort)
@@ -63,6 +74,10 @@ namespace ItSupportServer.src.Modules.Area
         {
             _logger.LogInformation("Creating new area with name: {Name}", dto.Name);
 
+            // Manual validation
+            var validationResult = await _createValidator.ValidateAsync(dto);
+            validationResult.ThrowIfInvalid();
+
             // Check for duplicates
             var existing = await _db.Areas
                 .Where(a => a.Name == dto.Name && a.DeletedAt == null)
@@ -75,41 +90,90 @@ namespace ItSupportServer.src.Modules.Area
             }
 
             var newArea = _mapper.MapToArea(dto);
-            newArea.CreatedAt = DateTime.UtcNow;
+            // ✅ REMOVED: newArea.CreatedAt = DateTime.UtcNow;
+            // Interceptor handles this automatically!
 
             await _db.Areas.AddAsync(newArea);
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync();  // ← CreatedAt set here by interceptor
 
             _logger.LogInformation("Successfully created area with ID: {AreaId}", newArea.AreaId);
 
             return _mapper.MapToAreaDto(newArea);
         }
 
-        public async Task<AreaDto> UpdateAreaAsync(UpdateAreaDto dto)
+        public async Task<AreaDto> UpdateAreaAsync(int areaId, UpdateAreaDto dto)
         {
-            _logger.LogInformation("Updating area with ID: {AreaId}", dto.AreaId);
+            _logger.LogInformation("Updating area {AreaId}", areaId);
 
-            var area = await _db.Areas.FindAsync(dto.AreaId);
+            // Manual validation
+            var validationResult = await _updateValidator.ValidateAsync(dto);
+            validationResult.ThrowIfInvalid();
+
+            var area = await _db.Areas.FindAsync(areaId);
 
             if (area is null || area.DeletedAt != null)
             {
-                _logger.LogWarning("Area with ID {AreaId} not found for update", dto.AreaId);
-                throw new NotFoundException("Khu vực", dto.AreaId);
+                _logger.LogWarning("Area {AreaId} not found", areaId);
+                throw new NotFoundException("Khu vực", areaId);
             }
 
-            _mapper.MapToArea(dto, area);
-            area.UpdatedAt = DateTime.UtcNow;
+            // ✅ PARTIAL UPDATE LOGIC: Only update if value provided
+            bool hasChanges = false;
 
-            await _db.SaveChangesAsync();
+            if (!string.IsNullOrWhiteSpace(dto.Name))
+            {
+                // Check if name is different before updating
+                if (area.Name != dto.Name)
+                {
+                    // Check for duplicate name
+                    var nameExists = await _db.Areas
+                        .Where(a => a.Name == dto.Name && a.AreaId != areaId && a.DeletedAt == null)
+                        .AnyAsync();
 
-            _logger.LogInformation("Successfully updated area with ID: {AreaId}", dto.AreaId);
+                    if (nameExists)
+                    {
+                        throw new ConflictException("Khu vực", dto.Name);
+                    }
+
+                    area.Name = dto.Name;
+                    hasChanges = true;
+                }
+            }
+
+            // Description: null = don't update, empty string = clear the field
+            if (dto.Description != null)
+            {
+                if (area.Description != dto.Description)
+                {
+                    area.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description;
+                    hasChanges = true;
+                }
+            }
+
+            // Only save if there are actual changes
+            if (hasChanges)
+            {
+                await _db.SaveChangesAsync();
+                _logger.LogInformation("Successfully updated area {AreaId}", areaId);
+            }
+            else
+            {
+                _logger.LogInformation("No changes detected for area {AreaId}", areaId);
+            }
 
             return _mapper.MapToAreaDto(area);
         }
 
         public async Task<bool> DeleteAreasAsync(List<int> areaIds, bool softDelete = true)
         {
-            _logger.LogInformation("Deleting {Count} areas (soft: {SoftDelete})", areaIds.Count, softDelete);
+            _logger.LogInformation("Deleting {Count} areas (soft: {SoftDelete})", areaIds?.Count ?? 0, softDelete);
+
+            ArgumentNullException.ThrowIfNull(areaIds);
+
+            if (areaIds.Count == 0)
+            {
+                throw new Shared.Exceptions.ValidationException("areaIds", "Vui lòng chọn khu vực để xóa");
+            }
 
             using var transaction = await _db.Database.BeginTransactionAsync();
             
@@ -118,7 +182,7 @@ namespace ItSupportServer.src.Modules.Area
                 // Validation
                 if (areaIds == null || areaIds.Count == 0)
                 {
-                    throw new ValidationException("areaIds", "Vui lòng chọn khu vực để xóa");
+                    throw new Shared.Exceptions.ValidationException("areaIds", "Vui lòng chọn khu vực để xóa");
                 }
 
                 var existing = await _db.Areas
@@ -155,7 +219,7 @@ namespace ItSupportServer.src.Modules.Area
                 {
                     foreach (var item in existing)
                     {
-                        item.DeletedAt = DateTime.UtcNow;
+                        item.DeletedAt = DateTime.UtcNow;  // ✅ Keep this - manual soft delete
                     }
                     _db.Areas.UpdateRange(existing);
                 }
@@ -174,7 +238,7 @@ namespace ItSupportServer.src.Modules.Area
             catch
             {
                 await transaction.RollbackAsync();
-                throw; // Re-throw to be caught by global handler
+                throw;
             }
         }
     }

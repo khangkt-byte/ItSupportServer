@@ -5,7 +5,7 @@ using ItSupportServer.Data.Models;
 
 namespace ItSupportServer.src.Modules.Employee
 {
-    public interface IEmployeesService
+    public interface IEmployeeService
     {
         Task<BaseResult<PaginatedResult<List<ListEmployeeDto>>>> GetEmployeesAsync(string? query, int page, int pageSize, SortOBJ? sort);
         Task<BaseResult<DetailUserDto>> GetEmployeeAsync(string Id);

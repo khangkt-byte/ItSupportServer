@@ -1,7 +1,7 @@
+using ItSupportServer.src.Shared.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
-using System.Text.Json;
 
 namespace ItSupportServer.src.Shared.Middleware
 {
@@ -101,7 +101,7 @@ namespace ItSupportServer.src.Shared.Middleware
 
         private static string GetDetail(Exception exception) => exception switch
         {
-            ApplicationException appEx => appEx.Message,
+            Exceptions.ApplicationException appEx => appEx.Message,
             _ => exception.Message
         };
 

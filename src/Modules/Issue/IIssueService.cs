@@ -2,7 +2,7 @@
 
 namespace ItSupportServer.src.Modules.Issue
 {
-    public interface IIssuesService
+    public interface IIssueService
     {
         Task<BaseResult<PaginatedResult<List<IssueDto>>>> GetIssuesAsync(string? query, int page, int pageSize, SortOBJ? sort);
         Task<BaseResult<IssueDto>> GetIssueByIdAsync(long issueId);

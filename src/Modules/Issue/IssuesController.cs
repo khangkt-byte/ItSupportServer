@@ -8,7 +8,7 @@ namespace ItSupportServer.src.Modules.Issue
 {
     [Route("api/issues")]
     [ApiController]
-    public class IssuesController(IIssuesService service) : ControllerBase
+    public class IssuesController(IIssueService service) : ControllerBase
     {
         [HttpGet]
         [HasPermission(Permissions.IssueClaims.View)]

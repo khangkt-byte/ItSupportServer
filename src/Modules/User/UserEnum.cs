@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace ItSupportServer.src.Modules.User
 {
-    public class UsersEnum
+    public class UserEnum
     {
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public enum GENDER

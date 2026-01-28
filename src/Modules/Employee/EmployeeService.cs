@@ -10,7 +10,7 @@ using static ItSupportServer.src.Shared.Base.BaseEnum;
 
 namespace ItSupportServer.src.Modules.Employee
 {
-    public class EmployeesService(AppDbContext db, EmployeesMapper mapper, BaseCrud<Employees, Guid> crud, IMemoryCache _cache) : IEmployeesService
+    public class EmployeeService(AppDbContext db, EmployeeMapper mapper, BaseCrud<Employees, Guid> crud, IMemoryCache _cache) : IEmployeeService
     {
 
         public async Task<BaseResult<PaginatedResult<List<ListEmployeeDto>>>> GetEmployeesAsync(string? query, int page, int pageSize, SortOBJ? sort)

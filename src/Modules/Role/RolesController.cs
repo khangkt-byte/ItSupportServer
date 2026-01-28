@@ -8,7 +8,7 @@ namespace ItSupportServer.src.Modules.Role
 {
     [Route("api/roles")]
     [ApiController]
-    public class RolesController(IRolesService service) : ControllerBase
+    public class RolesController(IRoleService service) : ControllerBase
     {
         [HttpGet]
         [HasPermission(Permissions.RoleClaims.View)]

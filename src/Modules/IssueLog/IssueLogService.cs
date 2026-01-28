@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ItSupportServer.src.Modules.IssueLog
 {
-    public class IssueLogsService(AppDbContext db) : IIssueLogsService
+    public class IssueLogService(AppDbContext db) : IIssueLogService
     {
         public async Task<BaseResult<PaginatedResult<List<IssueLogDto>>>> GetIssueLogsAsync(string? query, int page, int pageSize, SortOBJ? sort)
         {

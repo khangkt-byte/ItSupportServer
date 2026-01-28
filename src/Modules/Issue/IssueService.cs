@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ItSupportServer.src.Modules.Issue
 {
-    public class IssuesService(AppDbContext db, IssuesMapper mapper) : IIssuesService
+    public class IssueService(AppDbContext db, IssueMapper mapper) : IIssueService
     {
         public async Task<BaseResult<PaginatedResult<List<IssueDto>>>> GetIssuesAsync(string? query, int page, int pageSize, SortOBJ? sort)
         {
