@@ -23,8 +23,10 @@ namespace ItSupportServer.src.Modules.Employee
             _service = service;
         }
 
+        // ==================== ADMIN OPERATIONS ====================
+
         /// <summary>
-        /// Lấy danh sách nhân viên (có phân trang)
+        /// [ADMIN] Lấy danh sách nhân viên (có phân trang)
         /// </summary>
         [HttpGet]
         [HasPermission(Permissions.EmployeeClaims.View)]
@@ -39,7 +41,7 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
         /// <summary>
-        /// Lấy thông tin chi tiết nhân viên (bao gồm roles)
+        /// [ADMIN] Lấy thông tin chi tiết nhân viên (bao gồm roles)
         /// </summary>
         [HttpGet("{id}")]
         [HasPermission(Permissions.EmployeeClaims.View)]
@@ -52,7 +54,7 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
         /// <summary>
-        /// Tạo nhân viên mới
+        /// [ADMIN] Tạo nhân viên mới
         /// </summary>
         [HttpPost]
         [HasPermission(Permissions.EmployeeClaims.Create)]
@@ -66,10 +68,11 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
         /// <summary>
-        /// Cập nhật thông tin nhân viên
+        /// [ADMIN] Cập nhật thông tin nhân viên
         /// </summary>
         /// <remarks>
-        /// **Lưu ý:** Không thể tự cập nhật chính mình. Vui lòng sử dụng API profile.
+        /// **Lưu ý:** Admin không thể tự cập nhật thông tin chính mình.
+        /// Để cập nhật thông tin cá nhân, vui lòng sử dụng endpoint `/api/employees/me`
         /// </remarks>
         [HttpPut("{id}")]
         [HasPermission(Permissions.EmployeeClaims.Edit)]
@@ -80,12 +83,12 @@ namespace ItSupportServer.src.Modules.Employee
             [FromRoute] Guid id,
             [FromBody] UpdateEmployeeDto dto)
         {
-            // Prevent self-edit
+            // Prevent self-edit through admin endpoint
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (currentUserId != null && Guid.Parse(currentUserId) == id)
             {
                 throw new BusinessRuleException(
-                    "Không thể tự chỉnh sửa tài khoản của mình. Vui lòng sử dụng API /api/employees/profile.");
+                    "Không thể tự chỉnh sửa thông tin thông qua endpoint này. Vui lòng sử dụng /api/employees/me");
             }
 
             var result = await _service.UpdateEmployeeAsync(id, dto);
@@ -93,7 +96,7 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
         /// <summary>
-        /// Xóa nhiều nhân viên
+        /// [ADMIN] Xóa nhiều nhân viên
         /// </summary>
         [HttpDelete]
         [HasPermission(Permissions.EmployeeClaims.Delete)]
@@ -109,37 +112,11 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
         /// <summary>
-        /// Lấy thông tin profile của user hiện tại
+        /// [ADMIN] Gán roles cho nhân viên
         /// </summary>
-        [HttpGet("profile")]
-        [Authorize]
-        [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<ProfileDto>> GetProfile()
-        {
-            var empId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var result = await _service.GetProfileAsync(empId);
-            return Ok(result);
-        }
-
-        /// <summary>
-        /// Cập nhật profile của user hiện tại (self-service)
-        /// </summary>
-        [HttpPut("profile")]
-        [Authorize]
-        [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-        public async Task<ActionResult<ProfileDto>> UpdateProfile([FromBody] UpdateProfileDto dto)
-        {
-            var empId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var result = await _service.UpdateProfileAsync(empId, dto);
-            return Ok(result);
-        }
-
-        /// <summary>
-        /// Gán roles cho nhân viên
-        /// </summary>
+        /// <remarks>
+        /// **Lưu ý:** Admin không thể tự thay đổi roles của chính mình
+        /// </remarks>
         [HttpPost("{id}/roles")]
         [HasPermission(Permissions.RoleClaims.SetRole)]
         [ProducesResponseType(typeof(DetailEmployeeDto), StatusCodes.Status200OK)]
@@ -152,10 +129,54 @@ namespace ItSupportServer.src.Modules.Employee
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (currentUserId != null && Guid.Parse(currentUserId) == id)
             {
-                throw new BusinessRuleException("Không thể tự thay đổi roles của mình");
+                throw new BusinessRuleException("Không thể tự thay đổi roles của chính mình");
             }
 
             var result = await _service.AssignRolesToEmployeeAsync(id, roleIds);
+            return Ok(result);
+        }
+
+        // ==================== SELF-SERVICE OPERATIONS ====================
+
+        /// <summary>
+        /// [SELF] Lấy thông tin profile của mình
+        /// </summary>
+        /// <remarks>
+        /// Endpoint này cho phép nhân viên xem thông tin cá nhân của chính mình.
+        /// Không yêu cầu permission đặc biệt, chỉ cần đăng nhập.
+        /// </remarks>
+        [HttpGet("me")]
+        [Authorize]
+        [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ProfileDto>> GetMyProfile()
+        {
+            var empId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.GetProfileAsync(empId);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// [SELF] Cập nhật profile của mình (self-service)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint này cho phép nhân viên cập nhật một số thông tin cá nhân:
+        /// - Họ tên (FullName)
+        /// - Số điện thoại (PhoneNumber)
+        /// - Email
+        /// 
+        /// Các thông tin khác như chức vụ, phòng ban chỉ admin mới có thể cập nhật.
+        /// </remarks>
+        [HttpPut("me")]
+        [Authorize]
+        [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<ProfileDto>> UpdateMyProfile([FromBody] UpdateProfileDto dto)
+        {
+            var empId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.UpdateProfileAsync(empId, dto);
             return Ok(result);
         }
     }

@@ -13,25 +13,44 @@ namespace ItSupportServer.Data.Models
         [Column("user_id")]
         [ForeignKey(nameof(Employee))]
         [Required]
-        required public Guid AccountId { get; set; }
+        public required Guid AccountId { get; set; }
+        
         public override Guid Id => AccountId;
 
-        public Employees Employee { get; set; }
+        public Employees Employee { get; set; } = null!;
 
         [Column("username")]
         [Required, MaxLength(32)]
-        required public string Username { get; set; }
+        public required string Username { get; set; }
 
         [Column("password")]
-        [Required, MinLength(6)]
-        required public string Password { get; set; }
+        [Required] // BCrypt hash is 60 chars
+        public required string Password { get; set; }
 
+        // ===== Security Fields (ADD THESE) =====
+        
+        [Column("is_locked")]
+        public bool IsLocked { get; set; } = false;
+
+        [Column("failed_login_attempts")]
+        public int FailedLoginAttempts { get; set; } = 0;
+
+        [Column("last_login_at")]
+        public DateTime? LastLoginAt { get; set; }
+
+        [Column("locked_until")]
+        public DateTime? LockedUntil { get; set; }
+
+        // ===== Points System =====
+        
         [Column("current_points")]
         public int? CurrentPoints { get; set; }
 
         [Column("lifetime_points")]
         public int? LifetimePoints { get; set; }
 
+        // ===== OTP for Password Reset =====
+        
         [Column("otp")]
         public string? Otp { get; set; }
 
