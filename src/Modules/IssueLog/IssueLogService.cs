@@ -8,6 +8,12 @@ using Microsoft.Extensions.Logging;
 
 namespace ItSupportServer.src.Modules.IssueLog
 {
+    /// <summary>
+    /// Issue log service implementation
+    /// Pattern: Domain-Driven Design (DDD) service layer
+    /// Security: Input validation, FK verification, SQL injection prevention
+    /// Reference: ServiceNow incident management, Microsoft best practices
+    /// </summary>
     public class IssueLogService : IIssueLogService
     {
         private readonly AppDbContext _db;
@@ -36,6 +42,10 @@ namespace ItSupportServer.src.Modules.IssueLog
                 parameters.Search, parameters.Page);
 
             var query = _mapper.ProjectToIssueLogDto(_db.IssueLogs
+                .Include(il => il.Department)
+                .Include(il => il.Area)
+                .Include(il => il.Issue)
+                .Include(il => il.CauseRef)
                 .Where(il => il.DeletedAt == null)
                 .AsNoTracking());
 
@@ -45,9 +55,9 @@ namespace ItSupportServer.src.Modules.IssueLog
                 query = query.Where(il =>
                     il.Operator.Contains(parameters.Search) ||
                     (il.Requester != null && il.Requester.Contains(parameters.Search)) ||
-                    il.Department.Contains(parameters.Search) ||
-                    il.Area.Contains(parameters.Search) ||
-                    (il.IssueDescription != null && il.IssueDescription.Contains(parameters.Search)) ||
+                    il.DepartmentName.Contains(parameters.Search) ||
+                    il.AreaName.Contains(parameters.Search) ||
+                    il.IssueDescription.Contains(parameters.Search) ||
                     (il.Resolution != null && il.Resolution.Contains(parameters.Search)));
             }
 
@@ -63,6 +73,10 @@ namespace ItSupportServer.src.Modules.IssueLog
             _logger.LogInformation("Fetching issue log {IssLogId}", issLogId);
 
             var issLog = await _mapper.ProjectToIssueLogDto(_db.IssueLogs
+                .Include(il => il.Department)
+                .Include(il => il.Area)
+                .Include(il => il.Issue)
+                .Include(il => il.CauseRef)
                 .Where(il => il.IssLogId == issLogId && il.DeletedAt == null)
                 .AsNoTracking())
                 .FirstOrDefaultAsync();
@@ -80,16 +94,126 @@ namespace ItSupportServer.src.Modules.IssueLog
         {
             _logger.LogInformation("Creating new issue log");
 
+            // Step 1: Validate input
             var validationResult = await _createValidator.ValidateAsync(dto);
             validationResult.ThrowIfInvalid();
+
+            // Step 2: Validate Department exists
+            var deptExists = await _db.Departments
+                .AnyAsync(d => d.DptId == dto.DepartmentId && d.DeletedAt == null);
+            
+            if (!deptExists)
+            {
+                throw new NotFoundException("Bộ phận", dto.DepartmentId);
+            }
+
+            // Step 3: Validate Area exists
+            var areaExists = await _db.Areas
+                .AnyAsync(a => a.AreaId == dto.AreaId && a.DeletedAt == null);
+            
+            if (!areaExists)
+            {
+                throw new NotFoundException("Khu vực", dto.AreaId);
+            }
+
+            // ===== SMART AUTO-MATCHING (ServiceNow pattern) =====
+            
+            long? resolvedIssueId = dto.IssueId;
+            
+            // If IssueId not provided, try to auto-match by text
+            if (!resolvedIssueId.HasValue && !string.IsNullOrWhiteSpace(dto.IssueDescription))
+            {
+                resolvedIssueId = await TryAutoMatchIssueAsync(dto.IssueDescription);
+                
+                if (resolvedIssueId.HasValue)
+                {
+                    _logger.LogInformation(
+                        "Auto-matched issue text '{Text}' to KB Issue {IssueId}",
+                        dto.IssueDescription, resolvedIssueId.Value);
+                }
+            }
+            
+            long? resolvedCauseId = dto.CauseId;
+            
+            // Auto-match cause if text matches KB
+            if (!resolvedCauseId.HasValue && !string.IsNullOrWhiteSpace(dto.Cause))
+            {
+                resolvedCauseId = await TryAutoMatchCauseAsync(dto.Cause, resolvedIssueId);
+                
+                if (resolvedCauseId.HasValue)
+                {
+                    _logger.LogInformation(
+                        "Auto-matched cause text '{Text}' to KB Cause {CauseId}",
+                        dto.Cause, resolvedCauseId.Value);
+                }
+            }
+
+            // Validate resolved IssueId exists
+            if (resolvedIssueId.HasValue)
+            {
+                var issueExists = await _db.Issues
+                    .AnyAsync(i => i.IssId == resolvedIssueId.Value && i.DeletedAt == null);
+                
+                if (!issueExists)
+                {
+                    _logger.LogWarning("Auto-matched IssueId {IssueId} not found, clearing", resolvedIssueId.Value);
+                    resolvedIssueId = null;
+                }
+            }
+
+            // Validate resolved CauseId exists
+            if (resolvedCauseId.HasValue)
+            {
+                var causeExists = await _db.Causes
+                    .AnyAsync(c => c.CauseId == resolvedCauseId.Value && c.DeletedAt == null);
+                
+                if (!causeExists)
+                {
+                    _logger.LogWarning("Auto-matched CauseId {CauseId} not found, clearing", resolvedCauseId.Value);
+                    resolvedCauseId = null;
+                }
+                
+                // Verify cause belongs to issue
+                if (resolvedIssueId.HasValue && resolvedCauseId.HasValue)
+                {
+                    var causeMatchesIssue = await _db.Causes
+                        .AnyAsync(c => c.CauseId == resolvedCauseId.Value && c.IssId == resolvedIssueId.Value);
+                    
+                    if (!causeMatchesIssue)
+                    {
+                        _logger.LogWarning(
+                            "Cause {CauseId} doesn't match Issue {IssueId}, clearing cause link",
+                            resolvedCauseId.Value, resolvedIssueId.Value);
+                        resolvedCauseId = null;
+                    }
+                }
+            }
 
             using var transaction = await _db.Database.BeginTransactionAsync();
 
             try
             {
-                var newIssueLog = _mapper.MapToIssueLog(dto);
-                newIssueLog.IssLogId = Guid.CreateVersion7();
-                // CreatedAt set automatically by interceptor
+                var newIssueLog = new IssueLogs
+                {
+                    IssLogId = Guid.CreateVersion7(),
+                    Operator = dto.Operator,
+                    Requester = dto.Requester,
+                    DepartmentId = dto.DepartmentId,
+                    AreaId = dto.AreaId,
+                    
+                    // Set resolved IDs (may be auto-matched)
+                    IssueId = resolvedIssueId,
+                    IssueDescription = dto.IssueDescription,
+                    
+                    CauseId = resolvedCauseId,
+                    Cause = dto.Cause,
+                    
+                    Resolution = dto.Resolution,
+                    PermanentFix = dto.PermanentFix,
+                    Notes = dto.Notes,
+                    DateReported = dto.DateReported,
+                    Status = dto.Status
+                };
 
                 await _db.IssueLogs.AddAsync(newIssueLog);
                 await _db.SaveChangesAsync();
@@ -97,7 +221,6 @@ namespace ItSupportServer.src.Modules.IssueLog
 
                 _logger.LogInformation("Successfully created issue log {IssLogId}", newIssueLog.IssLogId);
 
-                // Reload from DB to get interceptor-set fields
                 return await GetIssueLogByIdAsync(newIssueLog.IssLogId);
             }
             catch
@@ -124,77 +247,137 @@ namespace ItSupportServer.src.Modules.IssueLog
 
             bool hasChanges = false;
 
-            // Operator
+            // Update Operator
             if (dto.Operator != null && issueLog.Operator != dto.Operator)
             {
                 issueLog.Operator = dto.Operator;
                 hasChanges = true;
             }
 
-            // Requester
+            // Update Requester
             if (dto.Requester != null && issueLog.Requester != dto.Requester)
             {
                 issueLog.Requester = string.IsNullOrWhiteSpace(dto.Requester) ? null : dto.Requester;
                 hasChanges = true;
             }
 
-            // Department
-            if (dto.Department != null && issueLog.Department != dto.Department)
+            // Update Department (with validation)
+            if (dto.DepartmentId.HasValue && issueLog.DepartmentId != dto.DepartmentId.Value)
             {
-                issueLog.Department = dto.Department;
+                var deptExists = await _db.Departments
+                    .AnyAsync(d => d.DptId == dto.DepartmentId.Value && d.DeletedAt == null);
+                
+                if (!deptExists)
+                {
+                    throw new NotFoundException("Bộ phận", dto.DepartmentId.Value);
+                }
+                
+                issueLog.DepartmentId = dto.DepartmentId.Value;
                 hasChanges = true;
             }
 
-            // Area
-            if (dto.Area != null && issueLog.Area != dto.Area)
+            // Update Area (with validation)
+            if (dto.AreaId.HasValue && issueLog.AreaId != dto.AreaId.Value)
             {
-                issueLog.Area = dto.Area;
+                var areaExists = await _db.Areas
+                    .AnyAsync(a => a.AreaId == dto.AreaId.Value && a.DeletedAt == null);
+                
+                if (!areaExists)
+                {
+                    throw new NotFoundException("Khu vực", dto.AreaId.Value);
+                }
+                
+                issueLog.AreaId = dto.AreaId.Value;
                 hasChanges = true;
             }
 
-            // IssueDescription
+            // Update IssueId (with validation)
+            if (dto.IssueId.HasValue && issueLog.IssueId != dto.IssueId.Value)
+            {
+                var issueExists = await _db.Issues
+                    .AnyAsync(i => i.IssId == dto.IssueId.Value && i.DeletedAt == null);
+                
+                if (!issueExists)
+                {
+                    throw new NotFoundException("Issue", dto.IssueId.Value);
+                }
+                
+                issueLog.IssueId = dto.IssueId.Value;
+                hasChanges = true;
+            }
+
+            // Update IssueDescription
             if (dto.IssueDescription != null && issueLog.IssueDescription != dto.IssueDescription)
             {
                 issueLog.IssueDescription = dto.IssueDescription;
                 hasChanges = true;
             }
 
-            // Cause
+            // Update CauseId (with validation)
+            if (dto.CauseId.HasValue && issueLog.CauseId != dto.CauseId.Value)
+            {
+                var causeExists = await _db.Causes
+                    .AnyAsync(c => c.CauseId == dto.CauseId.Value && c.DeletedAt == null);
+                
+                if (!causeExists)
+                {
+                    throw new NotFoundException("Cause", dto.CauseId.Value);
+                }
+                
+                // Verify cause belongs to issue
+                var currentIssueId = dto.IssueId ?? issueLog.IssueId;
+                if (currentIssueId.HasValue)
+                {
+                    var causeMatchesIssue = await _db.Causes
+                        .AnyAsync(c => c.CauseId == dto.CauseId.Value && c.IssId == currentIssueId.Value);
+                    
+                    if (!causeMatchesIssue)
+                    {
+                        throw new BusinessRuleException(
+                            "Nguyên nhân đã chọn không thuộc về issue đã chọn");
+                    }
+                }
+                
+                issueLog.CauseId = dto.CauseId.Value;
+                hasChanges = true;
+            }
+
+            // Update Cause
             if (dto.Cause != null && issueLog.Cause != dto.Cause)
             {
                 issueLog.Cause = string.IsNullOrWhiteSpace(dto.Cause) ? null : dto.Cause;
                 hasChanges = true;
             }
 
-            // Resolution
+            // Update Resolution
             if (dto.Resolution != null && issueLog.Resolution != dto.Resolution)
             {
                 issueLog.Resolution = string.IsNullOrWhiteSpace(dto.Resolution) ? null : dto.Resolution;
                 hasChanges = true;
             }
 
-            // PermanentFix
+            // Update PermanentFix
             if (dto.PermanentFix != null && issueLog.PermanentFix != dto.PermanentFix)
             {
                 issueLog.PermanentFix = string.IsNullOrWhiteSpace(dto.PermanentFix) ? null : dto.PermanentFix;
                 hasChanges = true;
             }
 
-            // Notes
+            // Update Notes
             if (dto.Notes != null && issueLog.Notes != dto.Notes)
             {
                 issueLog.Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes;
                 hasChanges = true;
             }
 
-            // DateReported
+            // Update DateReported
             if (dto.DateReported.HasValue && issueLog.DateReported != dto.DateReported.Value)
             {
                 issueLog.DateReported = dto.DateReported.Value;
                 hasChanges = true;
             }
 
-            // Status
+            // Update Status
             if (dto.Status != null && issueLog.Status != dto.Status)
             {
                 issueLog.Status = string.IsNullOrWhiteSpace(dto.Status) ? null : dto.Status;
@@ -266,6 +449,90 @@ namespace ItSupportServer.src.Modules.IssueLog
                 await transaction.RollbackAsync();
                 throw;
             }
+        }
+
+        // ===== AUTO-MATCHING HELPER METHODS =====
+        // Pattern: ServiceNow auto-categorization
+
+        /// <summary>
+        /// Try to auto-match issue description to KB issue
+        /// Pattern: Exact match (case-insensitive) + accent normalization
+        /// </summary>
+        private async Task<long?> TryAutoMatchIssueAsync(string issueDescription)
+        {
+            // 1. Exact match (case-insensitive)
+            var exactMatch = await _db.Issues
+                .Where(i => i.DeletedAt == null)
+                .FirstOrDefaultAsync(i => i.Name.ToLower() == issueDescription.ToLower());
+
+            if (exactMatch != null)
+                return exactMatch.IssId;
+
+            // 2. Fuzzy match using PostgreSQL trigram
+            var normalizedSearch = NormalizeText(issueDescription);
+
+            var fuzzyMatch = await _db.Issues
+                .Where(i => i.DeletedAt == null)
+                .Where(i =>
+                    EF.Functions.ILike(i.Name, $"%{normalizedSearch}%")
+                    || EF.Functions.TrigramsSimilarity(i.Name, normalizedSearch) > 0.35
+                )
+                .OrderByDescending(i => EF.Functions.TrigramsSimilarity(i.Name, normalizedSearch))
+                .FirstOrDefaultAsync();
+
+            return fuzzyMatch?.IssId;
+        }
+
+        /// <summary>
+        /// Try to auto-match cause to KB cause
+        /// </summary>
+        private async Task<long?> TryAutoMatchCauseAsync(string causeText, long? issueId)
+        {
+            var query = _db.Causes.Where(c => c.DeletedAt == null);
+            
+            // If issue is known, only search causes for that issue
+            if (issueId.HasValue)
+            {
+                query = query.Where(c => c.IssId == issueId.Value);
+            }
+            
+            // Exact match
+            var exactMatch = await query
+                .FirstOrDefaultAsync(c => c.Name.ToLower() == causeText.ToLower());
+            
+            if (exactMatch != null)
+            {
+                return exactMatch.CauseId;
+            }
+            
+            // Fuzzy match
+            var normalizedSearch = NormalizeText(causeText);
+            
+            var fuzzyMatch = await query
+                .AsEnumerable()
+                .FirstOrDefault(c => NormalizeText(c.Name) == normalizedSearch);
+            
+            return fuzzyMatch?.CauseId;
+        }
+
+        /// <summary>
+        /// Normalize text for fuzzy matching (remove accents, trim, lowercase)
+        /// Pattern: Unicode normalization (W3C standard)
+        /// </summary>
+        private static string NormalizeText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+            
+            // Remove Vietnamese accents
+            var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
+            var result = new string(normalized
+                .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != 
+                    System.Globalization.CharUnicodeInfo.UnicodeCategory.NonSpacingMark)
+                .ToArray());
+            
+            return result.Normalize(System.Text.NormalizationForm.FormC)
+                .Trim()
+                .ToLower();
         }
     }
 }

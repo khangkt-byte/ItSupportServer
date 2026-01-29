@@ -9,7 +9,6 @@ namespace ItSupportServer.Data.Models
     {
         [Key]
         [Column("area_id")]
-        [Required]
         public int AreaId { get; set; }
         public override int Id => AreaId;
 

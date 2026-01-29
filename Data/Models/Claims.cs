@@ -11,7 +11,6 @@ namespace ItSupportServer.Data.Models
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [Column("claim_id")]
-        [Required]
         public int ClaimId { get; set; }
 
         [Column("claim")]

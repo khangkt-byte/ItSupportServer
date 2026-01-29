@@ -8,6 +8,7 @@ using ItSupportServer.src.Modules.Role;
 using ItSupportServer.src.Modules.Account;
 using Microsoft.AspNetCore.Authorization;
 using FluentValidation;
+using ItSupportServer.src.Modules.Cause;
 
 namespace ItSupportServer
 {
@@ -24,6 +25,8 @@ namespace ItSupportServer
             services.AddScoped<IEmployeeService, EmployeeService>();
             services.AddScoped<IIssueService, IssueService>();
             services.AddScoped<IIssueLogService, IssueLogService>();
+            services.AddScoped<IIssueLogImportService, IssueLogImportService>();
+            services.AddScoped<ICauseService, CauseService>();
 
             // ✅ Register FluentValidation Validators (auto-discovery)
             services.AddValidatorsFromAssemblyContaining<CreateAreaDtoValidator>();
@@ -39,6 +42,8 @@ namespace ItSupportServer
             services.AddSingleton<AreaMapper>();
             services.AddSingleton<IssueMapper>();
             services.AddSingleton<IssueLogMapper>();
+            services.AddSingleton<IssueLogImportMapper>();
+            services.AddSingleton<CauseMapper>();
 
             // ✅ Register Authorization Handler & Policy Provider (Singleton)
             services.AddSingleton<IAuthorizationHandler, PermissionHandler>();

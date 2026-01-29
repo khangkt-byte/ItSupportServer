@@ -9,8 +9,7 @@ namespace ItSupportServer.Data.Models
     {
         [Key]
         [Column("dpt_id")]
-        [Required]
-        required public int DptId { get; set; }
+        public int DptId { get; set; }
         public override int Id => DptId;
 
         [Column("name")]

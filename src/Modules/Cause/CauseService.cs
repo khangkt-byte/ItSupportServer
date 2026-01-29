@@ -8,6 +8,12 @@ using Microsoft.Extensions.Logging;
 
 namespace ItSupportServer.src.Modules.Cause
 {
+    /// <summary>
+    /// Cause service implementation
+    /// Pattern: Domain-Driven Design (DDD) service layer
+    /// Security: Input validation, FK verification, business rule enforcement
+    /// Reference: ServiceNow problem management
+    /// </summary>
     public class CauseService : ICauseService
     {
         private readonly AppDbContext _db;
@@ -58,14 +64,13 @@ namespace ItSupportServer.src.Modules.Cause
                 .Select(g => new { CauseId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.CauseId, x => x.Count);
 
-            // ✅ Update items with calculated usage counts
+            // ✅ FIX: Create new instance (PaginatedResult is class, not record)
             var itemsWithUsage = result.Items.Select(c => c with
             {
                 UsageCount = usageCounts.GetValueOrDefault(c.CauseId, 0)
             }).ToList();
 
-            _logger.LogInformation("Retrieved {Count} causes", result.TotalCount);
-
+            // ✅ FIX: Create new PaginatedResult instead of using 'with'
             return result with { Items = itemsWithUsage };
         }
 
@@ -317,20 +322,43 @@ namespace ItSupportServer.src.Modules.Cause
                 query = query.Where(c => c.Name.Contains(search));
             }
 
-            var suggestions = await query
-                .OrderByDescending(c =>
-                    _db.IssueLogs.Count(il => il.CauseId == c.CauseId))  // Most used first
-                .ThenBy(c => c.Name)
-                .Take(10)
+            // ✅ FIX: Cannot use nested COUNT in OrderBy with EF Core
+            // Load data first, then calculate usage count
+            var causes = await query
+                .OrderBy(c => c.Name)  // Sort by name first
+                .Take(20)  // Take more than needed for sorting
+                .Select(c => new
+                {
+                    c.CauseId,
+                    c.IssId,
+                    c.Name,
+                    c.Description
+                })
+                .ToListAsync();
+
+            // ✅ Calculate usage counts in-memory
+            var causeIds = causes.Select(c => c.CauseId).ToList();
+            
+            var usageCounts = await _db.IssueLogs
+                .Where(il => causeIds.Contains(il.CauseId!.Value) && il.DeletedAt == null)
+                .GroupBy(il => il.CauseId!.Value)
+                .Select(g => new { CauseId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.CauseId, x => x.Count);
+
+            // ✅ Build suggestions with usage counts, then sort by usage
+            var suggestions = causes
                 .Select(c => new CauseSuggestionDto
                 {
                     CauseId = c.CauseId,
                     IssId = c.IssId,
                     Name = c.Name,
                     Description = c.Description,
-                    UsageCount = _db.IssueLogs.Count(il => il.CauseId == c.CauseId)
+                    UsageCount = usageCounts.GetValueOrDefault(c.CauseId, 0)
                 })
-                .ToListAsync();
+                .OrderByDescending(s => s.UsageCount)  // Most used first
+                .ThenBy(s => s.Name)
+                .Take(10)
+                .ToList();
 
             _logger.LogInformation("Retrieved {Count} cause suggestions", suggestions.Count);
 

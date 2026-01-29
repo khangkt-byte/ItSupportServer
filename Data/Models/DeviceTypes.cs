@@ -9,7 +9,6 @@ namespace ItSupportServer.Data.Models
     {
         [Key]
         [Column("device_type_id")]
-        [Required]
         public int DeviceTypeId { get; set; }
         public override int Id => DeviceTypeId;
 
