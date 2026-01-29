@@ -7,11 +7,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         /// <summary>
         /// Get paginated list of issue logs
         /// </summary>
-        Task<PaginatedResult<List<IssueLogDto>>> GetIssueLogsAsync(
-            string? query, 
-            int page, 
-            int pageSize, 
-            SortOBJ? sort);
+        Task<PaginatedResult<IssueLogDto>> GetIssueLogsAsync(QueryParameters parameters);
 
         /// <summary>
         /// Get issue log by ID

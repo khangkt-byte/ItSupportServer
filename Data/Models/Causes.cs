@@ -9,19 +9,24 @@ namespace ItSupportServer.Data.Models
     {
         [Key]
         [Column("cause_id")]
-        [Required]
-        required public long CauseId { get; set; }
+        public long CauseId { get; set; }
+        
         public override long Id => CauseId;
-
-        [Column("name")]
-        [Required]
-        required public string Name { get; set; }
 
         [Column("iss_id")]
         [Required]
-        required public long IssId { get; set; }
+        public long IssId { get; set; }
 
         [ForeignKey(nameof(IssId))]
-        required public Issues Issues { get; set; }
+        public Issues Issues { get; set; } = null!;
+
+        [Column("name")]
+        [Required]
+        [MaxLength(255)]
+        public required string Name { get; set; }
+
+        [Column("description")]
+        [MaxLength(1000)]
+        public string? Description { get; set; }
     }
 }

@@ -16,14 +16,14 @@ namespace ItSupportServer
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
             // ✅ Register Services (Scoped - per request)
+            services.AddScoped<IAccountService, AccountService>();
             services.AddScoped<IAuthenticationService, AuthenticationService>();
-            services.AddScoped<AuthorizationService>();  // ✅ Added for PermissionHandler
+            services.AddScoped<AuthorizationService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IAreaService, AreaService>();
             services.AddScoped<IEmployeeService, EmployeeService>();
             services.AddScoped<IIssueService, IssueService>();
             services.AddScoped<IIssueLogService, IssueLogService>();
-            services.AddScoped<IAccountService, AccountService>();  // ✅ If you have this
 
             // ✅ Register FluentValidation Validators (auto-discovery)
             services.AddValidatorsFromAssemblyContaining<CreateAreaDtoValidator>();
@@ -38,7 +38,7 @@ namespace ItSupportServer
             services.AddSingleton<EmployeeMapper>();
             services.AddSingleton<AreaMapper>();
             services.AddSingleton<IssueMapper>();
-            services.AddSingleton<IssueLogMapper>();  // ✅ Fixed name
+            services.AddSingleton<IssueLogMapper>();
 
             // ✅ Register Authorization Handler & Policy Provider (Singleton)
             services.AddSingleton<IAuthorizationHandler, PermissionHandler>();

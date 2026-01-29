@@ -9,17 +9,30 @@ namespace ItSupportServer.Data.Models
     {
         [Key]
         [Column("iss_id")]
-        [Required]
         public long IssId { get; set; }
+        
         public override long Id => IssId;
 
         [Column("name")]
         [Required]
-        required public string Name { get; set; }
+        [MaxLength(255)]
+        public required string Name { get; set; }
 
         [Column("description")]
+        [MaxLength(1000)]
         public string? Description { get; set; }
 
-        public ICollection<Causes> Causes { get; set; } = new List<Causes>();
+        [Column("category")]
+        [MaxLength(100)]
+        public string? Category { get; set; }
+
+        /// <summary>
+        /// Severity level: 1 (Low) to 5 (Critical)
+        /// </summary>
+        [Column("severity")]
+        public int? Severity { get; set; }
+
+        // Navigation properties
+        public ICollection<Causes> Causes { get; set; } = [];
     }
 }
