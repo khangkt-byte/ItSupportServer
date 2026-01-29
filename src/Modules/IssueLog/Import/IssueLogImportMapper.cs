@@ -1,4 +1,4 @@
-using ItSupportServer.Data.Models;
+using ItSupportServer.Data.Models.Entities;
 
 namespace ItSupportServer.src.Modules.IssueLog
 {

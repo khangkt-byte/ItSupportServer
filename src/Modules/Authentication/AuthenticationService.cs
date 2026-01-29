@@ -10,6 +10,7 @@ using FluentValidation;
 using Microsoft.Extensions.Caching.Memory;
 using ItSupportServer.src.Shared.Extensions;
 using ItSupportServer.src.Modules.Account;
+using ItSupportServer.Data.Models.Entities;
 
 namespace ItSupportServer.src.Modules.Authentication
 {

@@ -2,19 +2,19 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ItSupportServer.Data.Models
+namespace ItSupportServer.Data.Models.Entities
 {
-    [Table("departments")]
-    public class Departments : BaseEntity<int>
+    [Table("areas")]
+    public class Areas : BaseEntity<int>
     {
         [Key]
-        [Column("dpt_id")]
-        public int DptId { get; set; }
-        public override int Id => DptId;
+        [Column("area_id")]
+        public int AreaId { get; set; }
+        public override int Id => AreaId;
 
         [Column("name")]
-        [Required, MaxLength(100)]
-        required public string Name { get; set; }
+        [Required, MaxLength(255)]
+        public string Name { get; set; }
 
         [Column("description")]
         public string? Description { get; set; }

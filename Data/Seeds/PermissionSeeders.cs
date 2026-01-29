@@ -1,4 +1,4 @@
-﻿using ItSupportServer.Data.Models;
+﻿using ItSupportServer.Data.Models.Entities;
 using ItSupportServer.src.Modules.Authorization;
 using Microsoft.EntityFrameworkCore;
 
