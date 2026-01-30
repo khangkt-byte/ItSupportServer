@@ -9,19 +9,16 @@ namespace ItSupportServer.src.Shared.Base
         /// <summary>
         /// Timestamp when entity was created (set automatically by AuditInterceptor)
         /// </summary>
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; }  // ✅ No default value, no [Required]
+        public DateTime CreatedAt { get; set; }
 
         /// <summary>
         /// Timestamp when entity was last updated (set automatically by AuditInterceptor)
         /// </summary>
-        [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }
 
         /// <summary>
         /// Timestamp when entity was soft deleted (set automatically on soft delete)
         /// </summary>
-        [Column("deleted_at")]
         public DateTime? DeletedAt { get; set; }
     }
 }

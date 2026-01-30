@@ -34,5 +34,6 @@ namespace ItSupportServer.Data.Models.Entities
 
         // Navigation properties
         public ICollection<Causes> Causes { get; set; } = [];
+        public ICollection<IssueLogs> IssueLogs { get; set; } = [];
     }
 }

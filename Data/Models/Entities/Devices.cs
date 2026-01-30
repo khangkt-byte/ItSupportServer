@@ -1,38 +1,21 @@
 ﻿using ItSupportServer.src.Shared.Base;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ItSupportServer.Data.Models.Entities
 {
-    [Table("devices")]
     public class Devices : BaseEntity<long>
     {
-        [Key]
-        [Column("device_id")]
         public long DeviceId { get; set; }
         public override long Id => DeviceId;
 
-        [Column("device_type_id")]
-        [Required]
         required public int DeviceTypeId { get; set; }
-
-        [ForeignKey(nameof(DeviceTypeId))]
         public DeviceTypes DeviceType { get; set; }
 
-        [Column("name")]
-        [Required, MaxLength(255)]
         required public string Name { get; set; }
 
-        [Column("brand")]
-        [MaxLength(64)]
         public string? Brand { get; set; }
 
-        [Column("model")]
-        [Required, MaxLength(128)]
         required public string Model { get; set; }
 
-        [Column("serial_number")]
-        [MaxLength(64)]
         public string? SerialNumber { get; set; }
 
         //[Column("manufacturer")]
@@ -61,7 +44,6 @@ namespace ItSupportServer.Data.Models.Entities
         //[Required]
         //public string Status { get; set; }
 
-        [Column("notes")]
         public string? Notes { get; set; }
     }
 }
