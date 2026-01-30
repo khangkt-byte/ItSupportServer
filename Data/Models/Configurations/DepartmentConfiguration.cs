@@ -17,6 +17,15 @@ namespace ItSupportServer.Data.Models.Configurations
                    .HasColumnName("dpt_id")
                    .ValueGeneratedOnAdd();
 
+            // Ignore the inherited Id property
+            builder.Ignore(d => d.Id);
+
+            // Indexses
+            builder.HasIndex(d => d.Name)
+                   .HasMethod("gin")
+                   .HasOperators("gin_trgm_ops")
+                   .HasFilter("\"DeletedAt\" IS NULL");
+
             // Properties
             builder.Property(d => d.Name)
                    .IsRequired()

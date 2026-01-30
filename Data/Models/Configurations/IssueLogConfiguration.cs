@@ -19,6 +19,12 @@ namespace ItSupportServer.Data.Models.Configurations
             // Ignore the inherited Id property
             builder.Ignore(il => il.Id);
 
+            // Indexes
+            builder.HasIndex(il => il.DepartmentId);
+            builder.Property(il => il.AreaId);
+            builder.Property(il => il.IssueId);
+            builder.HasIndex(il => il.CauseId);
+
             // Properties
             builder.Property(il => il.Operator)
                    .IsRequired()

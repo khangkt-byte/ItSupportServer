@@ -21,6 +21,10 @@ namespace ItSupportServer.Data.Models.Configurations
 
             // 3. Cấu hình Index và Unique (Duy nhất)
             builder.HasIndex(e => e.EmpCode).IsUnique();
+            builder.HasIndex(e => e.FullName)
+                   .HasMethod("gin")
+                   .HasOperators("gin_trgm_ops")
+                   .HasFilter("\"DeletedAt\" IS NULL");
             builder.HasIndex(e => e.Email).IsUnique();
             builder.HasIndex(e => e.PhoneNumber).IsUnique();
 

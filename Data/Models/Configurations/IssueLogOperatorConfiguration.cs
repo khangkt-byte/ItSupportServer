@@ -19,7 +19,6 @@ namespace ItSupportServer.Data.Models.Configurations
                    .HasColumnName("emp_id");
 
             // Indexes
-            builder.HasIndex(ilo => ilo.IssLogId);
             builder.HasIndex(ilo => ilo.EmpId);
 
             // Properties

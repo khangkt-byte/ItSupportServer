@@ -17,6 +17,11 @@ namespace ItSupportServer.Data.Models.Configurations
                    .HasColumnName("iss_log_req_id")
                    .ValueGeneratedOnAdd();
 
+            // Indexes
+            builder.HasIndex(ilr => ilr.IssLogId);
+            builder.HasIndex(ilr => ilr.EmpId);
+            builder.HasIndex(ilr => ilr.RequesterName);
+
             // Properties
             builder.Property(ilr => ilr.IssLogId)
                    .IsRequired()

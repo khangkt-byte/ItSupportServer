@@ -20,6 +20,12 @@ namespace ItSupportServer.Data.Models.Configurations
             // Ignore the inherited Id property
             builder.Ignore(d => d.Id);
 
+            // Indexes
+            builder.HasIndex(d => d.Name)
+                   .HasMethod("gin")
+                   .HasOperators("gin_trgm_ops")
+                   .HasFilter("\"DeletedAt\" IS NULL");
+
             // Properties
             builder.Property(d => d.DeviceTypeId)
                    .IsRequired()

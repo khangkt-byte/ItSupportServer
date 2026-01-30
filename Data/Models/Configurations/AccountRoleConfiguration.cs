@@ -19,7 +19,6 @@ namespace ItSupportServer.Data.Models.Configurations
                    .HasColumnName("role_id");
 
             // Indexes
-            builder.HasIndex(ar => ar.AccountId);
             builder.HasIndex(ar => ar.RoleId);
 
             // Relationships

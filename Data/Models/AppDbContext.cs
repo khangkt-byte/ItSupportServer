@@ -29,6 +29,7 @@ namespace ItSupportServer.Data.Models
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.HasPostgresExtension("pg_trgm");
 
             // Lấy tất cả các Entity Type đang thực thi IAuditableEntity
             var auditableTypes = modelBuilder.Model.GetEntityTypes()
