@@ -101,7 +101,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             // Step 2: Validate Department exists
             var deptExists = await _db.Departments
                 .AnyAsync(d => d.DptId == dto.DepartmentId && d.DeletedAt == null);
-            
+
             if (!deptExists)
             {
                 throw new NotFoundException("Bộ phận", dto.DepartmentId);
@@ -110,21 +110,21 @@ namespace ItSupportServer.src.Modules.IssueLog
             // Step 3: Validate Area exists
             var areaExists = await _db.Areas
                 .AnyAsync(a => a.AreaId == dto.AreaId && a.DeletedAt == null);
-            
+
             if (!areaExists)
             {
                 throw new NotFoundException("Khu vực", dto.AreaId);
             }
 
             // ===== SMART AUTO-MATCHING (ServiceNow pattern) =====
-            
+
             long? resolvedIssueId = dto.IssueId;
-            
+
             // If IssueId not provided, try to auto-match by text
             if (!resolvedIssueId.HasValue && !string.IsNullOrWhiteSpace(dto.IssueDescription))
             {
                 resolvedIssueId = await TryAutoMatchIssueAsync(dto.IssueDescription);
-                
+
                 if (resolvedIssueId.HasValue)
                 {
                     _logger.LogInformation(
@@ -132,14 +132,14 @@ namespace ItSupportServer.src.Modules.IssueLog
                         dto.IssueDescription, resolvedIssueId.Value);
                 }
             }
-            
+
             long? resolvedCauseId = dto.CauseId;
-            
+
             // Auto-match cause if text matches KB
             if (!resolvedCauseId.HasValue && !string.IsNullOrWhiteSpace(dto.Cause))
             {
                 resolvedCauseId = await TryAutoMatchCauseAsync(dto.Cause, resolvedIssueId);
-                
+
                 if (resolvedCauseId.HasValue)
                 {
                     _logger.LogInformation(
@@ -153,7 +153,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             {
                 var issueExists = await _db.Issues
                     .AnyAsync(i => i.IssId == resolvedIssueId.Value && i.DeletedAt == null);
-                
+
                 if (!issueExists)
                 {
                     _logger.LogWarning("Auto-matched IssueId {IssueId} not found, clearing", resolvedIssueId.Value);
@@ -166,19 +166,19 @@ namespace ItSupportServer.src.Modules.IssueLog
             {
                 var causeExists = await _db.Causes
                     .AnyAsync(c => c.CauseId == resolvedCauseId.Value && c.DeletedAt == null);
-                
+
                 if (!causeExists)
                 {
                     _logger.LogWarning("Auto-matched CauseId {CauseId} not found, clearing", resolvedCauseId.Value);
                     resolvedCauseId = null;
                 }
-                
+
                 // Verify cause belongs to issue
                 if (resolvedIssueId.HasValue && resolvedCauseId.HasValue)
                 {
                     var causeMatchesIssue = await _db.Causes
                         .AnyAsync(c => c.CauseId == resolvedCauseId.Value && c.IssId == resolvedIssueId.Value);
-                    
+
                     if (!causeMatchesIssue)
                     {
                         _logger.LogWarning(
@@ -200,14 +200,14 @@ namespace ItSupportServer.src.Modules.IssueLog
                     Requester = dto.Requester,
                     DepartmentId = dto.DepartmentId,
                     AreaId = dto.AreaId,
-                    
+
                     // Set resolved IDs (may be auto-matched)
                     IssueId = resolvedIssueId,
                     IssueDescription = dto.IssueDescription,
-                    
+
                     CauseId = resolvedCauseId,
                     Cause = dto.Cause,
-                    
+
                     Resolution = dto.Resolution,
                     PermanentFix = dto.PermanentFix,
                     Notes = dto.Notes,
@@ -266,12 +266,12 @@ namespace ItSupportServer.src.Modules.IssueLog
             {
                 var deptExists = await _db.Departments
                     .AnyAsync(d => d.DptId == dto.DepartmentId.Value && d.DeletedAt == null);
-                
+
                 if (!deptExists)
                 {
                     throw new NotFoundException("Bộ phận", dto.DepartmentId.Value);
                 }
-                
+
                 issueLog.DepartmentId = dto.DepartmentId.Value;
                 hasChanges = true;
             }
@@ -281,12 +281,12 @@ namespace ItSupportServer.src.Modules.IssueLog
             {
                 var areaExists = await _db.Areas
                     .AnyAsync(a => a.AreaId == dto.AreaId.Value && a.DeletedAt == null);
-                
+
                 if (!areaExists)
                 {
                     throw new NotFoundException("Khu vực", dto.AreaId.Value);
                 }
-                
+
                 issueLog.AreaId = dto.AreaId.Value;
                 hasChanges = true;
             }
@@ -296,12 +296,12 @@ namespace ItSupportServer.src.Modules.IssueLog
             {
                 var issueExists = await _db.Issues
                     .AnyAsync(i => i.IssId == dto.IssueId.Value && i.DeletedAt == null);
-                
+
                 if (!issueExists)
                 {
                     throw new NotFoundException("Issue", dto.IssueId.Value);
                 }
-                
+
                 issueLog.IssueId = dto.IssueId.Value;
                 hasChanges = true;
             }
@@ -318,26 +318,26 @@ namespace ItSupportServer.src.Modules.IssueLog
             {
                 var causeExists = await _db.Causes
                     .AnyAsync(c => c.CauseId == dto.CauseId.Value && c.DeletedAt == null);
-                
+
                 if (!causeExists)
                 {
                     throw new NotFoundException("Cause", dto.CauseId.Value);
                 }
-                
+
                 // Verify cause belongs to issue
                 var currentIssueId = dto.IssueId ?? issueLog.IssueId;
                 if (currentIssueId.HasValue)
                 {
                     var causeMatchesIssue = await _db.Causes
                         .AnyAsync(c => c.CauseId == dto.CauseId.Value && c.IssId == currentIssueId.Value);
-                    
+
                     if (!causeMatchesIssue)
                     {
                         throw new BusinessRuleException(
                             "Nguyên nhân đã chọn không thuộc về issue đã chọn");
                     }
                 }
-                
+
                 issueLog.CauseId = dto.CauseId.Value;
                 hasChanges = true;
             }
@@ -489,29 +489,33 @@ namespace ItSupportServer.src.Modules.IssueLog
         private async Task<long?> TryAutoMatchCauseAsync(string causeText, long? issueId)
         {
             var query = _db.Causes.Where(c => c.DeletedAt == null);
-            
+
             // If issue is known, only search causes for that issue
             if (issueId.HasValue)
             {
                 query = query.Where(c => c.IssId == issueId.Value);
             }
-            
+
             // Exact match
             var exactMatch = await query
                 .FirstOrDefaultAsync(c => c.Name.ToLower() == causeText.ToLower());
-            
+
             if (exactMatch != null)
             {
                 return exactMatch.CauseId;
             }
-            
+
             // Fuzzy match
             var normalizedSearch = NormalizeText(causeText);
-            
+
             var fuzzyMatch = await query
-                .AsEnumerable()
-                .FirstOrDefault(c => NormalizeText(c.Name) == normalizedSearch);
-            
+                .Where(i =>
+                    EF.Functions.ILike(i.Name, $"%{normalizedSearch}%")
+                    || EF.Functions.TrigramsSimilarity(i.Name, normalizedSearch) > 0.35
+                )
+                .OrderByDescending(i => EF.Functions.TrigramsSimilarity(i.Name, normalizedSearch))
+                .FirstOrDefaultAsync();
+
             return fuzzyMatch?.CauseId;
         }
 
@@ -522,14 +526,14 @@ namespace ItSupportServer.src.Modules.IssueLog
         private static string NormalizeText(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return string.Empty;
-            
+
             // Remove Vietnamese accents
             var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
             var result = new string(normalized
-                .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != 
-                    System.Globalization.CharUnicodeInfo.UnicodeCategory.NonSpacingMark)
+                .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) !=
+                    System.Globalization.UnicodeCategory.NonSpacingMark)
                 .ToArray());
-            
+
             return result.Normalize(System.Text.NormalizationForm.FormC)
                 .Trim()
                 .ToLower();

@@ -28,6 +28,17 @@ namespace ItSupportServer
             services.AddScoped<IIssueLogImportService, IssueLogImportService>();
             services.AddScoped<ICauseService, CauseService>();
 
+            // ===== AUTHORIZATION CONFIGURATION =====
+
+            // Add Authorization services
+            services.AddAuthorization();
+
+            // Register custom policy provider for dynamic permission policies
+            services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+
+            // Register permission handler
+            services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+
             // ✅ Register FluentValidation Validators (auto-discovery)
             services.AddValidatorsFromAssemblyContaining<CreateAreaDtoValidator>();
             // This automatically registers all validators in the assembly:

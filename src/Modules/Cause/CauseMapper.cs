@@ -11,6 +11,7 @@ namespace ItSupportServer.src.Modules.Cause
         [MapperIgnoreSource(nameof(Causes.Id))]
         [MapperIgnoreSource(nameof(Causes.DeletedAt))]
         [MapperIgnoreSource(nameof(Causes.Issues))]
+        [MapperIgnoreSource(nameof(Causes.IssueLogs))]
         [MapperIgnoreTarget(nameof(CauseDto.UsageCount))]
         [MapperIgnoreTarget(nameof(CauseDto.IssueName))]
         public partial CauseDto MapToCauseDto(Causes cause);
@@ -23,6 +24,7 @@ namespace ItSupportServer.src.Modules.Cause
         [MapperIgnoreTarget(nameof(Causes.UpdatedAt))]
         [MapperIgnoreTarget(nameof(Causes.DeletedAt))]
         [MapperIgnoreTarget(nameof(Causes.Issues))]
+        [MapperIgnoreTarget(nameof(Causes.IssueLogs))]
         public partial Causes MapToCause(CreateCauseDto dto);
 
         // ===== DTO → Entity (Update) =====
@@ -34,6 +36,7 @@ namespace ItSupportServer.src.Modules.Cause
         [MapperIgnoreTarget(nameof(Causes.UpdatedAt))]  // Interceptor
         [MapperIgnoreTarget(nameof(Causes.DeletedAt))]
         [MapperIgnoreTarget(nameof(Causes.Issues))]
+        [MapperIgnoreTarget(nameof(Causes.IssueLogs))]
         public partial void MapToCause(UpdateCauseDto dto, Causes cause);
 
         // ===== Projections =====

@@ -1,32 +1,117 @@
 using ItSupportServer.Data.Models.Entities;
+using Riok.Mapperly.Abstractions;
 
 namespace ItSupportServer.src.Modules.IssueLog
 {
     /// <summary>
-    /// Import-specific mapper
-    /// Pattern: Separate mapper for different use cases
-    /// Purpose: Projection for duplicate detection, export
+    /// Import-specific mapper using Mapperly
+    /// Pattern: Source generator-based mapping (zero reflection)
+    /// Performance: Compile-time code generation
     /// </summary>
-    public class IssueLogImportMapper
+    [Mapper]
+    public partial class IssueLogImportMapper
     {
+        // ===== QUERY PROJECTION =====
+        
         /// <summary>
         /// Project to recent issue log DTO (for duplicate detection)
         /// Performance: Only select needed fields
+        /// Mapperly: Supports IQueryable projection
         /// </summary>
-        public IQueryable<RecentIssueLogDto> ProjectToRecentIssueLogDto(IQueryable<IssueLogs> query)
-        {
-            return query.Select(il => new RecentIssueLogDto
-            {
-                IssLogId = il.IssLogId,
-                Operator = il.Operator,
-                DepartmentId = il.DepartmentId,
-                IssueDescription = il.IssueDescription,
-                DateReported = il.DateReported
-            });
-        }
-
+        [MapperIgnoreSource(nameof(IssueLogs.IssLogId))]
+        [MapperIgnoreSource(nameof(IssueLogs.CreatedAt))]
+        [MapperIgnoreSource(nameof(IssueLogs.UpdatedAt))]
+        [MapperIgnoreSource(nameof(IssueLogs.DeletedAt))]
+        public partial IQueryable<RecentIssueLogDto> ProjectToRecentIssueLogDto(IQueryable<IssueLogs> query);
+        
+        // ===== ENTITY CREATION =====
+        
         /// <summary>
-        /// Map Excel row to IssueLogs entity
+        /// Map Excel row DTO to IssueLogs entity
+        /// Mapperly: Auto-generates mapping code
+        /// </summary>
+        [MapProperty(nameof(ExcelRowDto.Operator), nameof(IssueLogs.Operator))]
+        [MapProperty(nameof(ExcelRowDto.Requester), nameof(IssueLogs.Requester))]
+        [MapProperty(nameof(ExcelRowDto.DepartmentId), nameof(IssueLogs.DepartmentId))]
+        [MapProperty(nameof(ExcelRowDto.AreaId), nameof(IssueLogs.AreaId))]
+        [MapProperty(nameof(ExcelRowDto.IssueDescription), nameof(IssueLogs.IssueDescription))]
+        [MapProperty(nameof(ExcelRowDto.Cause), nameof(IssueLogs.Cause))]
+        [MapProperty(nameof(ExcelRowDto.Resolution), nameof(IssueLogs.Resolution))]
+        [MapProperty(nameof(ExcelRowDto.PermanentFix), nameof(IssueLogs.PermanentFix))]
+        [MapProperty(nameof(ExcelRowDto.DateReported), nameof(IssueLogs.DateReported))]
+        [MapProperty(nameof(ExcelRowDto.Status), nameof(IssueLogs.Status))]
+        public partial IssueLogs MapToEntity(ExcelRowDto dto);
+        
+        /// <summary>
+        /// Post-mapping configuration for new entity
+        /// </summary>
+        //private partial void MapToEntityAfterMapping(ExcelRowDto dto, IssueLogs entity)
+        //{
+        //    // Generate new ID
+        //    entity.IssLogId = Guid.CreateVersion7();
+            
+        //    // Normalize nullable strings
+        //    entity.Requester = NormalizeNullableString(dto.Requester);
+        //    entity.Cause = NormalizeNullableString(dto.Cause);
+        //    entity.Resolution = NormalizeNullableString(dto.Resolution);
+        //    entity.PermanentFix = NormalizeNullableString(dto.PermanentFix);
+        //    entity.Status = NormalizeNullableString(dto.Status);
+        //}
+        
+        // ===== ENTITY UPDATE =====
+        
+        /// <summary>
+        /// Update entity from Excel update DTO (for duplicate updates)
+        /// Mapperly: Conditional mapping with custom logic
+        /// </summary>
+        public void UpdateEntityFromExcelRow(
+            IssueLogs existingLog,
+            ExcelUpdateDto updateDto)
+        {
+            // Only update if new value is provided and different
+            if (ShouldUpdate(updateDto.Cause, existingLog.Cause))
+            {
+                existingLog.Cause = updateDto.Cause;
+            }
+
+            if (ShouldUpdate(updateDto.Resolution, existingLog.Resolution))
+            {
+                existingLog.Resolution = updateDto.Resolution;
+            }
+
+            if (ShouldUpdate(updateDto.PermanentFix, existingLog.PermanentFix))
+            {
+                existingLog.PermanentFix = updateDto.PermanentFix;
+            }
+
+            if (ShouldUpdate(updateDto.Status, existingLog.Status))
+            {
+                existingLog.Status = updateDto.Status;
+            }
+        }
+        
+        // ===== HELPER METHODS =====
+        
+        /// <summary>
+        /// Normalize nullable string (convert whitespace to null)
+        /// </summary>
+        private static string? NormalizeNullableString(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+        
+        /// <summary>
+        /// Check if field should be updated
+        /// </summary>
+        private static bool ShouldUpdate(string? newValue, string? currentValue)
+        {
+            return !string.IsNullOrWhiteSpace(newValue) && newValue != currentValue;
+        }
+        
+        // ===== CONVENIENCE METHODS (backward compatibility) =====
+        
+        /// <summary>
+        /// Map Excel row parameters to entity (convenience wrapper)
         /// </summary>
         public IssueLogs MapExcelRowToEntity(
             string operatorText,
@@ -40,24 +125,25 @@ namespace ItSupportServer.src.Modules.IssueLog
             DateTime dateReported,
             string? status)
         {
-            return new IssueLogs
+            var dto = new ExcelRowDto
             {
-                IssLogId = Guid.CreateVersion7(),
                 Operator = operatorText,
-                Requester = string.IsNullOrWhiteSpace(requesterText) ? null : requesterText,
+                Requester = requesterText,
                 DepartmentId = departmentId,
                 AreaId = areaId,
                 IssueDescription = issueDescription,
-                Cause = string.IsNullOrWhiteSpace(cause) ? null : cause,
-                Resolution = string.IsNullOrWhiteSpace(resolution) ? null : resolution,
-                PermanentFix = string.IsNullOrWhiteSpace(permanentFix) ? null : permanentFix,
+                Cause = cause,
+                Resolution = resolution,
+                PermanentFix = permanentFix,
                 DateReported = dateReported,
-                Status = string.IsNullOrWhiteSpace(status) ? null : status
+                Status = status
             };
+            
+            return MapToEntity(dto);
         }
-
+        
         /// <summary>
-        /// Update entity from Excel row (for duplicate updates)
+        /// Update entity from Excel row parameters (convenience wrapper)
         /// </summary>
         public void UpdateEntityFromExcelRow(
             IssueLogs existingLog,
@@ -66,25 +152,15 @@ namespace ItSupportServer.src.Modules.IssueLog
             string? permanentFix,
             string? status)
         {
-            if (!string.IsNullOrWhiteSpace(cause) && existingLog.Cause != cause)
+            var updateDto = new ExcelUpdateDto
             {
-                existingLog.Cause = cause;
-            }
-
-            if (!string.IsNullOrWhiteSpace(resolution) && existingLog.Resolution != resolution)
-            {
-                existingLog.Resolution = resolution;
-            }
-
-            if (!string.IsNullOrWhiteSpace(permanentFix) && existingLog.PermanentFix != permanentFix)
-            {
-                existingLog.PermanentFix = permanentFix;
-            }
-
-            if (!string.IsNullOrWhiteSpace(status) && existingLog.Status != status)
-            {
-                existingLog.Status = status;
-            }
+                Cause = cause,
+                Resolution = resolution,
+                PermanentFix = permanentFix,
+                Status = status
+            };
+            
+            UpdateEntityFromExcelRow(existingLog, updateDto);
         }
     }
 }
