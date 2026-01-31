@@ -22,6 +22,7 @@ namespace ItSupportServer.src.Modules.Authentication
         private readonly ILogger<AuthenticationService> _logger;
         private readonly IValidator<LoginDto> _loginValidator;
         private readonly IValidator<OtpDto> _otpValidator;
+        private readonly IValidator<ResetPasswordDto> _resetPasswordValidator;
         private readonly IAccountService _accountService;
 
         public AuthenticationService(
@@ -31,6 +32,7 @@ namespace ItSupportServer.src.Modules.Authentication
             ILogger<AuthenticationService> logger,
             IValidator<LoginDto> loginValidator,
             IValidator<OtpDto> otpValidator,
+            IValidator<ResetPasswordDto> resetPasswordValidator,
             IAccountService accountService)
         {
             _db = db;
@@ -39,6 +41,7 @@ namespace ItSupportServer.src.Modules.Authentication
             _logger = logger;
             _loginValidator = loginValidator;
             _otpValidator = otpValidator;
+            _resetPasswordValidator = resetPasswordValidator;
             _accountService = accountService;
         }
 
@@ -196,7 +199,6 @@ namespace ItSupportServer.src.Modules.Authentication
         {
             _logger.LogInformation("OTP confirmation for {AccountId}", dto.AccountId);
 
-            // ✅ FIX: Sử dụng extension method
             var validationResult = await _otpValidator.ValidateAsync(dto);
             validationResult.ThrowIfInvalid();
 
@@ -221,8 +223,10 @@ namespace ItSupportServer.src.Modules.Authentication
                 throw new TooManyAttemptsException("Quá nhiều lần nhập OTP sai. Vui lòng yêu cầu OTP mới.");
             }
 
-            // ✅ Verify OTP (should be hashed in production)
-            if (user.Otp != dto.Otp || user.ExpiredOtp < DateTime.UtcNow)
+            // ✅ SECURE: Verify hashed OTP
+            if (string.IsNullOrEmpty(user.Otp) || 
+                !PasswordHelper.VerifyPassword(dto.Otp, user.Otp) || 
+                user.ExpiredOtp < DateTime.UtcNow)
             {
                 // Increment failed attempts
                 _cache.Set(cacheKey, attempts + 1, TimeSpan.FromMinutes(15));
@@ -275,14 +279,19 @@ namespace ItSupportServer.src.Modules.Authentication
             using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
-                // Generate new OTP
-                var newOtp = RandomString.GenerateRandomNumericString(6);
-                user.Otp = newOtp;  // ✅ TODO: Hash this in production
+                // ✅ SECURE: Generate cryptographic OTP
+                var newOtp = Convert.ToBase64String(
+                    System.Security.Cryptography.RandomNumberGenerator.GetBytes(6))
+                    .Substring(0, 6)
+                    .ToUpper(); // 6-character alphanumeric
+
+                // ✅ SECURE: Hash OTP before storage
+                user.Otp = PasswordHelper.HashPassword(newOtp);
                 user.ExpiredOtp = DateTime.UtcNow.AddMinutes(5);
                 
                 await _db.SaveChangesAsync();
 
-                // Send email
+                // Send email with plain OTP (only in email, never stored plain)
                 var emailSent = await SendMail.SendMailAsync(
                     _configuration,
                     email,
@@ -318,7 +327,7 @@ namespace ItSupportServer.src.Modules.Authentication
 
         public async Task<bool> ForgotPasswordAsync(string emailOrUsername)
         {
-            _logger.LogInformation("Forgot password request for {Identifier}", emailOrUsername);
+            _logger.LogInformation("Password reset request for {Identifier}", emailOrUsername);
 
             // ✅ Rate limiting
             var rateLimitKey = $"ForgotPassword_{emailOrUsername}";
@@ -333,44 +342,128 @@ namespace ItSupportServer.src.Modules.Authentication
                     u.Employee.Email == emailOrUsername ||
                     u.Username == emailOrUsername);
 
-            // ✅ Security: Không nên reveal user có tồn tại hay không
-            // Luôn return success để prevent user enumeration
-            if (user is null)
+            // ✅ SECURITY: Constant-time response (always same delay)
+            var startTime = DateTime.UtcNow;
+
+            if (user != null && user.DeletedAt == null)
             {
-                _logger.LogWarning("Forgot password: User not found {Identifier}", emailOrUsername);
-                // Fake delay to prevent timing attacks
-                await Task.Delay(Random.Shared.Next(100, 500));
-                return true; // Pretend success
+                using var transaction = await _db.Database.BeginTransactionAsync();
+                try
+                {
+                    // ✅ SECURE: Generate cryptographic reset token (NOT password)
+                    var resetToken = Convert.ToBase64String(
+                        System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+                    
+                    var hashedToken = PasswordHelper.HashPassword(resetToken); // Hash token before storage
+
+                    // ✅ Store hashed token with expiration
+                    var passwordReset = new PasswordResetTokens
+                    {
+                        AccountId = user.AccountId,
+                        Token = hashedToken,
+                        ExpiresAt = DateTime.UtcNow.AddHours(1), // 1 hour expiry
+                    };
+
+                    await _db.PasswordResetTokens.AddAsync(passwordReset);
+                    await _db.SaveChangesAsync();
+
+                    // ✅ SECURE: Send reset LINK, not password
+                    var resetUrl = $"{_configuration["AppSettings:FrontendUrl"]}/reset-password?token={resetToken}";
+                    
+                    var emailSent = await SendMail.SendMailAsync(
+                        _configuration,
+                        user.Employee.Email,
+                        "Đặt lại mật khẩu",
+                        "Nhấn vào link sau để đặt lại mật khẩu (hết hạn sau 1 giờ):",
+                        resetUrl);
+
+                    if (!emailSent)
+                    {
+                        await transaction.RollbackAsync();
+                        throw new ExternalServiceException("Không thể gửi email");
+                    }
+
+                    await transaction.CommitAsync();
+                    _logger.LogInformation("Password reset token sent for {AccountId}", user.AccountId);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+
+            // ✅ SECURITY: Ensure constant response time (prevent timing attacks)
+            var elapsed = DateTime.UtcNow - startTime;
+            var targetDelay = TimeSpan.FromMilliseconds(500);
+            
+            if (elapsed < targetDelay)
+            {
+                await Task.Delay(targetDelay - elapsed);
+            }
+
+            // ✅ SECURITY: Always set rate limit (even for non-existent users)
+            _cache.Set(rateLimitKey, true, TimeSpan.FromMinutes(5));
+
+            // ✅ SECURITY: Always return success (prevent user enumeration)
+            return true;
+        }
+
+        /// <summary>
+        /// Reset password using secure token
+        /// Pattern: OWASP secure password reset
+        /// </summary>
+        public async Task<bool> ResetPasswordAsync(ResetPasswordDto dto)
+        {
+            var validationResult = await _resetPasswordValidator.ValidateAsync(dto);
+            validationResult.ThrowIfInvalid();
+
+            // Find token record
+            var tokenRecords = await _db.PasswordResetTokens
+                .Where(t => t.ExpiresAt > DateTime.UtcNow && t.UsedAt == null)
+                .Include(t => t.Account)
+                .ToListAsync();
+
+            PasswordResetTokens? validToken = null;
+
+            // ✅ SECURITY: Verify hashed token
+            foreach (var record in tokenRecords)
+            {
+                if (PasswordHelper.VerifyPassword(dto.Token, record.Token))
+                {
+                    validToken = record;
+                    break;
+                }
+            }
+
+            if (validToken == null)
+            {
+                throw new UnauthorizedException("Token không hợp lệ hoặc đã hết hạn");
             }
 
             using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
-                // ✅ Use PasswordHelper
-                var newPassword = PasswordHelper.GenerateRandomPassword(12);
-                user.Password = PasswordHelper.HashPassword(newPassword);
-
-                await _db.SaveChangesAsync();
-
-                var emailSent = await SendMail.SendMailAsync(
-                    _configuration,
-                    user.Employee.Email,
-                    "Đặt lại mật khẩu",
-                    "Mật khẩu tạm thời của bạn:",
-                    newPassword + "\n\nVui lòng đổi mật khẩu sau khi đăng nhập.");
-
-                if (!emailSent)
+                // Update password
+                validToken.Account.Password = PasswordHelper.HashPassword(dto.NewPassword);
+                
+                // Mark token as used
+                validToken.UsedAt = DateTime.UtcNow;
+                
+                // ✅ SECURITY: Revoke all refresh tokens (force re-login)
+                var refreshTokens = await _db.AccountTokens
+                    .Where(t => t.AccountId == validToken.AccountId && t.RevokedAt == null)
+                    .ToListAsync();
+                
+                foreach (var token in refreshTokens)
                 {
-                    await transaction.RollbackAsync();
-                    throw new ExternalServiceException("Không thể gửi email");
+                    token.RevokedAt = DateTime.UtcNow;
                 }
 
+                await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                // Set rate limit
-                _cache.Set(rateLimitKey, true, TimeSpan.FromMinutes(5));
-
-                _logger.LogInformation("Password reset successful for {AccountId}", user.AccountId);
+                _logger.LogInformation("Password reset successful for {AccountId}", validToken.AccountId);
 
                 return true;
             }

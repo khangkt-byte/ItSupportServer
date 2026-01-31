@@ -41,25 +41,28 @@ namespace ItSupportServer.src.Modules.IssueLog
         [MapProperty(nameof(ExcelRowDto.DateReported), nameof(IssueLogs.DateReported))]
         [MapProperty(nameof(ExcelRowDto.Status), nameof(IssueLogs.Status))]
         public partial IssueLogs MapToEntity(ExcelRowDto dto);
-        
+
+
+        public partial void MapToEntityAfterMapping(ExcelRowDto dto, IssueLogs entity);
+
         /// <summary>
         /// Post-mapping configuration for new entity
         /// </summary>
-        //private partial void MapToEntityAfterMapping(ExcelRowDto dto, IssueLogs entity)
-        //{
-        //    // Generate new ID
-        //    entity.IssLogId = Guid.CreateVersion7();
-            
-        //    // Normalize nullable strings
-        //    entity.Requester = NormalizeNullableString(dto.Requester);
-        //    entity.Cause = NormalizeNullableString(dto.Cause);
-        //    entity.Resolution = NormalizeNullableString(dto.Resolution);
-        //    entity.PermanentFix = NormalizeNullableString(dto.PermanentFix);
-        //    entity.Status = NormalizeNullableString(dto.Status);
-        //}
-        
+        public partial void MapToEntityAfterMapping(ExcelRowDto dto, IssueLogs entity)
+        {
+            // Generate new ID
+            entity.IssLogId = Guid.CreateVersion7();
+
+            // Normalize nullable strings
+            entity.Requester = NormalizeNullableString(dto.Requester);
+            entity.Cause = NormalizeNullableString(dto.Cause);
+            entity.Resolution = NormalizeNullableString(dto.Resolution);
+            entity.PermanentFix = NormalizeNullableString(dto.PermanentFix);
+            entity.Status = NormalizeNullableString(dto.Status);
+        }
+
         // ===== ENTITY UPDATE =====
-        
+
         /// <summary>
         /// Update entity from Excel update DTO (for duplicate updates)
         /// Mapperly: Conditional mapping with custom logic

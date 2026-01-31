@@ -2,7 +2,7 @@
 
 namespace ItSupportServer.Data.Models.Entities
 {
-    public class AccountTokens : IAuditableEntity  // ✅ Implement interface
+    public class AccountTokens : ICreatableEntity
     {
         public Guid AccountTokenId { get; set; }
 
@@ -19,16 +19,6 @@ namespace ItSupportServer.Data.Models.Entities
         /// Timestamp when token was created
         /// </summary>
         public DateTime CreatedAt { get; set; }
-
-        /// <summary>
-        /// Timestamp when token was last updated
-        /// </summary>
-        public DateTime? UpdatedAt { get; set; }
-
-        /// <summary>
-        /// Soft delete timestamp
-        /// </summary>
-        public DateTime? DeletedAt { get; set; }
 
         // Navigation property
         public Accounts Account { get; set; } = null!;

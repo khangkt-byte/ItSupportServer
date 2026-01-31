@@ -1,5 +1,6 @@
-﻿using ItSupportServer.Data.Models.Entities;
-using ItSupportServer.src.Shared.Base;
+﻿using ItSupportServer.Data.Models.Configurations;
+using ItSupportServer.Data.Models.Entities;
+using ItSupportServer.Data.Seeds;
 using Microsoft.EntityFrameworkCore;
 
 namespace ItSupportServer.Data.Models
@@ -25,33 +26,31 @@ namespace ItSupportServer.Data.Models
         public DbSet<AccountRoles> AccountRoles { get; set; }
         public DbSet<AccountClaims> AccountClaims { get; set; }
         public DbSet<AccountTokens> AccountTokens { get; set; }
+        public DbSet<PasswordResetTokens> PasswordResetTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // ===== CONFIGURATION =====
+
+            // ✅ PostgreSQL extensions
             modelBuilder.HasPostgresExtension("pg_trgm");
 
-            // Lấy tất cả các Entity Type đang thực thi IAuditableEntity
-            var auditableTypes = modelBuilder.Model.GetEntityTypes()
-                .Where(et => typeof(IAuditableEntity).IsAssignableFrom(et.ClrType));
+            // ✅ Auto-configure audit fields
+            modelBuilder.ConfigureAuditableEntities();
 
-            foreach (var entityType in auditableTypes)
-            {
-                var builder = modelBuilder.Entity(entityType.ClrType);
-
-                builder.Property(nameof(IAuditableEntity.CreatedAt))
-                       .HasColumnName("created_at")
-                       .IsRequired();
-
-                builder.Property(nameof(IAuditableEntity.UpdatedAt))
-                       .HasColumnName("updated_at");
-
-                builder.Property(nameof(IAuditableEntity.DeletedAt))
-                       .HasColumnName("deleted_at");
-            }
-
-            // Configure your entity mappings here
+            // ✅ Apply all entity configurations
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+            // ===== SEED DATA =====
+
+            // ✅ SIMPLE: One line to seed everything!
+            modelBuilder.SeedAllData();
+
+            // ✅ ALTERNATIVE: Environment-specific
+            // modelBuilder.SeedProductionData();  // For production
+            // modelBuilder.SeedMinimalData();      // For testing
         }
     }
 }

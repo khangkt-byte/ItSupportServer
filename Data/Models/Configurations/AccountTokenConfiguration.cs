@@ -18,6 +18,7 @@ namespace ItSupportServer.Data.Models.Configurations
 
             // Indexes
             builder.HasIndex(at => at.AccountId);
+
             builder.HasIndex(at => at.ExpiryTime);
 
             // Properties

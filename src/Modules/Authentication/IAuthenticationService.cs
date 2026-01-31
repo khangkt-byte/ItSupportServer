@@ -6,9 +6,20 @@ namespace ItSupportServer.src.Modules.Authentication
     {
         Task<TokenResponseDto> LoginAsync(LoginDto dto);
         Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto req);
+        Task<bool> LogoutAsync(Guid accountId, string refreshToken);
         Task<OtpResponseDto> ConfirmOtpAsync(OtpDto dto);
         Task<OtpSentResponseDto> RefreshOtpAsync(string email);
+        
+        /// <summary>
+        /// Send password reset token via email
+        /// Security: OWASP compliant (token-based, not password)
+        /// </summary>
         Task<bool> ForgotPasswordAsync(string emailOrUsername);
-        Task<bool> LogoutAsync(Guid accountId, string refreshToken);
+        
+        /// <summary>
+        /// Reset password using secure token
+        /// Security: One-time use, time-limited token
+        /// </summary>
+        Task<bool> ResetPasswordAsync(ResetPasswordDto dto);  // ✅ ADD THIS
     }
 }

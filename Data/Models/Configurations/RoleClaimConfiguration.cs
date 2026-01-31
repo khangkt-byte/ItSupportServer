@@ -24,11 +24,13 @@ namespace ItSupportServer.Data.Models.Configurations
             // Relationships
             builder.HasOne(rc => rc.Role)
                    .WithMany(r => r.RoleClaims)
-                   .HasForeignKey(rc => rc.RoleId);
+                   .HasForeignKey(rc => rc.RoleId)
+                   .OnDelete(DeleteBehavior.Cascade);
 
             builder.HasOne(rc => rc.Claim)
                    .WithMany(c => c.RoleClaims)
-                   .HasForeignKey(rc => rc.ClaimId);
+                   .HasForeignKey(rc => rc.ClaimId)
+                   .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

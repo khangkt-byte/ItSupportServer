@@ -19,8 +19,8 @@ namespace ItSupportServer.Data.Models.Configurations
 
             // Indexes
             builder.HasIndex(ilr => ilr.IssLogId);
+
             builder.HasIndex(ilr => ilr.EmpId);
-            builder.HasIndex(ilr => ilr.RequesterName);
 
             // Properties
             builder.Property(ilr => ilr.IssLogId)
@@ -29,10 +29,6 @@ namespace ItSupportServer.Data.Models.Configurations
 
             builder.Property(ilr => ilr.EmpId)
                    .HasColumnName("emp_id");
-
-            builder.Property(ilr => ilr.RequesterName)
-                   .HasMaxLength(255)
-                   .HasColumnName("requester_name");
 
             builder.Property(ilr => ilr.RequesterType)
                    .HasMaxLength(100)

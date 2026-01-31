@@ -1,11 +1,14 @@
-using ItSupportServer.src.Shared.Base;
+﻿using ItSupportServer.src.Shared.Base;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace ItSupportServer.Data.Interceptors
 {
     /// <summary>
-    /// Automatically sets CreatedAt and UpdatedAt timestamps for entities implementing IAuditableEntity
+    /// Automatically sets audit timestamps based on interface implementation
+    /// Pattern: EF Core SaveChanges interceptor with Interface Segregation
+    /// Security: Ensures audit trail integrity, prevents manual tampering
+    /// Reference: Microsoft EF Core best practices, OWASP logging guidelines
     /// </summary>
     public class AuditInterceptor : SaveChangesInterceptor
     {
@@ -30,29 +33,38 @@ namespace ItSupportServer.Data.Interceptors
         {
             if (context == null) return;
 
+            // ✅ Single time source for all audit fields
             var now = DateTime.UtcNow;
 
-            var entries = context.ChangeTracker
-                .Entries<IAuditableEntity>()
-                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+            // ===== HANDLE ICreatableEntity (CreatedAt only) =====
+            
+            var creatableEntries = context.ChangeTracker
+                .Entries<ICreatableEntity>()
+                .Where(e => e.State == EntityState.Added);
 
-            foreach (var entry in entries)
+            foreach (var entry in creatableEntries)
             {
-                if (entry.State == EntityState.Added)
-                {
-                    // Set CreatedAt only on new entities
-                    entry.Entity.CreatedAt = now;
-                }
-
-                if (entry.State == EntityState.Modified)
-                {
-                    // Set UpdatedAt only on modified entities
-                    entry.Entity.UpdatedAt = now;
-                    
-                    // Prevent CreatedAt from being modified
-                    entry.Property(nameof(IAuditableEntity.CreatedAt)).IsModified = false;
-                }
+                // ✅ Set CreatedAt for all new entities
+                entry.Entity.CreatedAt = now;
             }
+
+            // ===== HANDLE IModifiableEntity (CreatedAt + UpdatedAt) =====
+            
+            var modifiableEntries = context.ChangeTracker
+                .Entries<IModifiableEntity>()
+                .Where(e => e.State == EntityState.Modified);
+
+            foreach (var entry in modifiableEntries)
+            {
+                // ✅ Set UpdatedAt on modifications
+                entry.Entity.UpdatedAt = now;
+
+                // ✅ Prevent CreatedAt from being modified (immutability)
+                entry.Property(nameof(ICreatableEntity.CreatedAt)).IsModified = false;
+            }
+
+            // Note: Soft delete (DeletedAt) handled by service layer, not interceptor
+            // Reason: Soft delete is a business operation, not automatic behavior
         }
     }
 }

@@ -1,25 +1,104 @@
 ﻿namespace ItSupportServer.src.Modules.IssueLog
 {
-    // ===== VALIDATION DTOs =====
+    // ===== REFERENCE DATA DTOs =====
 
     /// <summary>
-    /// Validation result for Excel import (Step 1)
-    /// Pattern: ServiceNow import validation response
+    /// Department reference DTO for import lookups
+    /// Pattern: Lightweight projection DTO
+    /// Performance: Only load needed fields (ID + Name)
     /// </summary>
-    public record ImportValidationResultDto
+    public record DepartmentReferenceDto
     {
-        public int TotalRows { get; init; }
-        public int ValidCount { get; init; }
-        public int WarningCount { get; init; }
-        public int ErrorCount { get; init; }
-        public int DuplicateCount { get; init; }
-        public bool IsValid { get; init; }
-        public List<ImportRowValidation> Rows { get; init; } = [];
-        
-        public string Summary => IsValid
-            ? $"✅ {ValidCount} valid, {WarningCount} warnings, {DuplicateCount} duplicates"
-            : $"❌ {ErrorCount} errors, {WarningCount} warnings, {DuplicateCount} duplicates";
+        public int DptId { get; init; }
+        public required string Name { get; init; }
     }
+
+    /// <summary>
+    /// Area reference DTO for import lookups
+    /// </summary>
+    public record AreaReferenceDto
+    {
+        public int AreaId { get; init; }
+        public required string Name { get; init; }
+    }
+
+    /// <summary>
+    /// Recent issue log DTO for duplicate detection
+    /// Pattern: Projection DTO (CQRS read model)
+    /// Performance: Only 5 fields vs 15+ in full entity
+    /// </summary>
+    public record RecentIssueLogDto
+    {
+        public Guid IssLogId { get; init; }
+        public required string Operator { get; init; }
+        public int DepartmentId { get; init; }
+        public required string IssueDescription { get; init; }
+        public DateTime DateReported { get; init; }
+    }
+
+    /// <summary>
+    /// Excel row data DTO (parsed from Excel)
+    /// Pattern: Data Transfer Object
+    /// Purpose: Strong typing for Excel row data
+    /// </summary>
+    public record ExcelRowDto
+    {
+        public required string Operator { get; init; }
+        public string? Requester { get; init; }
+        public int DepartmentId { get; init; }
+        public int AreaId { get; init; }
+        public required string IssueDescription { get; init; }
+        public string? Cause { get; init; }
+        public string? Resolution { get; init; }
+        public string? PermanentFix { get; init; }
+        public DateTime DateReported { get; init; }
+        public string? Status { get; init; }
+    }
+
+    /// <summary>
+    /// Excel update DTO (for duplicate update strategy)
+    /// Pattern: Partial update DTO
+    /// </summary>
+    public record ExcelUpdateDto
+    {
+        public string? Cause { get; init; }
+        public string? Resolution { get; init; }
+        public string? PermanentFix { get; init; }
+        public string? Status { get; init; }
+    }
+
+    /// <summary>
+    /// Import preview data DTO (for frontend display)
+    /// Pattern: ViewModel for UI
+    /// Purpose: Type-safe preview data instead of anonymous object
+    /// </summary>
+    public record ImportPreviewDataDto
+    {
+        public required string Operator { get; init; }
+        public string? Requester { get; init; }
+        public required string Department { get; init; }
+        public string? MappedDepartment { get; init; }
+        public required string Area { get; init; }
+        public required string IssueDescription { get; init; }
+        public DateTime? DateReported { get; init; }
+        public bool IsDuplicate { get; init; }
+    }
+
+    // ===== DUPLICATE DETECTION DTOs =====
+
+    /// <summary>
+    /// Duplicate match result
+    /// </summary>
+    public record DuplicateMatch
+    {
+        public Guid IssLogId { get; init; }
+        public int MatchScore { get; init; }
+        public string MatchReason { get; init; } = string.Empty;
+        public string? IssueDescription { get; init; }
+        public DateTime? DateReported { get; init; }
+    }
+
+    // ===== VALIDATION DTOs =====
 
     /// <summary>
     /// Validation result for a single row
@@ -29,19 +108,19 @@
         public int RowNumber { get; init; }
         public List<ImportError> Errors { get; init; } = [];
         public List<ImportError> Warnings { get; init; } = [];
-        
+
         // Mapped values
         public int? MappedDepartmentId { get; init; }
         public string? MappedDepartmentName { get; init; }
         public int? MappedAreaId { get; init; }
         public string? MappedAreaName { get; init; }
-        
+
         // Duplicate detection
         public Guid? DuplicateOf { get; init; }
-        
+
         // Preview data for frontend display
-        public object? PreviewData { get; init; }
-        
+        public ImportPreviewDataDto? PreviewData { get; init; }  // ✅ FIX: Type-safe
+
         public bool HasErrors => Errors.Count > 0;
         public bool HasWarnings => Warnings.Count > 0;
     }
@@ -78,49 +157,21 @@
     /// </summary>
     public record ImportOptionsDto
     {
-        /// <summary>
-        /// Auto-create missing departments during import
-        /// </summary>
         public bool AutoCreateMissingDepartments { get; init; } = false;
-        
-        /// <summary>
-        /// Skip rows with errors instead of failing entire import
-        /// </summary>
         public bool SkipRowsWithErrors { get; init; } = false;
-        
-        /// <summary>
-        /// Fuzzy matching threshold (0-100)
-        /// </summary>
         public int FuzzyMatchThreshold { get; init; } = 85;
-        
-        /// <summary>
-        /// Manual department name mappings
-        /// Example: { "Phòng IT": 1, "IT Dept": 1 }
-        /// </summary>
         public Dictionary<string, int>? ManualDepartmentMappings { get; init; }
-        
-        /// <summary>
-        /// How to handle duplicate records
-        /// </summary>
         public DuplicateHandlingStrategy DuplicateHandling { get; init; } = DuplicateHandlingStrategy.Skip;
     }
 
     /// <summary>
     /// Duplicate handling strategies
-    /// Pattern: ServiceNow duplicate record handling
     /// </summary>
     public enum DuplicateHandlingStrategy
     {
-        /// <summary>Skip duplicate rows (default)</summary>
         Skip,
-        
-        /// <summary>Update existing records with new data</summary>
         Update,
-        
-        /// <summary>Create new anyway (allow duplicates)</summary>
         CreateNew,
-        
-        /// <summary>Fail import if duplicates found</summary>
         Fail
     }
 
@@ -128,7 +179,6 @@
 
     /// <summary>
     /// Import result (Step 2)
-    /// Pattern: ServiceNow import execution response
     /// </summary>
     public record ImportResultDto
     {
@@ -139,11 +189,30 @@
         public int DepartmentsCreated { get; init; }
         public List<string> Errors { get; init; } = [];
         public List<string> Warnings { get; init; } = [];
-        
+
         public bool HasErrors => Errors.Count > 0;
-        
+
         public string Summary => HasErrors
             ? $"❌ Import failed: {Errors.Count} errors"
             : $"✅ Imported {SuccessCount} created, {UpdatedCount} updated, {SkippedCount} skipped ({AutoMatched} auto-matched)";
+    }
+
+    /// <summary>
+    /// Validation result for Excel import (Step 1)
+    /// Pattern: ServiceNow import validation response
+    /// </summary>
+    public record ImportValidationResultDto
+    {
+        public int TotalRows { get; init; }
+        public int ValidCount { get; init; }
+        public int WarningCount { get; init; }
+        public int ErrorCount { get; init; }
+        public int DuplicateCount { get; init; }
+        public bool IsValid { get; init; }
+        public List<ImportRowValidation> Rows { get; init; } = [];
+
+        public string Summary => IsValid
+            ? $"✅ {ValidCount} valid, {WarningCount} warnings, {DuplicateCount} duplicates"
+            : $"❌ {ErrorCount} errors, {WarningCount} warnings, {DuplicateCount} duplicates";
     }
 }

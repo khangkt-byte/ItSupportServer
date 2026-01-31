@@ -21,7 +21,9 @@ namespace ItSupportServer.Data.Models.Configurations
             builder.Ignore(a => a.Id);
 
             // Indexes
-            builder.HasIndex(a => a.Name).IsUnique();
+            builder.HasIndex(a => a.Name)
+                   .IsUnique()
+                   .HasFilter("\"DeletedAt\" IS NULL");
 
             // Properties
             builder.Property(a => a.Name)

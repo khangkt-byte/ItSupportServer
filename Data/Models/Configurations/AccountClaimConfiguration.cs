@@ -28,7 +28,8 @@ namespace ItSupportServer.Data.Models.Configurations
 
             builder.HasOne(ac => ac.Claim)
                    .WithMany(c => c.AccountClaims)
-                   .HasForeignKey(ac => ac.ClaimId);
+                   .HasForeignKey(ac => ac.ClaimId)
+                   .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

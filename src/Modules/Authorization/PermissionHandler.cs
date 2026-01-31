@@ -4,20 +4,18 @@ using System.Security.Claims;
 namespace ItSupportServer.src.Modules.Authorization
 {
     /// <summary>
-    /// Authorization handler for permission-based access control
-    /// Pattern: Policy-based authorization with dependency injection
-    /// Security: Check claims from account directly OR from account roles
+    /// Authorization handler tối ưu: Kết hợp linh hoạt Claim và xử lý lỗi chặt chẽ
     /// </summary>
     public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
     {
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IAuthorizationService _authService;
         private readonly ILogger<PermissionHandler> _logger;
 
         public PermissionHandler(
-            IServiceProvider serviceProvider,
+            IAuthorizationService authService,
             ILogger<PermissionHandler> logger)
         {
-            _serviceProvider = serviceProvider;
+            _authService = authService;
             _logger = logger;
         }
 
@@ -25,54 +23,55 @@ namespace ItSupportServer.src.Modules.Authorization
             AuthorizationHandlerContext context,
             PermissionRequirement requirement)
         {
-            // Get AccountId from claims
+            // 1. Lấy AccountId linh hoạt (Ưu điểm Bản 1)
             var accountIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                               ?? context.User.FindFirst("AccountId")?.Value
                               ?? context.User.FindFirst("sub")?.Value;
 
-            if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var accountId))
+            // 2. Tách biệt kiểm tra lỗi (Ưu điểm Bản 2)
+            if (string.IsNullOrEmpty(accountIdClaim))
             {
                 _logger.LogWarning(
-                    "Authorization failed: No valid AccountId claim found for permission '{Permission}'",
+                    "Authorization failed: No valid AccountId/Sub claim found for permission '{Permission}'",
                     requirement.Permission);
+                return; // Fail-closed
+            }
+
+            if (!Guid.TryParse(accountIdClaim, out var accountId))
+            {
+                _logger.LogWarning(
+                    "Authorization failed: AccountId '{RawValue}' has invalid format for permission '{Permission}'",
+                    accountIdClaim, requirement.Permission);
                 return;
             }
 
-            // Create scope for scoped services
-            using var scope = _serviceProvider.CreateScope();
-            var authService = scope.ServiceProvider.GetRequiredService<IAuthorizationService>();
-
             try
             {
-                // Check if account has the required permission
-                // This will check:
-                // 1. Direct account claims (AccountClaims)
-                // 2. Role-based claims (AccountRoles -> RoleClaims)
-                // 3. Admin claim (bypass)
-                var hasPermission = await authService.HasPermissionAsync(
+                // 3. Kiểm tra quyền qua Service (Sử dụng Cache bên trong Service)
+                var hasPermission = await _authService.HasPermissionAsync(
                     accountId,
                     requirement.Permission);
 
                 if (hasPermission)
                 {
                     _logger.LogDebug(
-                        "Authorization succeeded: Account {AccountId} has permission '{Permission}'",
+                        "Authorization succeeded: Account {AccountId} granted '{Permission}'",
                         accountId, requirement.Permission);
-                    
+
                     context.Succeed(requirement);
                 }
                 else
                 {
                     _logger.LogWarning(
-                        "Authorization failed: Account {AccountId} lacks permission '{Permission}'",
+                        "Authorization denied: Account {AccountId} does not have permission '{Permission}'",
                         accountId, requirement.Permission);
                 }
             }
             catch (Exception ex)
             {
-                // Log but don't throw - authorization should fail gracefully
+                // Fail-secure: Không gọi context.Succeed() khi có lỗi hệ thống
                 _logger.LogError(ex,
-                    "Authorization error for Account {AccountId}, Permission '{Permission}'",
+                    "Authorization error for Account {AccountId} during check for '{Permission}'",
                     accountId, requirement.Permission);
             }
         }

@@ -21,8 +21,11 @@ namespace ItSupportServer.Data.Models.Configurations
 
             // Indexes
             builder.HasIndex(il => il.DepartmentId);
+
             builder.Property(il => il.AreaId);
+
             builder.Property(il => il.IssueId);
+
             builder.HasIndex(il => il.CauseId);
 
             // Properties
@@ -80,13 +83,13 @@ namespace ItSupportServer.Data.Models.Configurations
             // Relationships
             builder.HasOne(il => il.Department)
                    .WithMany(d => d.IssueLogs)
-                   .HasForeignKey(il => il.DepartmentId)
-                   .OnDelete(DeleteBehavior.SetNull);
+                   .HasForeignKey(il => il.DepartmentId);
+                   //.OnDelete(DeleteBehavior.SetNull);
 
             builder.HasOne(il => il.Area)
                    .WithMany(a => a.IssueLogs)
-                   .HasForeignKey(il => il.AreaId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .HasForeignKey(il => il.AreaId);
+                   //.OnDelete(DeleteBehavior.SetNull);
 
             builder.HasOne(il => il.Issue)
                    .WithMany(i => i.IssueLogs)

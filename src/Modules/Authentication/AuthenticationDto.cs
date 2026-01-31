@@ -35,4 +35,26 @@ namespace ItSupportServer.src.Modules.Authentication
         public required Guid AccountId { get; init; }
         public required string Message { get; init; }
     }
+
+    /// <summary>
+    /// Password reset request DTO
+    /// Pattern: OWASP secure password reset
+    /// </summary>
+    public record ResetPasswordDto
+    {
+        /// <summary>
+        /// Secure reset token (from email link)
+        /// </summary>
+        public required string Token { get; init; }
+        
+        /// <summary>
+        /// New password (min 8 chars, complexity required)
+        /// </summary>
+        public required string NewPassword { get; init; }
+        
+        /// <summary>
+        /// Confirm password (must match NewPassword)
+        /// </summary>
+        public required string ConfirmPassword { get; init; }
+    }
 }
