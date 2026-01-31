@@ -515,7 +515,7 @@ namespace ItSupportServer.src.Modules.Authentication
             {
                 new(ClaimTypes.Name, user.Username),
                 new(ClaimTypes.NameIdentifier, user.AccountId.ToString()),
-                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()), // ✅ Unique token ID
+                new(JwtRegisteredClaimNames.Jti, Guid.CreateVersion7().ToString()), // ✅ Unique token ID
                 new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()) // ✅ Issued at
             };
 
