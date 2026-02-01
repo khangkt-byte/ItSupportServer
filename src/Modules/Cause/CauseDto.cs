@@ -9,13 +9,13 @@
         public long IssId { get; init; }
         
         /// <summary>
-        /// Issue name - nullable khi map từ entity không có Include
+        /// Issue name - loaded from navigation property
         /// </summary>
         public string? IssueName { get; init; }
         
         public required string Name { get; init; }
         public string? Description { get; init; }
-        public int UsageCount { get; init; }  // Number of times used in IssueLogs
+        public int UsageCount { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
     }
@@ -76,9 +76,6 @@
     /// </summary>
     public record UpdateCauseDto
     {
-        // ✅ NO CauseId - comes from route
-        // ✅ NO IssId - cannot change parent issue
-
         /// <summary>
         /// Updated name (optional)
         /// </summary>

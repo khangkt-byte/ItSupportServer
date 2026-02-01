@@ -49,7 +49,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             var validationRows = new List<ImportRowValidation>();
             int validCount = 0, warningCount = 0, errorCount = 0, duplicateCount = 0;
 
-            // ✅ USE MAPPER: Load department reference data as DTOs
+            // ✅ Load departments using mapper
             var departmentList = await _importMapper
                 .ProjectToDepartmentReference(_db.Departments
                     .Where(d => d.DeletedAt == null))
@@ -57,7 +57,7 @@ namespace ItSupportServer.src.Modules.IssueLog
 
             var departments = _importMapper.BuildDepartmentLookup(departmentList);
 
-            // ✅ USE MAPPER: Load recent logs for duplicate detection
+            // ✅ Load recent logs using mapper
             var recentLogs = await _importMapper
                 .ProjectToRecentIssueLogDto(_db.IssueLogs
                     .Where(il => il.DateReported >= DateTime.UtcNow.AddDays(-90) && il.DeletedAt == null))
@@ -82,7 +82,7 @@ namespace ItSupportServer.src.Modules.IssueLog
 
                     string areaName = isCongTy ? AreaCongTy : AreaChiNhanh;
 
-                    // ✅ FIX: Fuzzy match department (using DTO)
+                    // Fuzzy match department
                     var matchResult = MatchDepartment(rowValidation, departmentText, departments);
                     var deptId = matchResult.departmentId;
                     rowValidation = matchResult.validation;
@@ -105,7 +105,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                         }
                     }
 
-                    // ✅ USE MAPPER: Store preview data (type-safe DTO)
+                    // ✅ Create preview data
                     rowValidation = rowValidation with
                     {
                         PreviewData = _importMapper.CreatePreviewData(
@@ -160,7 +160,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             var errors = new List<string>();
             var warnings = new List<string>();
 
-            // ✅ USE MAPPER: Load reference data as DTOs
+            // ✅ Load department reference data
             var departmentList = await _importMapper
                 .ProjectToDepartmentReference(_db.Departments
                     .Where(d => d.DeletedAt == null))
@@ -168,15 +168,15 @@ namespace ItSupportServer.src.Modules.IssueLog
 
             var departmentLookup = _importMapper.BuildDepartmentLookup(departmentList);
 
-            // Simple ID lookup for fuzzy matching
+            // ID-only lookup
             var departments = departmentList.ToDictionary(
                 d => d.NormalizedName,
                 d => d.DptId,
                 StringComparer.OrdinalIgnoreCase);
 
+            // ✅ Load area reference data
             var areaList = await _importMapper
-                .ProjectToAreaReference(_db.Areas
-                    .Where(a => a.DeletedAt == null))
+                .ProjectToAreaReference(_db.Areas.Where(a => a.DeletedAt == null))
                 .ToListAsync();
 
             var areas = areaList.ToDictionary(
@@ -222,11 +222,11 @@ namespace ItSupportServer.src.Modules.IssueLog
                             throw new BusinessRuleException($"Row {rowNumber}: Thiếu dữ liệu bắt buộc");
                         }
 
-                        // Map Department with manual override support
-                        var departmentId = await ResolveDepartmentIdAsync(
+                        // ✅ FIX: No ref parameter, use tuple return
+                        var deptResult = await ResolveDepartmentIdAsync(
                             departmentText, departmentLookup, departments, options, rowNumber);
 
-                        if (!departmentId.HasValue)
+                        if (!deptResult.departmentId.HasValue)
                         {
                             if (options.SkipRowsWithErrors)
                             {
@@ -237,17 +237,26 @@ namespace ItSupportServer.src.Modules.IssueLog
                             throw new NotFoundException($"Row {rowNumber}: Bộ phận '{departmentText}' không tồn tại");
                         }
 
+                        var departmentId = deptResult.departmentId.Value;
+
+                        // ✅ Increment counter if department was created
+                        if (deptResult.wasCreated)
+                        {
+                            departmentsCreated++;
+                        }
+
                         // Track auto-matched
                         if (!departments.ContainsKey(departmentText.ToLower()) ||
-                            departmentId.Value != departments.GetValueOrDefault(departmentText.ToLower(), -1))
+                            departmentId != departments.GetValueOrDefault(departmentText.ToLower(), -1))
                         {
                             autoMatched++;
                         }
 
                         // Map Area
                         string areaName = isCongTy ? AreaCongTy : AreaChiNhanh;
+                        int areaId;
                         
-                        if (!areas.TryGetValue(areaName.ToLower(), out var areaId))
+                        if (!areas.TryGetValue(areaName.ToLower(), out areaId))
                         {
                             areaId = await CreateAreaAsync(areaName);
                             areas[areaName.ToLower()] = areaId;
@@ -255,7 +264,7 @@ namespace ItSupportServer.src.Modules.IssueLog
 
                         // Check for duplicates
                         var duplicateLog = await FindDuplicateInDbAsync(
-                            issueDesc, departmentId.Value, dateReported.Value, operatorText);
+                            issueDesc, departmentId, dateReported.Value, operatorText);
 
                         if (duplicateLog != null)
                         {
@@ -286,12 +295,12 @@ namespace ItSupportServer.src.Modules.IssueLog
                             }
                         }
 
-                        // ✅ USE MAPPER: Create new log from DTO
+                        // Create entity from DTO using mapper
                         var excelRowDto = new ExcelRowDto
                         {
                             Operator = operatorText,
                             Requester = requesterText,
-                            DepartmentId = departmentId.Value,
+                            DepartmentId = departmentId,
                             AreaId = areaId,
                             IssueDescription = issueDesc,
                             Cause = cause,
@@ -301,7 +310,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                             Status = status
                         };
 
-                        var log = _importMapper.MapExcelRowToEntity(excelRowDto);
+                        var log = _importMapper.MapToEntity(excelRowDto);
 
                         await _db.IssueLogs.AddAsync(log);
                         successCount++;
@@ -414,9 +423,6 @@ namespace ItSupportServer.src.Modules.IssueLog
 
         // ===== PRIVATE HELPER METHODS =====
 
-        /// <summary>
-        /// Parse Excel row to data tuple
-        /// </summary>
         private static (string operatorText, string requesterText, string departmentText, 
             bool isCongTy, bool isChiNhanh, string issueDesc, DateTime? dateReported) ParseExcelRow(IXLRow row)
         {
@@ -431,9 +437,6 @@ namespace ItSupportServer.src.Modules.IssueLog
             );
         }
 
-        /// <summary>
-        /// Validate required fields
-        /// </summary>
         private static ImportRowValidation ValidateRequiredFields(
             ImportRowValidation validation,
             string operatorText,
@@ -456,9 +459,6 @@ namespace ItSupportServer.src.Modules.IssueLog
             return validation;
         }
 
-        /// <summary>
-        /// Validate area checkboxes
-        /// </summary>
         private static ImportRowValidation ValidateArea(
             ImportRowValidation validation,
             bool isCongTy,
@@ -473,10 +473,6 @@ namespace ItSupportServer.src.Modules.IssueLog
             return validation;
         }
 
-        /// <summary>
-        /// Match department with fuzzy matching
-        /// ✅ FIX: Use DepartmentReferenceDto instead of anonymous type
-        /// </summary>
         private static (int? departmentId, ImportRowValidation validation) MatchDepartment(
             ImportRowValidation validation,
             string departmentText,
@@ -529,10 +525,11 @@ namespace ItSupportServer.src.Modules.IssueLog
         }
 
         /// <summary>
-        /// Resolve department ID with manual mappings, fuzzy match, or auto-create
-        /// ✅ USE DTO: DepartmentReferenceDto lookup
+        /// ✅ FIX: Return tuple instead of ref parameter
+        /// Async methods cannot have ref, in, or out parameters
+        /// Reference: C# Language Specification - Async Methods
         /// </summary>
-        private async Task<int?> ResolveDepartmentIdAsync(
+        private async Task<(int? departmentId, bool wasCreated)> ResolveDepartmentIdAsync(
             string departmentText,
             Dictionary<string, DepartmentReferenceDto> departmentLookup,
             Dictionary<string, int> departments,
@@ -542,13 +539,13 @@ namespace ItSupportServer.src.Modules.IssueLog
             // Check manual mappings first
             if (options.ManualDepartmentMappings?.TryGetValue(departmentText, out var manualDeptId) == true)
             {
-                return manualDeptId;
+                return (manualDeptId, false);
             }
 
-            // Exact match using DTO
+            // Exact match
             if (departmentLookup.TryGetValue(departmentText.ToLower(), out var exactMatch))
             {
-                return exactMatch.DptId;
+                return (exactMatch.DptId, false);
             }
 
             // Fuzzy match
@@ -563,7 +560,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                 var matched = departmentLookup[bestMatch.Value];
                 _logger.LogInformation("Row {Row}: Auto-matched department '{Original}' → '{Matched}'",
                     rowNumber, departmentText, matched.Name);
-                return matched.DptId;
+                return (matched.DptId, false);
             }
 
             // Auto-create if enabled
@@ -572,24 +569,23 @@ namespace ItSupportServer.src.Modules.IssueLog
                 var newDeptId = await CreateDepartmentAsync(departmentText);
                 departments[departmentText.ToLower()] = newDeptId;
                 
-                // ✅ Also update DTO lookup
+                // Update lookup
                 departmentLookup[departmentText.ToLower()] = new DepartmentReferenceDto
                 {
                     DptId = newDeptId,
-                    Name = departmentText
+                    Name = departmentText,
+                    NormalizedName = departmentText.ToLower()
                 };
                 
-                departmentsCreated++;
-                return newDeptId;
+                _logger.LogInformation("Row {Row}: Auto-created department '{Name}' (ID: {DptId})",
+                    rowNumber, departmentText, newDeptId);
+                
+                return (newDeptId, true);  // ✅ Return true for wasCreated
             }
 
-            return null;
+            return (null, false);
         }
 
-        /// <summary>
-        /// Detect duplicates using DTO
-        /// ✅ FIX: Use FuzzyMatchResultDto instead of anonymous type
-        /// </summary>
         private (DuplicateMatch? duplicate, List<DuplicateMatch> all) DetectDuplicates(
             string issueDescription,
             int departmentId,
@@ -618,7 +614,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                 });
             }
 
-            // ✅ FIX: Fuzzy match with DTO (no anonymous types)
+            // Fuzzy match
             if (duplicates.Count == 0)
             {
                 var fuzzyMatches = recentLogs
@@ -650,9 +646,6 @@ namespace ItSupportServer.src.Modules.IssueLog
             return (duplicates.FirstOrDefault(), duplicates);
         }
 
-        /// <summary>
-        /// Handle duplicate based on strategy
-        /// </summary>
         private static (DuplicateAction action, string message) HandleDuplicate(
             IssueLogs duplicateLog,
             DuplicateHandlingStrategy strategy,

@@ -7,7 +7,7 @@ namespace ItSupportServer.Data.Models.Entities
         public long CauseId { get; set; }
         public override long Id => CauseId;
 
-        public long? IssId { get; set; }
+        public long IssId { get; set; }
         public Issues Issues { get; set; } = null!;
 
         public required string Name { get; set; }

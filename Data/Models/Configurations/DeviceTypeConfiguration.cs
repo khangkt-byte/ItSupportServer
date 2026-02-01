@@ -24,7 +24,7 @@ namespace ItSupportServer.Data.Models.Configurations
             builder.HasIndex(dt => dt.Name)
                    .HasMethod("gin")
                    .HasOperators("gin_trgm_ops")
-                   .HasFilter("\"DeletedAt\" IS NULL");
+                   .HasFilter("deleted_at IS NULL");
 
             // Properties
             builder.Property(dt => dt.Name)

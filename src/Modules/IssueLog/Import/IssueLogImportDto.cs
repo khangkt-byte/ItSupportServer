@@ -2,24 +2,25 @@
 {
     // ===== REFERENCE DATA DTOs =====
 
+
     /// <summary>
-    /// Department reference DTO for import lookups
-    /// Pattern: Lightweight projection DTO
-    /// Performance: Only load needed fields (ID + Name)
+    /// Department reference DTO with normalized name for matching
     /// </summary>
     public record DepartmentReferenceDto
     {
         public int DptId { get; init; }
         public required string Name { get; init; }
+        public required string NormalizedName { get; init; }
     }
 
     /// <summary>
-    /// Area reference DTO for import lookups
+    /// Area reference DTO with normalized name
     /// </summary>
     public record AreaReferenceDto
     {
         public int AreaId { get; init; }
         public required string Name { get; init; }
+        public required string NormalizedName { get; init; }
     }
 
     /// <summary>
@@ -68,9 +69,10 @@
     }
 
     /// <summary>
-    /// Import preview data DTO (for frontend display)
-    /// Pattern: ViewModel for UI
-    /// Purpose: Type-safe preview data instead of anonymous object
+    /// Import preview data DTO
+    /// Pattern: ViewModel (MVVM)
+    /// Purpose: Type-safe preview for frontend
+    /// Security: No sensitive data exposure
     /// </summary>
     public record ImportPreviewDataDto
     {
@@ -214,5 +216,16 @@
         public string Summary => IsValid
             ? $"✅ {ValidCount} valid, {WarningCount} warnings, {DuplicateCount} duplicates"
             : $"❌ {ErrorCount} errors, {WarningCount} warnings, {DuplicateCount} duplicates";
+    }
+
+    /// <summary>
+    /// Fuzzy match result DTO
+    /// Pattern: Value Object (DDD)
+    /// Purpose: Type-safe fuzzy matching results
+    /// </summary>
+    public record FuzzyMatchResultDto
+    {
+        public required RecentIssueLogDto Log { get; init; }
+        public int Score { get; init; }
     }
 }
