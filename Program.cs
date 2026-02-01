@@ -30,7 +30,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseNpgsql(dataSource, npgsqlOptions =>
         npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name));
-    
+
     // ✅ ADD AUDIT INTERCEPTOR
     options.AddInterceptors(new AuditInterceptor());
 });
@@ -63,7 +63,7 @@ builder.Services.AddAuthentication(options =>
                 builder.Configuration["AppSettings:Token"]!)),
         ClockSkew = TimeSpan.Zero  // ✅ No tolerance for expired tokens
     };
-    
+
     // ✅ Handle authentication failures
     option.Events = new JwtBearerEvents
     {
@@ -95,8 +95,13 @@ builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
-        // 1. Định nghĩa Security Scheme (Bearer)
+        // Initialize Components if null
         document.Components ??= new OpenApiComponents();
+
+        // Initialize SecuritySchemes dictionary if null
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+
+        // Now safe to add
         document.Components.SecuritySchemes.Add("Bearer", new OpenApiSecurityScheme
         {
             Type = SecuritySchemeType.Http,
