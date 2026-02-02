@@ -83,7 +83,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorPolicy", policy =>
     {
-        policy.WithOrigins("https://yourdomain.com")  // ✅ Specify allowed origins
+        policy.SetIsOriginAllowed(origin => {
+            // Chỉ cho phép nếu origin là null (Figma) hoặc domain của bạn
+            return origin == null || origin == "http://localhost:3000";
+        })
+        //policy.WithOrigins("http://localhost:3000")  // ✅ Specify allowed origins
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
