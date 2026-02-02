@@ -6,7 +6,7 @@ namespace ItSupportServer.src.Modules.Account
     {
         public CreateAccountDtoValidator()
         {
-            RuleFor(x => x.EmployeeId)
+            RuleFor(x => x.EmpId)
                 .NotEmpty()
                 .WithMessage("Vui lòng chọn nhân viên.");
 

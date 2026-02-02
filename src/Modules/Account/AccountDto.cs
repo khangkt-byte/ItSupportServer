@@ -9,8 +9,8 @@ namespace ItSupportServer.src.Modules.Account
     {
         public Guid AccountId { get; init; }
         public required string Username { get; init; }
-        public required string EmployeeName { get; init; }
-        public string? EmployeeCode { get; init; }
+        public required string EmpName { get; init; }
+        public string? EmpCode { get; init; }
         public string? Email { get; init; }
         public string? Position { get; init; }
         public bool IsLocked { get; init; }
@@ -29,8 +29,8 @@ namespace ItSupportServer.src.Modules.Account
     {
         public Guid AccountId { get; init; }
         public required string Username { get; init; }
-        public required string EmployeeName { get; init; }
-        public string? EmployeeCode { get; init; }
+        public required string EmpName { get; init; }
+        public string? EmpCode { get; init; }
         public bool IsLocked { get; init; }
         public DateTime? LastLoginAt { get; init; }
         public DateTime CreatedAt { get; init; }
@@ -44,7 +44,7 @@ namespace ItSupportServer.src.Modules.Account
         /// <summary>
         /// Employee ID to create account for
         /// </summary>
-        public required Guid EmployeeId { get; init; }
+        public required Guid EmpId { get; init; }
 
         /// <summary>
         /// Username for login (unique, 3-32 characters)
