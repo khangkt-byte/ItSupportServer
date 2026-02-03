@@ -9,11 +9,11 @@ namespace ItSupportServer.src.Modules.Authentication
     /// </summary>
     [Route("api/auth")]
     [ApiController]
-    public class AuthenticationController : ControllerBase
+    public class AuthenticationsController : ControllerBase
     {
         private readonly IAuthenticationService _service;
 
-        public AuthenticationController(IAuthenticationService service)
+        public AuthenticationsController(IAuthenticationService service)
         {
             _service = service;
         }
