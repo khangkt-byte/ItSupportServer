@@ -49,6 +49,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         [ProducesResponseType(typeof(PaginatedResult<IssueLogDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<PaginatedResult<IssueLogDto>>> GetIssueLogs(
             [FromQuery] QueryParameters parameters)
         {
@@ -64,7 +65,10 @@ namespace ItSupportServer.src.Modules.IssueLog
         [HttpGet("{issLogId}")]
         [HasPermission(Permissions.IssueLogClaims.View)]
         [ProducesResponseType(typeof(IssueLogDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IssueLogDto>> GetIssueLog([FromRoute] Guid issLogId)
         {
             var result = await _service.GetIssueLogByIdAsync(issLogId);
@@ -82,6 +86,20 @@ namespace ItSupportServer.src.Modules.IssueLog
         /// - Validate Department/Area existence
         /// - Verify Cause belongs to Issue (if both provided)
         /// 
+        /// **Validation errors (400):**
+        /// - Operator, DepartmentId, AreaId, IssueDescription, DateReported: required
+        /// - Text fields: length limits, character restrictions
+        /// 
+        /// **Not Found errors (404):**
+        /// - DepartmentId không tồn tại
+        /// - AreaId không tồn tại
+        /// - IssueId (nếu có) không tồn tại
+        /// - CauseId (nếu có) không tồn tại
+        /// 
+        /// **Business rule errors (422):**
+        /// - Cause không thuộc về Issue được chọn
+        /// - DateReported trong tương lai
+        /// 
         /// **Example:**
         /// ```json
         /// {
@@ -89,7 +107,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         ///   "departmentId": 1,
         ///   "areaId": 1,
         ///   "issueDescription": "Máy chủ không khởi động",
-        ///   "dateReported": "2024-01-27T10:00:00Z"
+        ///   "dateReported": "2025-02-03"
         /// }
         /// ```
         /// </remarks>
@@ -97,7 +115,11 @@ namespace ItSupportServer.src.Modules.IssueLog
         [HasPermission(Permissions.IssueLogClaims.Create)]
         [ProducesResponseType(typeof(IssueLogDto), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IssueLogDto>> CreateIssueLog([FromBody] CreateIssueLogDto dto)
         {
             var result = await _service.CreateIssueLogAsync(dto);
@@ -113,10 +135,23 @@ namespace ItSupportServer.src.Modules.IssueLog
         /// <remarks>
         /// **Pattern:** PATCH semantics (chỉ update fields có giá trị)
         /// 
+        /// **Validation (400):**
+        /// - Các fields được cung cấp phải đúng format
+        /// - Length limits, character restrictions
+        /// 
+        /// **Not Found (404):**
+        /// - IssueLog không tồn tại
+        /// - DepartmentId mới không tồn tại (nếu update)
+        /// - AreaId mới không tồn tại (nếu update)
+        /// 
+        /// **Conflict (409):**
+        /// - Update duplicate data (nếu có unique constraints)
+        /// 
         /// **Example:**
         /// ```json
         /// {
         ///   "resolution": "Đã thay nguồn mới",
+        ///   "permanentFix": "Nâng cấp UPS",
         ///   "status": "Resolved"
         /// }
         /// ```
@@ -124,8 +159,12 @@ namespace ItSupportServer.src.Modules.IssueLog
         [HttpPut("{issLogId}")]
         [HasPermission(Permissions.IssueLogClaims.Edit)]
         [ProducesResponseType(typeof(IssueLogDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IssueLogDto>> UpdateIssueLog(
             [FromRoute] Guid issLogId,
             [FromBody] UpdateIssueLogDto dto)
@@ -143,15 +182,25 @@ namespace ItSupportServer.src.Modules.IssueLog
         /// <remarks>
         /// **Security:** Soft delete by default (GDPR compliance)
         /// 
+        /// **Bulk delete behavior:**
+        /// - Transaction-based (all or nothing)
+        /// - Nếu ANY ID không tồn tại → 404
+        /// - Empty list → 400
+        /// 
         /// **Example:**
         /// ```json
-        /// ["a1b2c3d4-...", "e5f6g7h8-..."]
+        /// ["a1b2c3d4-e5f6-7890-abcd-ef1234567890", "b2c3d4e5-f6a7-8901-bcde-f12345678901"]
         /// ```
         /// </remarks>
         [HttpDelete]
         [HasPermission(Permissions.IssueLogClaims.Delete)]
         [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<bool>> DeleteIssueLogs(
             [FromBody] List<Guid> issLogIds,
             [FromQuery] bool softDelete = true)
@@ -180,11 +229,21 @@ namespace ItSupportServer.src.Modules.IssueLog
         /// 
         /// **Format Excel:**
         /// | Người thực hiện | Người yêu cầu | Bộ phận | Công ty | Chi nhánh | Mô tả sự cố | ... |
+        /// 
+        /// **Error codes:**
+        /// - 400: File null, empty, hoặc không phải .xlsx
+        /// - 413: File quá lớn (> 10MB)
+        /// - 415: File type không hỗ trợ (not Excel)
         /// </remarks>
         [HttpPost("import/validate")]
         [HasPermission(Permissions.IssueLogClaims.Create)]
         [ProducesResponseType(typeof(ImportValidationResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status413PayloadTooLarge)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status415UnsupportedMediaType)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         [Consumes("multipart/form-data")]
         [RequestSizeLimit(10 * 1024 * 1024)] // 10MB limit
         public async Task<ActionResult<ImportValidationResultDto>> ValidateImport([FromForm] IFormFile file)
@@ -226,12 +285,24 @@ namespace ItSupportServer.src.Modules.IssueLog
         /// - `Skip`: Bỏ qua duplicates (default)
         /// - `Update`: Cập nhật existing records
         /// - `CreateNew`: Tạo mới anyway
-        /// - `Fail`: Fail nếu có duplicate
+        /// - `Fail`: Fail nếu có duplicate (422)
+        /// 
+        /// **Error codes:**
+        /// - 400: File validation failed
+        /// - 413: File too large (> 10MB)
+        /// - 415: Unsupported media type
+        /// - 422: Business rules violated (duplicate handling, required data)
         /// </remarks>
         [HttpPost("import")]
         [HasPermission(Permissions.IssueLogClaims.Create)]
         [ProducesResponseType(typeof(ImportResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status413PayloadTooLarge)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status415UnsupportedMediaType)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         [Consumes("multipart/form-data")]
         [RequestSizeLimit(10 * 1024 * 1024)] // 10MB limit
         public async Task<ActionResult<ImportResultDto>> ImportFromExcel(
@@ -272,13 +343,20 @@ namespace ItSupportServer.src.Modules.IssueLog
         /// 
         /// **Example:**
         /// ```
-        /// GET /api/issue-logs/export?search=máy chủ
+        /// GET /api/issue-logs/export?search=máy chủ&amp;departmentId=1
         /// ```
+        /// 
+        /// **Response:**
+        /// - Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+        /// - Content-Disposition: attachment; filename="IssueLog_20250203_103000.xlsx"
         /// </remarks>
         [HttpGet("export")]
         [HasPermission(Permissions.IssueLogClaims.View)]
         [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
         [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> ExportToExcel([FromQuery] QueryParameters? parameters = null)
         {
             var excelData = await _importService.ExportToExcelAsync(parameters);
@@ -298,12 +376,23 @@ namespace ItSupportServer.src.Modules.IssueLog
         /// **Template includes:**
         /// - Header row với tên cột chuẩn
         /// - Example row để hướng dẫn format
-        /// - Data validation rules (nếu có)
+        /// - Instructions sheet với hướng dẫn chi tiết
+        /// - Data validation comments
+        /// 
+        /// **Usage:**
+        /// 1. Download template
+        /// 2. Fill in data theo format
+        /// 3. Upload qua `/api/issue-logs/import/validate`
+        /// 4. Review validation results
+        /// 5. Confirm import qua `/api/issue-logs/import`
         /// </remarks>
         [HttpGet("export/template")]
         [HasPermission(Permissions.IssueLogClaims.View)]
         [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
         [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public IActionResult DownloadTemplate()
         {
             using var workbook = new XLWorkbook();

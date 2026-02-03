@@ -100,8 +100,9 @@ namespace ItSupportServer.Data.Models.Entities
         /// <summary>
         /// When the issue was reported
         /// Pattern: ServiceNow - opened_at
+        /// Storage: PostgreSQL DATE type
         /// </summary>
-        public DateTime DateReported { get; set; }
+        public DateOnly DateReported { get; set; }
 
         /// <summary>
         /// Issue status (e.g., "Open", "In Progress", "Resolved")
@@ -110,7 +111,6 @@ namespace ItSupportServer.Data.Models.Entities
         public string? Status { get; set; }
 
         // ===== Navigation Properties =====
-
         public ICollection<IssueLogOperators> IssueLogOperators { get; set; } = [];
         public ICollection<IssueLogRequesters> IssueLogRequesters { get; set; } = [];
     }

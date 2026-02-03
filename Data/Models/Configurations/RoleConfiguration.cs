@@ -28,7 +28,7 @@ namespace ItSupportServer.Data.Models.Configurations
 
             builder.Property(r => r.Description)
                 .HasColumnName("description")
-                .HasMaxLength(1000);
+                .HasMaxLength(500);
         }
     }
 }

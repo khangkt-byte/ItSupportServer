@@ -273,7 +273,10 @@ namespace ItSupportServer.src.Modules.Authentication
             var rateLimitKey = $"OTP_RateLimit_{email}";
             if (_cache.TryGetValue(rateLimitKey, out _))
             {
-                throw new TooManyAttemptsException("Vui lòng đợi ít nhất 60 giây trước khi yêu cầu OTP mới");
+                throw new TooManyAttemptsException(
+                    "Vui lòng đợi 5 phút trước khi yêu cầu lại",
+                    retryAfterSeconds: 300  // Machine-readable
+                );
             }
 
             using var transaction = await _db.Database.BeginTransactionAsync();

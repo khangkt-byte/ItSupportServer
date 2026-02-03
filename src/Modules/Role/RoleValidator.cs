@@ -2,12 +2,12 @@
 
 namespace ItSupportServer.src.Modules.Role
 {
-    public class CreateRoleDtoValidator : AbstractValidator<CreateRoleDto>
+    public class CreateRoleValidator : AbstractValidator<CreateRoleDto>
     {
-        public CreateRoleDtoValidator()
+        public CreateRoleValidator()
         {
             RuleFor(x => x.Name)
-                .NotEmpty().WithMessage("Tên vai trò là bắt buộc.")
+                .NotEmpty().WithMessage("Vui lòng nhập tên vai trò.")
                 .MaximumLength(150).WithMessage("Tên vai trò không được quá 150 ký tự.")
                 .Matches(@"^[\p{L}\p{M}\p{N} _-]+$").WithMessage("Tên vai trò chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_).");
 
@@ -23,12 +23,12 @@ namespace ItSupportServer.src.Modules.Role
         }
     }
 
-    public class UpdateRoleDtoValidator : AbstractValidator<UpdateRoleDto>
+    public class UpdateRoleValidator : AbstractValidator<UpdateRoleDto>
     {
-        public UpdateRoleDtoValidator()
+        public UpdateRoleValidator()
         {
             RuleFor(x => x.Name)
-                .NotEmpty().WithMessage("Tên vai trò là bắt buộc.")
+                .NotEmpty().WithMessage("Vui lòng nhập tên vai trò.")
                 .MaximumLength(150).WithMessage("Tên vai trò không được quá 150 ký tự.")
                 .Matches(@"^[\p{L}\p{M}\p{N} _-]+$").WithMessage("Tên vai trò chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_).")
                 .When(x => x.Name != null);
@@ -45,18 +45,20 @@ namespace ItSupportServer.src.Modules.Role
         }
     }
 
-    public class AccountRoleDtoValidator : AbstractValidator<AssignRolesDto>
+    public class AccountRoleValidator : AbstractValidator<AssignRolesDto>
     {
-        public AccountRoleDtoValidator()
+        public AccountRoleValidator()
         {
             RuleFor(x => x.AccountId)
                 .NotEmpty().WithMessage("Vui lòng chọn một tài khoản.");
 
             RuleFor(x => x.RoleIds)
-                .NotNull().WithMessage("Vui lòng chọn ít nhất một vai trò.")
-                .NotEmpty().WithMessage("Vui lòng chọn ít nhất một vai trò.")
-                .Must(ids => ids.All(id => id >= 0))
-                .WithMessage("Role IDs không hợp lệ.");
+                .NotNull()
+                .WithMessage("Danh sách vai trò không được null.")
+                .NotEmpty()
+                .WithMessage("Vui lòng chọn ít nhất một vai trò.")
+                .Must(ids => ids.All(id => id > 0))
+                .WithMessage("Các vai trò được chọn không hợp lệ.");
         }
     }
 }

@@ -33,6 +33,7 @@ namespace ItSupportServer.src.Modules.Employee
         [ProducesResponseType(typeof(PaginatedResult<ListEmployeeDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<PaginatedResult<ListEmployeeDto>>> GetEmployees(
             [FromQuery] QueryParameters parameters)
         {
@@ -46,7 +47,10 @@ namespace ItSupportServer.src.Modules.Employee
         [HttpGet("{id}")]
         [HasPermission(Permissions.EmployeeClaims.View)]
         [ProducesResponseType(typeof(DetailEmployeeDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<DetailEmployeeDto>> GetEmployee(Guid id)
         {
             var result = await _service.GetEmployeeByIdAsync(id);
@@ -60,7 +64,11 @@ namespace ItSupportServer.src.Modules.Employee
         [HasPermission(Permissions.EmployeeClaims.Create)]
         [ProducesResponseType(typeof(EmployeeDto), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<EmployeeDto>> CreateEmployee([FromBody] CreateEmployeeDto dto)
         {
             var result = await _service.CreateEmployeeAsync(dto);
@@ -77,8 +85,12 @@ namespace ItSupportServer.src.Modules.Employee
         [HttpPut("{id}")]
         [HasPermission(Permissions.EmployeeClaims.Edit)]
         [ProducesResponseType(typeof(EmployeeDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<EmployeeDto>> UpdateEmployee(
             [FromRoute] Guid id,
             [FromBody] UpdateEmployeeDto dto)
@@ -102,7 +114,11 @@ namespace ItSupportServer.src.Modules.Employee
         [HasPermission(Permissions.EmployeeClaims.Delete)]
         [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<bool>> DeleteEmployees(
             [FromBody] List<Guid> empIds,
             [FromQuery] bool softDelete = true)
@@ -120,7 +136,12 @@ namespace ItSupportServer.src.Modules.Employee
         [HttpPost("{id}/roles")]
         [HasPermission(Permissions.RoleClaims.SetRole)]
         [ProducesResponseType(typeof(DetailEmployeeDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<DetailEmployeeDto>> AssignRoles(
             [FromRoute] Guid id,
             [FromBody] List<int> roleIds)
@@ -149,7 +170,9 @@ namespace ItSupportServer.src.Modules.Employee
         [Authorize]
         [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ProfileDto>> GetMyProfile()
         {
             var empId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -172,7 +195,11 @@ namespace ItSupportServer.src.Modules.Employee
         [Authorize]
         [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ProfileDto>> UpdateMyProfile([FromBody] UpdateProfileDto dto)
         {
             var empId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

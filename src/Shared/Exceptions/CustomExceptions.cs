@@ -2,13 +2,15 @@
 {
     /// <summary>
     /// Base exception for all application exceptions
+    /// Pattern: Error enrichment with metadata
+    /// Reference: Microsoft REST API Guidelines
     /// </summary>
-    public abstract class ApplicationException : Exception
+    public abstract class AppException : Exception
     {
         public string Code { get; }
         public Dictionary<string, object>? Metadata { get; }
 
-        protected ApplicationException(string message, string code, Dictionary<string, object>? metadata = null)
+        protected AppException(string message, string code, Dictionary<string, object>? metadata = null)
             : base(message)
         {
             Code = code;
@@ -19,7 +21,7 @@
     /// <summary>
     /// Thrown when a resource is not found (404)
     /// </summary>
-    public class NotFoundException : ApplicationException
+    public class NotFoundException : AppException
     {
         public NotFoundException(string resourceName, object resourceId)
             : base(
@@ -42,7 +44,7 @@
     /// <summary>
     /// Thrown when validation fails (400)
     /// </summary>
-    public class ValidationException : ApplicationException
+    public class ValidationException : AppException
     {
         public Dictionary<string, string[]> Errors { get; }
 
@@ -64,7 +66,7 @@
     /// <summary>
     /// Thrown when authentication fails (401)
     /// </summary>
-    public class UnauthorizedException : ApplicationException
+    public class UnauthorizedException : AppException
     {
         public UnauthorizedException(string message = "Xác thực thất bại")
             : base(message, "UNAUTHORIZED")
@@ -75,7 +77,7 @@
     /// <summary>
     /// Thrown when authorization fails (403)
     /// </summary>
-    public class ForbiddenException : ApplicationException
+    public class ForbiddenException : AppException
     {
         public ForbiddenException(string message = "Bạn không có quyền truy cập tài nguyên này")
             : base(message, "FORBIDDEN")
@@ -86,7 +88,7 @@
     /// <summary>
     /// Thrown when there's a conflict (409) - e.g., duplicate entry
     /// </summary>
-    public class ConflictException : ApplicationException
+    public class ConflictException : AppException
     {
         public ConflictException(string message)
             : base(message, "CONFLICT")
@@ -109,7 +111,7 @@
     /// <summary>
     /// Thrown for business rule violations (422)
     /// </summary>
-    public class BusinessRuleException : ApplicationException
+    public class BusinessRuleException : AppException
     {
         public BusinessRuleException(string message, string code = "BUSINESS_RULE_VIOLATION")
             : base(message, code)
@@ -117,7 +119,7 @@
         }
     }
 
-    public class OtpRequiredException : ApplicationException
+    public class OtpRequiredException : AppException
     {
         public Guid AccountId { get; }
 
@@ -128,15 +130,59 @@
         }
     }
 
-    public class TooManyAttemptsException : ApplicationException
+    /// <summary>
+    /// Enhanced TooManyAttemptsException with Retry-After support
+    /// Pattern: RFC 7231 compliant
+    /// </summary>
+    public class TooManyAttemptsException : AppException
     {
-        public TooManyAttemptsException(string message)
-            : base(message, "TOO_MANY_ATTEMPTS")
+        public int? RetryAfterSeconds { get; }
+
+        public TooManyAttemptsException(string message, int? retryAfterSeconds = null)
+            : base(message, "TOO_MANY_ATTEMPTS", retryAfterSeconds.HasValue
+                ? new Dictionary<string, object> { ["retryAfter"] = retryAfterSeconds.Value }
+                : null)
         {
+            RetryAfterSeconds = retryAfterSeconds;
         }
     }
 
-    public class ExternalServiceException : ApplicationException
+    /// <summary>
+    /// Batch operation exception (207 Multi-Status)
+    /// Pattern: Google Batch API, Microsoft Graph Batch
+    /// </summary>
+    public class BatchOperationException : AppException
+    {
+        public List<BatchItemResult> Results { get; }
+
+        public BatchOperationException(List<BatchItemResult> results)
+            : base(
+                $"Batch operation completed with {results.Count(r => !r.Success)} failures",
+                "BATCH_OPERATION_ERROR",
+                new Dictionary<string, object>
+                {
+                    ["totalItems"] = results.Count,
+                    ["successCount"] = results.Count(r => r.Success),
+                    ["failureCount"] = results.Count(r => !r.Success)
+                })
+        {
+            Results = results;
+        }
+    }
+
+    /// <summary>
+    /// Result for individual item in batch operation
+    /// </summary>
+    public class BatchItemResult
+    {
+        public object ItemId { get; set; } = null!;
+        public bool Success { get; set; }
+        public int StatusCode { get; set; }
+        public string? ErrorMessage { get; set; }
+        public string? ErrorCode { get; set; }
+    }
+
+    public class ExternalServiceException : AppException
     {
         public ExternalServiceException(string message)
             : base(message, "EXTERNAL_SERVICE_ERROR")

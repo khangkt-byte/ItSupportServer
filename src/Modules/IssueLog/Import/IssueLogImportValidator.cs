@@ -6,9 +6,9 @@ namespace ItSupportServer.src.Modules.IssueLog
     /// Import options validator
     /// Pattern: FluentValidation for complex objects
     /// </summary>
-    public class ImportOptionsDtoValidator : AbstractValidator<ImportOptionsDto>
+    public class ImportOptionsValidator : AbstractValidator<ImportOptionsDto>
     {
-        public ImportOptionsDtoValidator()
+        public ImportOptionsValidator()
         {
             RuleFor(x => x.FuzzyMatchThreshold)
                 .InclusiveBetween(0, 100)

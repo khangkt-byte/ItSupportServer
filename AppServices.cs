@@ -56,12 +56,12 @@ namespace ItSupportServer
             // ===== VALIDATION (FluentValidation) =====
             
             // ✅ Auto-discover all validators in assembly
-            services.AddValidatorsFromAssemblyContaining<CreateAreaDtoValidator>();
+            services.AddValidatorsFromAssemblyContaining<CreateAreaValidator>();
             // Automatically registers:
-            // - CreateAreaDtoValidator, UpdateAreaDtoValidator
-            // - LoginDtoValidator, OtpDtoValidator
-            // - CreateIssueLogDtoValidator, UpdateIssueLogDtoValidator
-            // - CreateRoleDtoValidator, UpdateRoleDtoValidator
+            // - CreateAreaValidator, UpdateAreaValidator
+            // - LoginValidator, OtpValidator
+            // - CreateIssueLogValidator, UpdateIssueLogValidator
+            // - CreateRoleValidator, UpdateRoleValidator
             // - etc.
 
             // ===== MAPPERS (Mapperly - Singleton, stateless) =====

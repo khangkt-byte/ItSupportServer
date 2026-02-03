@@ -29,6 +29,7 @@ namespace ItSupportServer.src.Modules.Issue
         [ProducesResponseType(typeof(PaginatedResult<IssueDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<PaginatedResult<IssueDto>>> GetIssues(
             [FromQuery] QueryParameters parameters)
         {
@@ -42,7 +43,10 @@ namespace ItSupportServer.src.Modules.Issue
         [HttpGet("{issId}")]
         [HasPermission(Permissions.IssueClaims.View)]
         [ProducesResponseType(typeof(IssueDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IssueDto>> GetIssue([FromRoute] long issId)
         {
             var result = await _service.GetIssueByIdAsync(issId);
@@ -56,7 +60,11 @@ namespace ItSupportServer.src.Modules.Issue
         [HasPermission(Permissions.IssueClaims.Create)]
         [ProducesResponseType(typeof(IssueDto), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IssueDto>> CreateIssue([FromBody] CreateIssueDto dto)
         {
             var result = await _service.CreateIssueAsync(dto);
@@ -69,8 +77,12 @@ namespace ItSupportServer.src.Modules.Issue
         [HttpPut("{issId}")]
         [HasPermission(Permissions.IssueClaims.Edit)]
         [ProducesResponseType(typeof(IssueDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IssueDto>> UpdateIssue(
             [FromRoute] long issId,
             [FromBody] UpdateIssueDto dto)
@@ -86,7 +98,11 @@ namespace ItSupportServer.src.Modules.Issue
         [HasPermission(Permissions.IssueClaims.Delete)]
         [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<bool>> DeleteIssues(
             [FromBody] List<long> issIds,
             [FromQuery] bool softDelete = true)

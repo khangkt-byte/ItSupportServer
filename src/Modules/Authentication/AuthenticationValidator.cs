@@ -2,61 +2,87 @@
 
 namespace ItSupportServer.src.Modules.Authentication
 {
-    public class LoginDtoValidator : AbstractValidator<LoginDto>
+    public class LoginValidator : AbstractValidator<LoginDto>
     {
-        public LoginDtoValidator()
+        public LoginValidator()
         {
             RuleFor(x => x.Identifier)
-                .NotEmpty().WithMessage("Tên đăng nhập hoặc email là bắt buộc.")
+                .NotEmpty().WithMessage("Vui lòng nhập tên đăng nhập hoặc email.")
                 .MaximumLength(254).WithMessage("Tên đăng nhập hoặc email không được quá 254 ký tự.")
                 .Matches(@"^(?:[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,63}|[A-Za-z0-9._\-]{3,32})$")
                 .WithMessage("Tên đăng nhập hoặc email không đúng định dạng.");
 
             RuleFor(x => x.Password)
-                .NotEmpty().WithMessage("Mật khẩu là bắt buộc.")
-                .MaximumLength(100).WithMessage("Mật khẩu không được quá 100 ký tự.");
+                .NotEmpty()
+                .WithMessage("Vui lòng nhập mật khẩu.")
+                .MaximumLength(128)
+                .WithMessage("Mật khẩu không được quá 128 ký tự.");
         }
     }
 
-    public class OtpDtoValidator : AbstractValidator<OtpDto>
+    public class OtpValidator : AbstractValidator<OtpDto>
     {
-        public OtpDtoValidator()
+        public OtpValidator()
         {
             RuleFor(x => x.Otp)
-                .NotEmpty().WithMessage("Mã OTP là bắt buộc.")
+                .NotEmpty().WithMessage("Vui lòng nhập mã OTP.")
                 .Length(6).WithMessage("Mã OTP phải đủ 6 ký tự.")
                 .Matches(@"^\d{6}$").WithMessage("Mã OTP phải gồm 6 chữ số.");
 
             RuleFor(x => x.AccountId)
-                .NotEmpty().WithMessage("UserId là bắt buộc.");
+                .NotEmpty().WithMessage("Không tìm thấy tài khoản.");
         }
     }
 
     /// <summary>
     /// Validator for password reset
+    /// Pattern: OWASP Forgot Password best practices
+    /// Reference: 
+    /// - OWASP Forgot Password Cheat Sheet
+    /// - Microsoft Azure AD Password Reset
+    /// - Auth0 Password Reset Flow
     /// </summary>
-    public class ResetPasswordDtoValidator : AbstractValidator<ResetPasswordDto>
+    public class ResetPasswordValidator : AbstractValidator<ResetPasswordDto>
     {
-        public ResetPasswordDtoValidator()
+        // ✅ Base64(32 bytes) = exactly 44 characters
+        private const int EXACT_TOKEN_LENGTH = 44;
+
+        public ResetPasswordValidator()
         {
+            // ✅ TOKEN VALIDATION
+            // Security: Token extracted from email link, not user input
+            // Format: Base64-encoded 32-byte random (44 chars)
             RuleFor(x => x.Token)
                 .NotEmpty()
-                .WithMessage("Token không được để trống")
-                .MinimumLength(40)  // Base64(32 bytes) = ~44 chars
-                .WithMessage("Token không hợp lệ");
+                .WithMessage("Liên kết đặt lại mật khẩu không hợp lệ.")  // ✅ User-friendly
+                .Length(EXACT_TOKEN_LENGTH)  // ✅ Exact length validation
+                .WithMessage("Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.")
+                .Matches(@"^[A-Za-z0-9+/=]+$")  // ✅ Base64 pattern
+                .WithMessage("Liên kết đặt lại mật khẩu không đúng định dạng.");
 
+            // ✅ PASSWORD VALIDATION (OWASP/NIST compliant)
             RuleFor(x => x.NewPassword)
                 .NotEmpty()
+                .WithMessage("Vui lòng nhập mật khẩu mới.")
                 .MinimumLength(8)
-                .WithMessage("Mật khẩu phải có ít nhất 8 ký tự")
-                .Matches(@"[A-Z]").WithMessage("Mật khẩu phải có ít nhất 1 chữ hoa")
-                .Matches(@"[a-z]").WithMessage("Mật khẩu phải có ít nhất 1 chữ thường")
-                .Matches(@"[0-9]").WithMessage("Mật khẩu phải có ít nhất 1 số")
-                .Matches(@"[\W_]").WithMessage("Mật khẩu phải có ít nhất 1 ký tự đặc biệt");
+                .WithMessage("Mật khẩu phải có ít nhất 8 ký tự.")
+                .MaximumLength(128)
+                .WithMessage("Mật khẩu không được quá 128 ký tự.")
+                .Matches(@"[A-Z]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 chữ hoa.")
+                .Matches(@"[a-z]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 chữ thường.")
+                .Matches(@"[0-9]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 chữ số.")
+                .Matches(@"[\W_]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 ký tự đặc biệt.");
 
+            // ✅ CONFIRM PASSWORD
             RuleFor(x => x.ConfirmPassword)
+                .NotEmpty()
+                .WithMessage("Vui lòng xác nhận mật khẩu mới.")
                 .Equal(x => x.NewPassword)
-                .WithMessage("Xác nhận mật khẩu không khớp");
+                .WithMessage("Mật khẩu xác nhận không khớp.");
         }
     }
 }
