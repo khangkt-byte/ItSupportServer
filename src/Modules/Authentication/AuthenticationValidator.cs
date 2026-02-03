@@ -36,23 +36,37 @@ namespace ItSupportServer.src.Modules.Authentication
 
     /// <summary>
     /// Validator for password reset
+    /// Pattern: OWASP Forgot Password best practices
+    /// Reference: 
+    /// - OWASP Forgot Password Cheat Sheet
+    /// - Microsoft Azure AD Password Reset
+    /// - Auth0 Password Reset Flow
     /// </summary>
     public class ResetPasswordValidator : AbstractValidator<ResetPasswordDto>
     {
+        // ✅ Base64(32 bytes) = exactly 44 characters
+        private const int EXACT_TOKEN_LENGTH = 44;
+
         public ResetPasswordValidator()
         {
+            // ✅ TOKEN VALIDATION
+            // Security: Token extracted from email link, not user input
+            // Format: Base64-encoded 32-byte random (44 chars)
             RuleFor(x => x.Token)
                 .NotEmpty()
-                .WithMessage("Token không được để trống")
-                .MinimumLength(40)  // Base64(32 bytes) = ~44 chars
-                .WithMessage("Token không hợp lệ");
+                .WithMessage("Liên kết đặt lại mật khẩu không hợp lệ.")  // ✅ User-friendly
+                .Length(EXACT_TOKEN_LENGTH)  // ✅ Exact length validation
+                .WithMessage("Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.")
+                .Matches(@"^[A-Za-z0-9+/=]+$")  // ✅ Base64 pattern
+                .WithMessage("Liên kết đặt lại mật khẩu không đúng định dạng.");
 
+            // ✅ PASSWORD VALIDATION (OWASP/NIST compliant)
             RuleFor(x => x.NewPassword)
                 .NotEmpty()
-                .WithMessage("Vui lòng nhập mật khẩu.")
-                .MinimumLength(8)  // ✅ NIST: Min 8 chars
+                .WithMessage("Vui lòng nhập mật khẩu mới.")
+                .MinimumLength(8)
                 .WithMessage("Mật khẩu phải có ít nhất 8 ký tự.")
-                .MaximumLength(128)  // ✅ NIST: Max 128 chars
+                .MaximumLength(128)
                 .WithMessage("Mật khẩu không được quá 128 ký tự.")
                 .Matches(@"[A-Z]")
                 .WithMessage("Mật khẩu phải có ít nhất 1 chữ hoa.")
@@ -63,9 +77,12 @@ namespace ItSupportServer.src.Modules.Authentication
                 .Matches(@"[\W_]")
                 .WithMessage("Mật khẩu phải có ít nhất 1 ký tự đặc biệt.");
 
+            // ✅ CONFIRM PASSWORD
             RuleFor(x => x.ConfirmPassword)
+                .NotEmpty()
+                .WithMessage("Vui lòng xác nhận mật khẩu mới.")
                 .Equal(x => x.NewPassword)
-                .WithMessage("Xác nhận mật khẩu không khớp");
+                .WithMessage("Mật khẩu xác nhận không khớp.");
         }
     }
 }
