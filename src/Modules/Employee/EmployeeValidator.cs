@@ -2,16 +2,16 @@
 
 namespace ItSupportServer.src.Modules.Employee
 {
-    public class CreateEmployeeDtoValidator : AbstractValidator<CreateEmployeeDto>
+    public class CreateEmployeeValidator : AbstractValidator<CreateEmployeeDto>
     {
-        public CreateEmployeeDtoValidator()
+        public CreateEmployeeValidator()
         {
             RuleFor(x => x.EmpCode)
                 .MaximumLength(20).WithMessage("Mã nhân viên không được quá 20 ký tự.")
                 .When(x => !string.IsNullOrWhiteSpace(x.EmpCode));
 
             RuleFor(x => x.FullName)
-                .NotEmpty().WithMessage("Họ tên là bắt buộc.")
+                .NotEmpty().WithMessage("Vui lòng nhập họ tên.")
                 .MaximumLength(150).WithMessage("Họ tên không được quá 150 ký tự.")
                 .Matches(@"^[\p{L}\p{M}\p{N} _-]+$").WithMessage("Họ tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_).");
 
@@ -21,15 +21,19 @@ namespace ItSupportServer.src.Modules.Employee
                 .When(x => !string.IsNullOrWhiteSpace(x.PhoneNumber));
 
             RuleFor(x => x.Email)
-                .EmailAddress().WithMessage("Email không hợp lệ.")
-                .MaximumLength(254).WithMessage("Email không được quá 254 ký tự.")
+                .EmailAddress()
+                .WithMessage("Email không hợp lệ.")
+                .MaximumLength(254)  // ✅ RFC 5321 max length
+                .WithMessage("Email không được quá 254 ký tự.")
+                .Matches(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")  // ✅ Strict regex
+                .WithMessage("Email không đúng định dạng.")
                 .When(x => !string.IsNullOrWhiteSpace(x.Email));
 
             RuleFor(x => x.DptId)
-                .GreaterThan(0).WithMessage("Bộ phận là bắt buộc.");
+                .GreaterThan(0).WithMessage("Vui lòng chọn bộ phận.");
 
             RuleFor(x => x.AreaId)
-                .GreaterThan(0).WithMessage("Khu vực là bắt buộc.");
+                .GreaterThan(0).WithMessage("Vui lòng chọn khu vực.");
 
             RuleFor(x => x.Position)
                 .MaximumLength(150).WithMessage("Chức vụ không được quá 150 ký tự.")
@@ -46,16 +50,16 @@ namespace ItSupportServer.src.Modules.Employee
         }
     }
 
-    public class UpdateEmployeeDtoValidator : AbstractValidator<UpdateEmployeeDto>
+    public class UpdateEmployeeValidator : AbstractValidator<UpdateEmployeeDto>
     {
-        public UpdateEmployeeDtoValidator()
+        public UpdateEmployeeValidator()
         {
             RuleFor(x => x.EmpCode)
                 .MaximumLength(20).WithMessage("Mã nhân viên không được quá 20 ký tự.")
                 .When(x => !string.IsNullOrWhiteSpace(x.EmpCode));
 
             RuleFor(x => x.FullName)
-                .NotEmpty().WithMessage("Họ tên là bắt buộc.")
+                .NotEmpty().WithMessage("Vui lòng nhập họ tên.")
                 .MaximumLength(150).WithMessage("Họ tên không được quá 150 ký tự.")
                 .Matches(@"^[\p{L}\p{M}\p{N} _-]+$").WithMessage("Họ tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_).")
                 .When(x => x.FullName != null);
@@ -66,27 +70,31 @@ namespace ItSupportServer.src.Modules.Employee
                 .When(x => !string.IsNullOrWhiteSpace(x.PhoneNumber));
 
             RuleFor(x => x.Email)
-                .EmailAddress().WithMessage("Email không hợp lệ.")
-                .MaximumLength(254).WithMessage("Email không được quá 254 ký tự.")
+                .EmailAddress()
+                .WithMessage("Email không hợp lệ.")
+                .MaximumLength(254)  // ✅ RFC 5321 max length
+                .WithMessage("Email không được quá 254 ký tự.")
+                .Matches(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")  // ✅ Strict regex
+                .WithMessage("Email không đúng định dạng.")
                 .When(x => !string.IsNullOrWhiteSpace(x.Email));
 
             RuleFor(x => x.DptId)
-                .GreaterThan(0).WithMessage("Bộ phận là bắt buộc.");
+                .GreaterThan(0).WithMessage("Vui lòng chọn bộ phận.");
 
             RuleFor(x => x.AreaId)
-                .GreaterThan(0).WithMessage("Khu vực là bắt buộc.");
+                .GreaterThan(0).WithMessage("Vui lòng chọn khu vực.");
 
             RuleFor(x => x.Position)
                 .MaximumLength(150).WithMessage("Chức vụ không được quá 150 ký tự.");
         }
     }
 
-    public class UpdateProfileDtoValidator : AbstractValidator<UpdateProfileDto>
+    public class UpdateProfileValidator : AbstractValidator<UpdateProfileDto>
     {
-        public UpdateProfileDtoValidator()
+        public UpdateProfileValidator()
         {
             RuleFor(x => x.FullName)
-                .NotEmpty().WithMessage("Tên là bắt buộc.")
+                .NotEmpty().WithMessage("Vui lòng nhập tên.")
                 .MaximumLength(150).WithMessage("Tên không được quá 150 ký tự.")
                 .Matches(@"^[\p{L}\p{M}\p{N} _-]+$").WithMessage("Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_).");
 
@@ -96,8 +104,12 @@ namespace ItSupportServer.src.Modules.Employee
                 .When(x => !string.IsNullOrWhiteSpace(x.PhoneNumber));
 
             RuleFor(x => x.Email)
-                .EmailAddress().WithMessage("Email không đúng định dạng.")
-                .MaximumLength(254).WithMessage("Email không được quá 254 ký tự.")
+                .EmailAddress()
+                .WithMessage("Email không hợp lệ.")
+                .MaximumLength(254)  // ✅ RFC 5321 max length
+                .WithMessage("Email không được quá 254 ký tự.")
+                .Matches(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")  // ✅ Strict regex
+                .WithMessage("Email không đúng định dạng.")
                 .When(x => !string.IsNullOrWhiteSpace(x.Email));
         }
     }

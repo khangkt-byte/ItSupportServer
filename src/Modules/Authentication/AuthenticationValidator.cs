@@ -2,42 +2,44 @@
 
 namespace ItSupportServer.src.Modules.Authentication
 {
-    public class LoginDtoValidator : AbstractValidator<LoginDto>
+    public class LoginValidator : AbstractValidator<LoginDto>
     {
-        public LoginDtoValidator()
+        public LoginValidator()
         {
             RuleFor(x => x.Identifier)
-                .NotEmpty().WithMessage("Tên đăng nhập hoặc email là bắt buộc.")
+                .NotEmpty().WithMessage("Vui lòng nhập tên đăng nhập hoặc email.")
                 .MaximumLength(254).WithMessage("Tên đăng nhập hoặc email không được quá 254 ký tự.")
                 .Matches(@"^(?:[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,63}|[A-Za-z0-9._\-]{3,32})$")
                 .WithMessage("Tên đăng nhập hoặc email không đúng định dạng.");
 
             RuleFor(x => x.Password)
-                .NotEmpty().WithMessage("Mật khẩu là bắt buộc.")
-                .MaximumLength(100).WithMessage("Mật khẩu không được quá 100 ký tự.");
+                .NotEmpty()
+                .WithMessage("Vui lòng nhập mật khẩu.")
+                .MaximumLength(128)
+                .WithMessage("Mật khẩu không được quá 128 ký tự.");
         }
     }
 
-    public class OtpDtoValidator : AbstractValidator<OtpDto>
+    public class OtpValidator : AbstractValidator<OtpDto>
     {
-        public OtpDtoValidator()
+        public OtpValidator()
         {
             RuleFor(x => x.Otp)
-                .NotEmpty().WithMessage("Mã OTP là bắt buộc.")
+                .NotEmpty().WithMessage("Vui lòng nhập mã OTP.")
                 .Length(6).WithMessage("Mã OTP phải đủ 6 ký tự.")
                 .Matches(@"^\d{6}$").WithMessage("Mã OTP phải gồm 6 chữ số.");
 
             RuleFor(x => x.AccountId)
-                .NotEmpty().WithMessage("UserId là bắt buộc.");
+                .NotEmpty().WithMessage("Không tìm thấy tài khoản.");
         }
     }
 
     /// <summary>
     /// Validator for password reset
     /// </summary>
-    public class ResetPasswordDtoValidator : AbstractValidator<ResetPasswordDto>
+    public class ResetPasswordValidator : AbstractValidator<ResetPasswordDto>
     {
-        public ResetPasswordDtoValidator()
+        public ResetPasswordValidator()
         {
             RuleFor(x => x.Token)
                 .NotEmpty()
@@ -47,12 +49,19 @@ namespace ItSupportServer.src.Modules.Authentication
 
             RuleFor(x => x.NewPassword)
                 .NotEmpty()
-                .MinimumLength(8)
-                .WithMessage("Mật khẩu phải có ít nhất 8 ký tự")
-                .Matches(@"[A-Z]").WithMessage("Mật khẩu phải có ít nhất 1 chữ hoa")
-                .Matches(@"[a-z]").WithMessage("Mật khẩu phải có ít nhất 1 chữ thường")
-                .Matches(@"[0-9]").WithMessage("Mật khẩu phải có ít nhất 1 số")
-                .Matches(@"[\W_]").WithMessage("Mật khẩu phải có ít nhất 1 ký tự đặc biệt");
+                .WithMessage("Vui lòng nhập mật khẩu.")
+                .MinimumLength(8)  // ✅ NIST: Min 8 chars
+                .WithMessage("Mật khẩu phải có ít nhất 8 ký tự.")
+                .MaximumLength(128)  // ✅ NIST: Max 128 chars
+                .WithMessage("Mật khẩu không được quá 128 ký tự.")
+                .Matches(@"[A-Z]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 chữ hoa.")
+                .Matches(@"[a-z]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 chữ thường.")
+                .Matches(@"[0-9]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 chữ số.")
+                .Matches(@"[\W_]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 ký tự đặc biệt.");
 
             RuleFor(x => x.ConfirmPassword)
                 .Equal(x => x.NewPassword)

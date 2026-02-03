@@ -2,13 +2,22 @@
 
 namespace ItSupportServer.src.Modules.Issue
 {
-    public class CreateIssueDtoValidator : AbstractValidator<CreateIssueDto>
+    public class CreateIssueValidator : AbstractValidator<CreateIssueDto>
     {
-        public CreateIssueDtoValidator()
+        public enum IssueSeverity
+        {
+            Low = 1,
+            Medium = 2,
+            High = 3,
+            Critical = 4,
+            Emergency = 5
+        }
+
+        public CreateIssueValidator()
         {
             RuleFor(x => x.Name)
                 .NotEmpty()
-                .WithMessage("Tên vấn đề là bắt buộc.")
+                .WithMessage("Vui lòng nhập tên vấn đề.")
                 .MaximumLength(255)
                 .WithMessage("Tên vấn đề không được quá 255 ký tự.")
                 .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()]+$")
@@ -29,15 +38,15 @@ namespace ItSupportServer.src.Modules.Issue
                 .When(x => !string.IsNullOrWhiteSpace(x.Category));
 
             RuleFor(x => x.Severity)
-                .InclusiveBetween(1, 5)
-                .WithMessage("Độ nghiêm trọng phải từ 1 đến 5.")
+                .IsInEnum()
+                .WithMessage("Độ nghiêm trọng phải từ 1 (Thấp) đến 5 (Khẩn cấp).")
                 .When(x => x.Severity.HasValue);
         }
     }
 
-    public class UpdateIssueDtoValidator : AbstractValidator<UpdateIssueDto>
+    public class UpdateIssueValidator : AbstractValidator<UpdateIssueDto>
     {
-        public UpdateIssueDtoValidator()
+        public UpdateIssueValidator()
         {
             RuleFor(x => x.Name)
                 .NotEmpty()
@@ -53,7 +62,7 @@ namespace ItSupportServer.src.Modules.Issue
             RuleFor(x => x.Description)
                 .MaximumLength(1000)
                 .WithMessage("Mô tả không được quá 1000 ký tự.")
-                .When(x => x.Description != null);
+                .When(x => !string.IsNullOrWhiteSpace(x.Description));
 
             RuleFor(x => x.Category)
                 .MaximumLength(100)
@@ -63,8 +72,8 @@ namespace ItSupportServer.src.Modules.Issue
                 .When(x => x.Category != null && !string.IsNullOrWhiteSpace(x.Category));
 
             RuleFor(x => x.Severity)
-                .InclusiveBetween(1, 5)
-                .WithMessage("Độ nghiêm trọng phải từ 1 đến 5.")
+                .IsInEnum()
+                .WithMessage("Độ nghiêm trọng phải từ 1 (Thấp) đến 5 (Khẩn cấp).")
                 .When(x => x.Severity.HasValue);
 
             RuleFor(x => x)
