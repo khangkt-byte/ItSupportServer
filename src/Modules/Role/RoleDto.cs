@@ -71,4 +71,36 @@ namespace ItSupportServer.src.Modules.Role
         public required string Username { get; init; }
         public List<RoleDto> Roles { get; init; } = [];
     }
+
+    /// <summary>
+    /// Bulk delete result DTO
+    /// Pattern: Microsoft Graph, Google Cloud batch results
+    /// </summary>
+    public record BulkDeleteResultDto
+    {
+        /// <summary>
+        /// Operation success status
+        /// </summary>
+        public bool Success { get; init; }
+
+        /// <summary>
+        /// Number of items successfully deleted
+        /// </summary>
+        public int DeletedCount { get; init; }
+
+        /// <summary>
+        /// Total number of items requested to delete
+        /// </summary>
+        public int TotalRequested { get; init; }
+
+        /// <summary>
+        /// Human-readable message
+        /// </summary>
+        public string Message { get; init; } = string.Empty;
+
+        /// <summary>
+        /// Optional: IDs of deleted items
+        /// </summary>
+        public List<int>? DeletedIds { get; init; }
+    }
 }
