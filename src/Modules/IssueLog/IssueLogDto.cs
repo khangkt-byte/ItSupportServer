@@ -45,7 +45,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         public string? Notes { get; init; }
         
         // ===== Metadata =====
-        public DateTime DateReported { get; init; }
+        public DateOnly DateReported { get; init; }
         public string? Status { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
@@ -80,7 +80,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         public string? Notes { get; init; }
         
         // ===== Metadata =====
-        public DateTime DateReported { get; init; }
+        public DateOnly DateReported { get; init; }
         public string? Status { get; init; }
     }
 
@@ -101,7 +101,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         public string? Resolution { get; init; }
         public string? PermanentFix { get; init; }
         public string? Notes { get; init; }
-        public DateTime? DateReported { get; init; }
+        public DateOnly? DateReported { get; init; }
         public string? Status { get; init; }
     }
 }

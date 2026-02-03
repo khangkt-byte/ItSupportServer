@@ -52,7 +52,7 @@ namespace ItSupportServer.Data.Models.Configurations
                    .HasColumnName("serial_number");
 
             builder.Property(d => d.Notes)
-                   .HasMaxLength(1000)
+                   .HasMaxLength(500)
                    .HasColumnName("notes");
 
             // Relationships
