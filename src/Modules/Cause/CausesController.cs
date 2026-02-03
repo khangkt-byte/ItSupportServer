@@ -7,6 +7,9 @@ namespace ItSupportServer.src.Modules.Cause
 {
     /// <summary>
     /// API quản lý nguyên nhân sự cố (Knowledge Base)
+    /// Pattern: RESTful API, Knowledge Management
+    /// Security: JWT + Permission-based authorization
+    /// Reference: ServiceNow Knowledge Base API
     /// </summary>
     [ApiController]
     [Route("api/causes")]
@@ -28,6 +31,7 @@ namespace ItSupportServer.src.Modules.Cause
         [ProducesResponseType(typeof(PaginatedResult<ListCauseDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<PaginatedResult<ListCauseDto>>> GetCauses(
             [FromQuery] QueryParameters parameters)
         {
@@ -41,7 +45,10 @@ namespace ItSupportServer.src.Modules.Cause
         [HttpGet("{causeId}")]
         [HasPermission(Permissions.CauseClaims.View)]
         [ProducesResponseType(typeof(CauseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<CauseDto>> GetCause([FromRoute] long causeId)
         {
             var result = await _service.GetCauseByIdAsync(causeId);
@@ -53,10 +60,24 @@ namespace ItSupportServer.src.Modules.Cause
         /// </summary>
         /// <param name="issId">Issue ID</param>
         /// <returns>List of causes for the issue</returns>
+        /// <remarks>
+        /// **Use case:** Populate dropdown khi user chọn Issue trong IssueLog form
+        /// 
+        /// **Not Found (404):**
+        /// - Issue ID không tồn tại
+        /// 
+        /// **Example:**
+        /// ```
+        /// GET /api/causes/by-issue/5
+        /// ```
+        /// </remarks>
         [HttpGet("by-issue/{issId}")]
         [HasPermission(Permissions.CauseClaims.View)]
         [ProducesResponseType(typeof(List<CauseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<List<CauseDto>>> GetCausesByIssue([FromRoute] long issId)
         {
             var result = await _service.GetCausesByIssueIdAsync(issId);
@@ -66,12 +87,36 @@ namespace ItSupportServer.src.Modules.Cause
         /// <summary>
         /// [ADMIN] Tạo nguyên nhân mới
         /// </summary>
+        /// <remarks>
+        /// **Validation (400):**
+        /// - IssId: required, must > 0
+        /// - Name: required, max 255 chars, allowed characters
+        /// - Description: max 1000 chars
+        /// 
+        /// **Not Found (404):**
+        /// - Issue ID không tồn tại
+        /// 
+        /// **Conflict (409):**
+        /// - Tên nguyên nhân đã tồn tại cho issue này
+        /// 
+        /// **Example:**
+        /// ```json
+        /// {
+        ///   "issId": 5,
+        ///   "name": "Nguồn điện hỏng",
+        ///   "description": "Tụ điện phồng, cần thay nguồn"
+        /// }
+        /// ```
+        /// </remarks>
         [HttpPost]
         [HasPermission(Permissions.CauseClaims.Create)]
         [ProducesResponseType(typeof(CauseDto), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<CauseDto>> CreateCause([FromBody] CreateCauseDto dto)
         {
             var result = await _service.CreateCauseAsync(dto);
@@ -81,11 +126,28 @@ namespace ItSupportServer.src.Modules.Cause
         /// <summary>
         /// [ADMIN] Cập nhật nguyên nhân
         /// </summary>
+        /// <remarks>
+        /// **Partial update:** Chỉ fields có giá trị được update
+        /// 
+        /// **Validation (400):**
+        /// - Name/Description format (nếu cung cấp)
+        /// - Phải có ít nhất 1 field để update
+        /// 
+        /// **Not Found (404):**
+        /// - Cause ID không tồn tại
+        /// 
+        /// **Conflict (409):**
+        /// - Tên mới trùng với cause khác của cùng issue
+        /// </remarks>
         [HttpPut("{causeId}")]
         [HasPermission(Permissions.CauseClaims.Edit)]
         [ProducesResponseType(typeof(CauseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<CauseDto>> UpdateCause(
             [FromRoute] long causeId,
             [FromBody] UpdateCauseDto dto)
@@ -97,11 +159,30 @@ namespace ItSupportServer.src.Modules.Cause
         /// <summary>
         /// [ADMIN] Xóa nhiều nguyên nhân
         /// </summary>
+        /// <param name="causeIds">Danh sách cause IDs cần xóa</param>
+        /// <param name="softDelete">Soft delete (mặc định: true)</param>
+        /// <returns>Success status</returns>
+        /// <remarks>
+        /// **Business Rules (422):**
+        /// - Không thể xóa cause đang được tham chiếu bởi IssueLog (nếu hard delete)
+        /// 
+        /// **Not Found (404):**
+        /// - Nếu ANY cause ID không tồn tại
+        /// 
+        /// **Example:**
+        /// ```json
+        /// [1, 2, 3]
+        /// ```
+        /// </remarks>
         [HttpDelete]
         [HasPermission(Permissions.CauseClaims.Delete)]
         [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<bool>> DeleteCauses(
             [FromBody] List<long> causeIds,
             [FromQuery] bool softDelete = true)
@@ -117,12 +198,38 @@ namespace ItSupportServer.src.Modules.Cause
         /// <param name="search">Search term (optional)</param>
         /// <returns>Top 10 most used causes for the issue</returns>
         /// <remarks>
+        /// **Use case:**
         /// Endpoint này được sử dụng bởi IssueLog form để hiển thị cause suggestions
-        /// sau khi user chọn issue từ knowledge base
+        /// sau khi user chọn issue từ knowledge base.
+        /// 
+        /// **Algorithm:**
+        /// - Order by usage count (most used first)
+        /// - Filter by search term (if provided)
+        /// - Limit 10 results
+        /// 
+        /// **Not Found (404):**
+        /// - Issue ID không tồn tại
+        /// 
+        /// **Example:**
+        /// ```
+        /// GET /api/causes/suggestions?issId=5&amp;search=nguồn
+        /// ```
+        /// 
+        /// **Response:**
+        /// ```json
+        /// [
+        ///   { "causeId": 10, "name": "Nguồn điện hỏng", "usageCount": 15 },
+        ///   { "causeId": 12, "name": "Nguồn UPS hết pin", "usageCount": 8 }
+        /// ]
+        /// ```
         /// </remarks>
         [HttpGet("suggestions")]
         [HasPermission(Permissions.CauseClaims.View)]
         [ProducesResponseType(typeof(List<CauseSuggestionDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<List<CauseSuggestionDto>>> GetCauseSuggestions(
             [FromQuery] long issId,
             [FromQuery] string? search = null)
