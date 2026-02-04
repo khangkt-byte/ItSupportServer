@@ -28,7 +28,7 @@ namespace ItSupportServer
             
             // ✅ FIXED: Singleton (was Scoped - causing memory leak)
             // Reason: Stateless handler, creates scopes manually
-            services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
+            services.AddScoped<IAuthorizationHandler, PermissionHandler>();
             
             // ✅ CORRECT: Singleton for policy provider
             // Reason: Stateless, called on every request for policy discovery
