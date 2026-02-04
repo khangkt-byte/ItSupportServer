@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace ITSupportServer.Data.Models.Configurations
+namespace ItSupportServer.Data.Models.Configurations
 {
     public class IssueConfiguration : IEntityTypeConfiguration<Issues>
     {
