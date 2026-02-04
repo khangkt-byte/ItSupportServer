@@ -98,7 +98,8 @@ namespace ItSupportServer.src.Modules.Role
         /// <param name="id">Role ID</param>
         /// <returns>No content (204)</returns>
         /// <remarks>
-        /// **Pattern:** RESTful delete (no response body)
+        /// **Pattern:** RESTful single resource delete
+        /// **Reference:** Microsoft REST API Guidelines
         /// 
         /// **Business rules:**
         /// - Không thể xóa nếu role đang được sử dụng (422)
@@ -115,7 +116,7 @@ namespace ItSupportServer.src.Modules.Role
         public async Task<IActionResult> DeleteRole([FromRoute] int id)
         {
             await _service.DeleteRoleAsync(id);
-            return NoContent();  // ✅ FIX: NoContent() instead of Ok()
+            return NoContent();
         }
 
         /// <summary>
@@ -128,6 +129,14 @@ namespace ItSupportServer.src.Modules.Role
         /// **Strategy:** All-or-nothing (transaction-based)
         /// - Nếu TẤT CẢ thành công → 200 OK với summary
         /// - Nếu BẤT KỲ lỗi nào → Rollback, throw error (4xx/5xx)
+        /// 
+        /// **Pattern:** Microsoft Dynamics 365 standard tables
+        /// **Reference:** https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// 
+        /// **Business rules:**
+        /// - Không thể xóa role đang được sử dụng (422)
+        /// - Không thể xóa system roles (422)
+        /// - Transaction rollback nếu ANY item fails
         /// 
         /// **Response:**
         /// ```json
@@ -152,15 +161,8 @@ namespace ItSupportServer.src.Modules.Role
             [FromBody] List<int> roleIds,
             [FromQuery] bool softDelete = true)
         {
-            var deletedCount = await _service.DeleteRolesAsync(roleIds, softDelete);
-            
-            return Ok(new BulkDeleteResultDto
-            {
-                Success = true,
-                DeletedCount = deletedCount,
-                TotalRequested = roleIds.Count,
-                Message = $"Đã xóa {deletedCount} vai trò thành công"
-            });
+            var result = await _service.DeleteRolesAsync(roleIds, softDelete);
+            return Ok(result);
         }
 
         /// <summary>
