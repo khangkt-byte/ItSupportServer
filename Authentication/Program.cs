@@ -5,16 +5,16 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using NhaHangApi;
-using NhaHangApi.EF_Core.Data;
-using NhaHangApi.EF_Core.Seeds;
-using NhaHangApi.src.Shared.Attributes;
-using NhaHangApi.src.Shared.BackgroundServices;
-using NhaHangApi.src.Shared.MidlewareServices;
+using ITSupportServer;
+using ITSupportServer.EF_Core.Data;
+using ITSupportServer.EF_Core.Seeds;
+using ITSupportServer.src.Shared.Attributes;
+using ITSupportServer.src.Shared.BackgroundServices;
+using ITSupportServer.src.Shared.MidlewareServices;
 using Npgsql;
 using Scalar.AspNetCore;
 using System.Text;
-using static NhaHangApi.src.Shared.Helper.GitHubImageService;
+using static ITSupportServer.src.Shared.Helper.GitHubImageService;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<ForwardedHeadersOptions>(options =>

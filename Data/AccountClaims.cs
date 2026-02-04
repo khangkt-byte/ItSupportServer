@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace NhaHangApi.EF_Core.Data
+namespace ITSupportServer.Data
 {
     [Table("account_claims")]
     [PrimaryKey(nameof(AccountId), nameof(ClaimId))]
@@ -15,7 +15,7 @@ namespace NhaHangApi.EF_Core.Data
         public Guid AccountId { get; set; }
 
         [ForeignKey(nameof(AccountId))]
-        public Account Account { get; set; }
+        public Accounts Account { get; set; }
 
         [Column("claim_id")]
         [Required]

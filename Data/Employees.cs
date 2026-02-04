@@ -66,6 +66,7 @@ namespace ITSupportServer.Data
         [Column("deleted_at")]
         public DateTime? DeletedAt { get; set; }
 
+        public ICollection<Accounts> Accounts { get; set; } = new List<Accounts>();
         public ICollection<IssueLogs> IssueLogsAsOperator { get; set; } = new List<IssueLogs>();
         public ICollection<IssueLogs> IssueLogsAsRequester { get; set; } = new List<IssueLogs>();
     }

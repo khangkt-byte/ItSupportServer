@@ -14,6 +14,13 @@ namespace ITSupportServer.Data
         public DbSet<IssueLogs> IssueLogs { get; set; }
         public DbSet<Issues> Issues { get; set; }
         public DbSet<Reasons> Reasons { get; set; }
+        public DbSet<Accounts> Accounts { get; set; }
+        public DbSet<Roles> Roles { get; set; }
+        public DbSet<Claims> Claims { get; set; }
+        public DbSet<RoleClaims> RoleClaims { get; set; }
+        public DbSet<AccountRoles> AccountRoles { get; set; }
+        public DbSet<AccountClaims> AccountClaims { get; set; }
+        public DbSet<AccountTokens> AccountTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

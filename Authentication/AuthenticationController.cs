@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using NhaHangApi.src.Modules.User.Customer;
-using NhaHangApi.src.Shared.Base;
+using ITSupportServer.src.Modules.User.Customer;
+using ITSupportServer.src.Shared.Base;
 
-namespace NhaHangApi.src.Modules.Authentication
+namespace ITSupportServer.src.Modules.Authentication
 {
     [Route("api/[controller]")]
     [ApiController]

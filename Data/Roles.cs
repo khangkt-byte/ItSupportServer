@@ -2,14 +2,15 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace NhaHangApi.EF_Core.Data
+namespace ITSupportServer.Data
 {
     [Table("roles")]
-    public class Role
+    public class Roles
     {
         [Key]
-        [Column("id")]
-        public string Id { get; set; }
+        [Column("role_id")]
+        [Required]
+        public string RoleId { get; set; }
 
         [Required]
         [Column("name")]
@@ -25,7 +26,6 @@ namespace NhaHangApi.EF_Core.Data
         public DateTime? DeletedAt { get; set; }
 
         public ICollection<RoleClaims> RoleClaims { get; set; } = new List<RoleClaims>();
-        public ICollection<AccountRole> AccountRoles { get; set; } = new List<AccountRole>();
-        public ICollection<Discounts_Roles>? Discounts_Roles { get; set; } = new List<Discounts_Roles>();
+        public ICollection<AccountRoles> AccountRoles { get; set; } = new List<AccountRoles>();
     }
 }

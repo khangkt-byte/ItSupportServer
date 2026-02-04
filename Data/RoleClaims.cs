@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace NhaHangApi.EF_Core.Data
+namespace ITSupportServer.Data
 {
     [Table("role_claims")]
     [PrimaryKey(nameof(RoleId), nameof(ClaimId))]
@@ -15,7 +15,7 @@ namespace NhaHangApi.EF_Core.Data
         public string RoleId { get; set; }
         
         [ForeignKey(nameof(RoleId))]
-        public Role Role { get; set; }
+        public Roles Role { get; set; }
 
         [Column("claim_id")]
         [Required]

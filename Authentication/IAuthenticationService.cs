@@ -1,6 +1,6 @@
-﻿using NhaHangApi.src.Shared.Base;
+﻿using ITSupportServer.src.Shared.Base;
 
-namespace NhaHangApi.src.Modules.Authentication
+namespace ITSupportServer.src.Modules.Authentication
 {
     public interface IAuthenticationService
     {

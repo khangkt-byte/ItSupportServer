@@ -1,8 +1,8 @@
 ﻿using AutoMapper;
-using NhaHangApi.EF_Core.Data;
-using NhaHangApi.src.Shared.Helper;
+using ITSupportServer.EF_Core.Data;
+using ITSupportServer.src.Shared.Helper;
 
-namespace NhaHangApi.src.Modules.User.Employee
+namespace ITSupportServer.src.Modules.User.Employee
 {
     public class EmployeeProfile : Profile
     {

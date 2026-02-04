@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using static NhaHangApi.src.Modules.User.UsersEnum;
+using static ITSupportServer.src.Modules.User.UsersEnum;
 
-namespace NhaHangApi.src.Modules.User.Customer
+namespace ITSupportServer.src.Modules.User.Customer
 {
     public class RegisterCustomerDto
     {

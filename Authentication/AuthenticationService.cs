@@ -4,27 +4,27 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
-using NhaHangApi.EF_Core.Data;
-using NhaHangApi.src.Shared.Base;
-using NhaHangApi.src.Shared.Helper;
+using ITSupportServer.EF_Core.Data;
+using ITSupportServer.src.Shared.Base;
+using ITSupportServer.src.Shared.Helper;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using static NhaHangApi.src.Shared.Base.BaseEnum;
+using static ITSupportServer.src.Shared.Base.BaseEnum;
 
-namespace NhaHangApi.src.Modules.Authentication
+namespace ITSupportServer.src.Modules.Authentication
 {
     public class AuthenticationService(AppDbContext db, IConfiguration configuration, IMapper mapper, IMemoryCache _cache) : IAuthenticationService
     {
 
         //tạo token
-        private async Task<string> CreateToken(Account user)
+        private async Task<string> CreateToken(Accounts user)
         {
-            var userRoles = await db.Users.FindAsync(user.IdUser);
+            var userRoles = await db.Users.FindAsync(user.UserId);
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.Name, user.UserName),
-                new Claim(ClaimTypes.NameIdentifier, user.IdUser.ToString()),
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
                 new Claim(ClaimTypes.Role, userRoles.Position),
 
             };
@@ -52,7 +52,7 @@ namespace NhaHangApi.src.Modules.Authentication
         }
 
         //kiểm tra token có còn hợp lệ
-        private async Task<Account?> ValidateRefreshTokenAsync(string refreshToken)
+        private async Task<Accounts?> ValidateRefreshTokenAsync(string refreshToken)
         {
             var token = await db.AccountTokens
         .FirstOrDefaultAsync(t => t.Id.ToString() == refreshToken);
@@ -69,7 +69,7 @@ namespace NhaHangApi.src.Modules.Authentication
         //tạo vào lưu token mới
         private async Task<string> GenerateAndSaveRefreshToken(Guid IdAccount)
         {
-            var token = await db.AccountTokens.AddAsync(new AccountToken
+            var token = await db.AccountTokens.AddAsync(new AccountTokens
             {
                 IdAccount = IdAccount,
                 ExpiryTime = DateTime.UtcNow.AddDays(2)
@@ -81,7 +81,7 @@ namespace NhaHangApi.src.Modules.Authentication
         }
 
         //tạo token trả về
-        private async Task<TokenResponseDto> CreateTokenResponseAsync(Account user, bool isTokenExpry, string? refToken)
+        private async Task<TokenResponseDto> CreateTokenResponseAsync(Accounts user, bool isTokenExpry, string? refToken)
         {
             if (isTokenExpry is true)
             {
@@ -96,7 +96,7 @@ namespace NhaHangApi.src.Modules.Authentication
                 return new TokenResponseDto
                 {
                     AccessToken = await CreateToken(user),
-                    RefreshToken = await GenerateAndSaveRefreshToken(user.IdUser)
+                    RefreshToken = await GenerateAndSaveRefreshToken(user.UserId)
                 };
             }
 
@@ -118,7 +118,7 @@ namespace NhaHangApi.src.Modules.Authentication
 
                 if (!string.IsNullOrEmpty(user.Otp) && user.ExpriesOtp != null) return BaseResult<TokenResponseDto>.Fail("Tài khoản chưa xác minh email", 403, new TokenResponseDto { UserId = user.IdUser });
 
-                if (new PasswordHasher<Account>().VerifyHashedPassword(user, user.Password, dto.Password)
+                if (new PasswordHasher<Accounts>().VerifyHashedPassword(user, user.Password, dto.Password)
                    == PasswordVerificationResult.Failed)
                 {
                     return BaseResult<TokenResponseDto>.Fail("Không đúng mật khẩu", 400);
@@ -247,10 +247,10 @@ namespace NhaHangApi.src.Modules.Authentication
                     };
                     await db.Users.AddAsync(NewUser);
                     await db.SaveChangesAsync();
-                    var NewAccount = new Account
+                    var NewAccount = new Accounts
                     {
-                        IdUser = NewUser.Id,
-                        UserName = res.Email,
+                        UserId = NewUser.Id,
+                        Username = res.Email,
                         GoogleId = res.GoogleSub,
                         CreatedAt = DateTime.UtcNow
                     };
@@ -381,7 +381,7 @@ namespace NhaHangApi.src.Modules.Authentication
                 if (IsUserExit is null) return BaseResult<bool>.Fail("Người dùng không tồn tại", 400, false);
 
                 var newPassword = RandomString.GenerateRandomString(8);
-                var hashedPassword = new PasswordHasher<Account>().HashPassword(IsUserExit, newPassword);
+                var hashedPassword = new PasswordHasher<Accounts>().HashPassword(IsUserExit, newPassword);
                 IsUserExit.Password = hashedPassword;
 
                 db.Accounts.Update(IsUserExit);
