@@ -14,21 +14,22 @@ namespace ItSupportServer.src.Modules.IssueLog
                                    .Where(il => il.DeletedAt == null)
                                    .Select(il => new IssueLogDto
                                    {
-                                       IssLogId = il.IssLogId,
-                                       Requester = il.Requester,
-                                       DptId = il.DptId,
-                                       AreaId = il.AreaId,
-                                       IssueDescription = il.IssueDescription,
-                                       Cause = il.Cause,
-                                       Resolution = il.Resolution,
-                                       PermanentFix = il.PermanentFix,
-                                       Notes = il.Notes,
-                                       DateReported = il.DateReported,
-                                       Status = il.Status,
+                                        IssLogId = il.IssLogId,
+                                        Operators = il.Operator.Split(',').ToList(),
+                                        Requester = il.Requester,
+                                        DptId = il.DptId,
+                                        AreaId = il.AreaId,
+                                        IssueDescription = il.IssueDescription,
+                                        Cause = il.Cause,
+                                        Resolution = il.Resolution,
+                                        PermanentFix = il.PermanentFix,
+                                        Notes = il.Notes,
+                                        DateReported = il.DateReported,
+                                        Status = il.Status,
 
-                                       OperatorNames = il.Operators
-                                                        .Select(ile => ile.Employee.FullName)
-                                                        .ToList()
+                                        //Operators = il.Operators
+                                        //                 .Select(ile => ile.Employee.FullName)
+                                        //                 .ToList()
                                    })
                                    .AsNoTracking();
 
@@ -55,6 +56,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                                       .Select(il => new IssueLogDto
                                       {
                                           IssLogId = il.IssLogId,
+                                          Operators = il.Operator.Split(',').ToList(),
                                           Requester = il.Requester,
                                           DptId = il.DptId,
                                           AreaId = il.AreaId,
@@ -66,9 +68,9 @@ namespace ItSupportServer.src.Modules.IssueLog
                                           DateReported = il.DateReported,
                                           Status = il.Status,
 
-                                          OperatorNames = il.Operators
-                                                            .Select(ile => ile.Employee.FullName)
-                                                            .ToList()
+                                          //Operators = il.Operators
+                                          //                  .Select(ile => ile.Employee.FullName)
+                                          //                  .ToList()
                                       })
                                       .AsNoTracking()
                                       .FirstOrDefaultAsync();
@@ -84,7 +86,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             }
         }
 
-        public async Task<BaseResult<IssueLogsCreateDto>> CreateIssueLogAsync(IssueLogsCreateDto createDto)
+        public async Task<BaseResult<CreateIssueLogDto>> CreateIssueLogAsync(CreateIssueLogDto createDto)
         {
             using var transaction = await db.Database.BeginTransactionAsync();
             try
@@ -93,6 +95,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                 {
                     IssLogId = Guid.CreateVersion7(),
                     Requester = createDto.Requester,
+                    Operator = createDto.Operator,
                     DptId = createDto.DptId,
                     AreaId = createDto.AreaId,
                     IssueDescription = createDto.IssueDescription,
@@ -105,26 +108,26 @@ namespace ItSupportServer.src.Modules.IssueLog
                     CreatedAt = DateTime.UtcNow
                 };
 
-                var newOperators = createDto.OperatorId.Select(opId => new IssueLogEmployees
-                {
-                    IssLogId = newIssueLogs.IssLogId,
-                    EmpId = opId
-                });
+                //var newOperators = createDto.OperatorId.Select(opId => new IssueLogEmployees
+                //{
+                //    IssLogId = newIssueLogs.IssLogId,
+                //    EmpId = opId
+                //});
 
                 await db.IssueLogs.AddAsync(newIssueLogs);
-                await db.IssueLogEmployees.AddRangeAsync(newOperators);
+                //await db.IssueLogEmployees.AddRangeAsync(newOperators);
                 await db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                return BaseResult<IssueLogsCreateDto>.Ok(createDto);
+                return BaseResult<CreateIssueLogDto>.Ok(createDto);
             }
             catch (Exception ex)
             {
-                return BaseResult<IssueLogsCreateDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
+                return BaseResult<CreateIssueLogDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
             }
         }
 
-        public async Task<BaseResult<IssueLogsUpdateDto>> UpdateIssueLogAsync(Guid issLogId, IssueLogsUpdateDto updateDto)
+        public async Task<BaseResult<UpdateIssueLogDto>> UpdateIssueLogAsync(Guid issLogId, UpdateIssueLogDto updateDto)
         {
             try
             {
@@ -132,7 +135,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             }
             catch (Exception ex)
             {
-                return BaseResult<IssueLogsUpdateDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
+                return BaseResult<UpdateIssueLogDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
             }
         }
 

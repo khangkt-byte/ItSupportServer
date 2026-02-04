@@ -68,7 +68,7 @@ namespace ItSupportServer.src.Modules.Issue
             }
         }
 
-        public async Task<BaseResult<IssueCreateDto>> CreateIssueAsync(IssueCreateDto dto)
+        public async Task<BaseResult<CreateIssueDto>> CreateIssueAsync(CreateIssueDto dto)
         {
             try
             {
@@ -77,7 +77,7 @@ namespace ItSupportServer.src.Modules.Issue
                                        .FirstOrDefaultAsync();
 
                 if (existing is not null)
-                    return BaseResult<IssueCreateDto>.Fail("Vấn đề đã tồn tại.", 400);
+                    return BaseResult<CreateIssueDto>.Fail("Vấn đề đã tồn tại.", 400);
 
                 var newIssue = new Issues()
                 {
@@ -88,15 +88,15 @@ namespace ItSupportServer.src.Modules.Issue
                 await db.Issues.AddAsync(newIssue);
                 await db.SaveChangesAsync();
 
-                return BaseResult<IssueCreateDto>.Ok(dto);
+                return BaseResult<CreateIssueDto>.Ok(dto);
             }
             catch (Exception ex)
             {
-                return BaseResult<IssueCreateDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
+                return BaseResult<CreateIssueDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
             }
         }
 
-        public async Task<BaseResult<IssueUpdateDto>> UpdateIssueAsync(IssueUpdateDto dto)
+        public async Task<BaseResult<UpdateIssueDto>> UpdateIssueAsync(UpdateIssueDto dto)
         {
             try
             {
@@ -105,7 +105,7 @@ namespace ItSupportServer.src.Modules.Issue
                                     .FirstOrDefaultAsync();
 
                 if (issue is null)
-                    return BaseResult<IssueUpdateDto>.Fail("Vấn đề không tồn tại.", 404);
+                    return BaseResult<UpdateIssueDto>.Fail("Vấn đề không tồn tại.", 404);
 
                 if (!string.IsNullOrEmpty(dto.Name))
                     issue.Name = dto.Name;
@@ -116,11 +116,11 @@ namespace ItSupportServer.src.Modules.Issue
                 db.Issues.Update(issue);
                 await db.SaveChangesAsync();
 
-                return BaseResult<IssueUpdateDto>.Ok(dto);
+                return BaseResult<UpdateIssueDto>.Ok(dto);
             }
             catch (Exception ex)
             {
-                return BaseResult<IssueUpdateDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
+                return BaseResult<UpdateIssueDto>.Fail($"Lỗi hệ thống: {ex.Message}", 500);
             }
         }
 

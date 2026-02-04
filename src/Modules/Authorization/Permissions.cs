@@ -26,6 +26,15 @@
             public const string Delete = "Employee.Delete";
         }
 
+        public static class Accounts
+        {
+            public const string View = "Account.View";
+            public const string Create = "Account.Create";
+            public const string Edit = "Account.Edit";
+            public const string Delete = "Account.Delete";
+            //public const string ResetPassword = "Account.ResetPassword";
+        }
+
         public static class Roles
         {
             public const string View = "Role.View";
@@ -57,6 +66,14 @@
             public const string Create = "Issue.Create";
             public const string Edit = "Issue.Edit";
             public const string Delete = "Issue.Delete";
+        }
+
+        public static class Causes
+        {
+            public const string View = "Cause.View";
+            public const string Create = "Cause.Create";
+            public const string Edit = "Cause.Edit";
+            public const string Delete = "Cause.Delete";
         }
 
         public static class IssueLogs

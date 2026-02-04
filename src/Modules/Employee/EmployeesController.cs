@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using ItSupportServer.src.Shared.Base;
 using System.Security.Claims;
 using static ItSupportServer.src.Shared.Base.BaseEnum;
-using ItSupportServer.src.Modules.User;
+using ItSupportServer.src.Shared.Attributes;
+using ItSupportServer.src.Modules.Authorization;
+using FluentValidation;
 
 namespace ItSupportServer.src.Modules.Employee
 {
@@ -11,9 +13,10 @@ namespace ItSupportServer.src.Modules.Employee
     [Route("api/[controller]")]
     [ApiController]
     [Authorize(Roles = RoleUser.GroupAdmin)]
-    public class EmployeeController(IEmployeeService service, IConfiguration configuration) : ControllerBase
+    public class EmployeesController(IEmployeesService service, IConfiguration configuration) : ControllerBase
     {
         [HttpGet]
+        [HasPermission(Permissions.Employees.View)]
         public async Task<IActionResult> GetEmployeesAsync(
            [FromQuery] string? query,
            [FromQuery] int page = 1,
@@ -26,6 +29,7 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
         [HttpGet("{Id}")]
+        [HasPermission(Permissions.Employees.View)]
         public async Task<IActionResult> GetEmployeeAsync([FromRoute] string Id)
         {
             var result = await service.GetEmployeeAsync(Id);
@@ -33,14 +37,32 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateEmployeeAsync([FromForm] CreateEmployeeDto dto)
+        [HasPermission(Permissions.Employees.Create)]
+        public async Task<IActionResult> CreateEmployeeAsync(
+            [FromForm] CreateEmployeeDto dto,
+            [FromServices] IValidator<CreateEmployeeDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var result = await service.CreateEmployeeAsync(dto);
             return this.MyStatusCode(result);
         }
+
         [HttpPut("{Id}")]
-        public async Task<IActionResult> UpdateEmployeeAsync([FromRoute] string Id, [FromForm] UpdateEmployeeDto dto)
+        [HasPermission(Permissions.Employees.Edit)]
+        public async Task<IActionResult> UpdateEmployeeAsync(
+            [FromRoute] string Id,
+            [FromForm] UpdateEmployeeDto dto,
+            [FromServices] IValidator<UpdateEmployeeDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var idUser = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (Id == idUser)
             {
@@ -51,20 +73,22 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
 
-        [HttpPatch("{Id}/status")]
-        public async Task<IActionResult> ChangeStatusAsync([FromRoute] string Id, [FromBody] UsersEnum.STATUS_EMP status)
-        {
-            var idUser = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (Id == idUser)
-            {
-                return BadRequest("Không thể tự chỉnh sửa tài khoản hiện tại");
-            }
-            var result = await service.ChangeStatusAsync(Id, status);
-            return this.MyStatusCode(result);
-        }
+        //[HttpPatch("{Id}/status")]
+        //[HasPermission(Permissions.Employees.Edit)]
+        //public async Task<IActionResult> ChangeStatusAsync([FromRoute] string Id, [FromBody] UsersEnum.STATUS_EMP status)
+        //{
+        //    var idUser = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        //    if (Id == idUser)
+        //    {
+        //        return BadRequest("Không thể tự chỉnh sửa tài khoản hiện tại");
+        //    }
+        //    var result = await service.ChangeStatusAsync(Id, status);
+        //    return this.MyStatusCode(result);
+        //}
 
-        [Authorize(Roles = $"{RoleUser.Super_Admin}")]
+        //[Authorize(Roles = $"{RoleUser.Super_Admin}")]
         [HttpPatch("role/{Id}")]
+        [HasPermission(Permissions.Employees.Edit)]
         public async Task<IActionResult> ChangeRoleAsync([FromRoute] string Id, [FromBody] ROLE newRole)
         {
             var idUser = User.FindFirstValue(ClaimTypes.NameIdentifier);

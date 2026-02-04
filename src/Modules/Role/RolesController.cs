@@ -32,7 +32,8 @@ namespace ItSupportServer.src.Modules.Role
 
         [HttpPost]
         [HasPermission(Permissions.Roles.Create)]
-        public async Task<IActionResult> CreateRoleAsync([FromBody] CreateRoleDto dto)
+        public async Task<IActionResult> CreateRoleAsync(
+            [FromBody] CreateRoleDto dto)
         {
             var result = await service.CreateRoleAsync(dto);
             return this.MyStatusCode(result);
@@ -40,7 +41,9 @@ namespace ItSupportServer.src.Modules.Role
 
         [HttpPut("{id}")]
         [HasPermission(Permissions.Roles.Edit)]
-        public async Task<IActionResult> UpdateRoleAsync([FromRoute] int id, [FromBody] UpdateRoleDto dto)
+        public async Task<IActionResult> UpdateRoleAsync(
+            [FromRoute] int id,
+            [FromBody] UpdateRoleDto dto)
         {
             dto.RoleId = id;
             var result = await service.UpdateRoleAsync(dto);
@@ -65,7 +68,8 @@ namespace ItSupportServer.src.Modules.Role
 
         [HttpPost("set-role")]
         [HasPermission(Permissions.Roles.SetRole)]
-        public async Task<IActionResult> SetRoleAsync([FromBody] AccountRoleDto dto)
+        public async Task<IActionResult> SetRoleAsync(
+            [FromBody] AccountRoleDto dto)
         {
             var result = await service.SetRoleAsync(dto);
             return this.MyStatusCode(result);

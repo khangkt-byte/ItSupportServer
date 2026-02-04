@@ -1,4 +1,5 @@
-﻿using ItSupportServer.src.Modules.Authorization;
+﻿using FluentValidation;
+using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Attributes;
 using ItSupportServer.src.Shared.Base;
 using Microsoft.AspNetCore.Mvc;
@@ -31,16 +32,30 @@ namespace ItSupportServer.src.Modules.Area
 
         [HttpPost]
         [HasPermission(Permissions.Areas.Create)]
-        public async Task<IActionResult> CreateAreaAsync([FromBody] AreaCreateDto dto)
+        public async Task<IActionResult> CreateAreaAsync(
+            [FromBody] CreateAreaDto dto,
+            [FromServices] IValidator<CreateAreaDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var result = await service.CreateAreaAsync(dto);
             return this.MyStatusCode(result);
         }
 
         [HttpPut]
         [HasPermission(Permissions.Areas.Edit)]
-        public async Task<IActionResult> UpdateAreaAsync([FromBody] AreaUpdateDto dto)
+        public async Task<IActionResult> UpdateAreaAsync(
+            [FromBody] UpdateAreaDto dto,
+            [FromServices] IValidator<UpdateAreaDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var result = await service.UpdateAreaAsync(dto);
             return this.MyStatusCode(result);
         }

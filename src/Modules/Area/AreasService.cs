@@ -58,7 +58,7 @@ namespace ItSupportServer.src.Modules.Area
             }
         }
 
-        public async Task<BaseResult<AreaCreateDto>> CreateAreaAsync(AreaCreateDto dto)
+        public async Task<BaseResult<CreateAreaDto>> CreateAreaAsync(CreateAreaDto dto)
         {
             try
             {
@@ -67,7 +67,7 @@ namespace ItSupportServer.src.Modules.Area
                                        .FirstOrDefaultAsync();
 
                 if (existing is not null)
-                    return BaseResult<AreaCreateDto>.Fail("Khu vực đã tồn tại", 400);
+                    return BaseResult<CreateAreaDto>.Fail("Khu vực đã tồn tại", 400);
 
                 var newArea = new Areas()
                 {
@@ -79,22 +79,22 @@ namespace ItSupportServer.src.Modules.Area
                 await db.Areas.AddAsync(newArea);
                 await db.SaveChangesAsync();
 
-                return BaseResult<AreaCreateDto>.Ok(dto);
+                return BaseResult<CreateAreaDto>.Ok(dto);
             }
             catch (Exception ex)
             {
-                return BaseResult<AreaCreateDto>.Fail($"Lỗi Hệ thống: {ex.Message}", 500);
+                return BaseResult<CreateAreaDto>.Fail($"Lỗi Hệ thống: {ex.Message}", 500);
             }
         }
 
-        public async Task<BaseResult<AreaUpdateDto>> UpdateAreaAsync(AreaUpdateDto dto)
+        public async Task<BaseResult<UpdateAreaDto>> UpdateAreaAsync(UpdateAreaDto dto)
         {
             try
             {
                 var area = await db.Areas.FindAsync(dto.AreaId);
 
                 if (area is null || area.DeletedAt != null)
-                    return BaseResult<AreaUpdateDto>.Fail("Khu vực không tồn tại", 404);
+                    return BaseResult<UpdateAreaDto>.Fail("Khu vực không tồn tại", 404);
 
                 area.Name = dto.Name ?? area.Name;
                 area.Description = dto.Description ?? area.Description;
@@ -103,11 +103,11 @@ namespace ItSupportServer.src.Modules.Area
                 db.Areas.Update(area);
                 await db.SaveChangesAsync();
 
-                return BaseResult<AreaUpdateDto>.Ok(dto);
+                return BaseResult<UpdateAreaDto>.Ok(dto);
             }
             catch (Exception ex)
             {
-                return BaseResult<AreaUpdateDto>.Fail($"Lỗi Hệ thống: {ex.Message}", 500);
+                return BaseResult<UpdateAreaDto>.Fail($"Lỗi Hệ thống: {ex.Message}", 500);
             }
         }
 

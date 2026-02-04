@@ -17,8 +17,8 @@ namespace ItSupportServer.Data.Seeds
                     PhoneNumber = "0123456789",
                     DptId = 1,
                     AreaId = 1,
-                    Birthday = new DateTime(1990, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    Status = true,
+                    //Birthday = new DateTime(1990, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    //Status = true,
                     CreatedAt = new DateTime(2025, 10, 30, 9, 38, 50, DateTimeKind.Utc),
                 });
             modelBuilder.Entity<Accounts>().HasData(

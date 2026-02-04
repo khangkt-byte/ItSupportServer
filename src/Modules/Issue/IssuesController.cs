@@ -1,4 +1,5 @@
-﻿using ItSupportServer.src.Modules.Authorization;
+﻿using FluentValidation;
+using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Attributes;
 using ItSupportServer.src.Shared.Base;
 using Microsoft.AspNetCore.Mvc;
@@ -31,16 +32,30 @@ namespace ItSupportServer.src.Modules.Issue
 
         [HttpPost]
         [HasPermission(Permissions.Issues.Create)]
-        public async Task<IActionResult> CreateIssueAsync([FromBody] IssueCreateDto dto)
+        public async Task<IActionResult> CreateIssueAsync(
+            [FromBody] CreateIssueDto dto,
+            [FromServices] IValidator<CreateIssueDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var result = await service.CreateIssueAsync(dto);
             return this.MyStatusCode(result);
         }
 
         [HttpPut]
         [HasPermission(Permissions.Issues.Edit)]
-        public async Task<IActionResult> UpdateIssueAsync([FromBody] IssueUpdateDto dto)
+        public async Task<IActionResult> UpdateIssueAsync(
+            [FromBody] UpdateIssueDto dto,
+            [FromServices] IValidator<UpdateIssueDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var result = await service.UpdateIssueAsync(dto);
             return this.MyStatusCode(result);
         }

@@ -107,11 +107,11 @@ namespace ItSupportServer.src.Modules.Authentication
                     .Include(u => u.Employee)
                     .Include(u => u.AccountRoles)
                     .ThenInclude(ar => ar.Role)
-                    .FirstOrDefaultAsync(u => u.Username == dto.UserNameOrEmail || u.Employee.Email == dto.UserNameOrEmail);
+                    .FirstOrDefaultAsync(u => u.Username == dto.Identifier || u.Employee.Email == dto.Identifier);
 
                 if (user is null) return BaseResult<TokenResponseDto>.Fail("Tài khoản hoặc mật khẩu không đúng", 400);
 
-                if (user.Employee.Status is false) return BaseResult<TokenResponseDto>.Fail("Tài khoản đã bị khóa", 400);
+                //if (user.Employee.Status is false) return BaseResult<TokenResponseDto>.Fail("Tài khoản đã bị khóa", 400);
 
                 if (!string.IsNullOrEmpty(user.Otp) && user.ExpiredOtp != null) return BaseResult<TokenResponseDto>.Fail("Tài khoản chưa xác minh email", 403, new TokenResponseDto { AccountId = user.AccountId });
 
@@ -173,7 +173,7 @@ namespace ItSupportServer.src.Modules.Authentication
                 {
                     IsUserExit.Otp = null;
                     IsUserExit.ExpiredOtp = null;
-                    IsUserExit.Employee.Status = true;
+                    //IsUserExit.Employee.Status = true;
                     db.Accounts.Update(IsUserExit);
                     await db.SaveChangesAsync();
                     _cache.Remove($"User_Status_{dto.AccountId}");
