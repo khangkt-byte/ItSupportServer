@@ -281,78 +281,114 @@ namespace ItSupportServer.src.Modules.Role
 
         public async Task<bool> DeleteRoleAsync(int roleId, bool softDelete = true)
         {
-            return await DeleteRolesAsync([roleId], softDelete);
-        }
+            _logger.LogInformation("Deleting role {RoleId} | SoftDelete: {SoftDelete}",
+                roleId, softDelete);
 
-        public async Task<bool> DeleteRolesAsync(List<int> roleIds, bool softDelete = true)
-        {
-            _logger.LogInformation("Batch delete: {Count} roles | SoftDelete: {SoftDelete}", 
-                roleIds.Count, softDelete);
+            var role = await _db.Roles
+                .Include(r => r.AccountRoles)
+                .FirstOrDefaultAsync(r => r.RoleId == roleId && r.DeletedAt == null);
 
-            // Check ALL roles exist upfront
-            var existing = await _db.Roles
-                .Where(r => roleIds.Contains(r.RoleId) && r.DeletedAt == null)
-                .ToListAsync();
-
-            var notFoundIds = roleIds.Except(existing.Select(r => r.RoleId)).ToList();
-            if (notFoundIds.Any())
+            if (role == null)
             {
-                _logger.LogWarning("Roles not found: {Ids}", string.Join(", ", notFoundIds));
-                throw new NotFoundException($"Vai trò không tồn tại: {string.Join(", ", notFoundIds)}");
+                _logger.LogWarning("Role {RoleId} not found", roleId);
+                throw new NotFoundException("Vai trò", roleId);
             }
 
-            // Check ALL roles not in use
-            var rolesInUse = existing.Where(r => r.AccountRoles.Any()).ToList();
-            if (rolesInUse.Any())
+            // Check business rules
+            if (role.AccountRoles.Any())
             {
-                foreach (var role in rolesInUse)
-                {
-                    _logger.LogWarning(
-                        "Role {RoleId}:{RoleName} in use by {Count} accounts",
-                        role.RoleId, role.Name, role.AccountRoles.Count);
-                }
-                
+                _logger.LogWarning("Role {RoleId}:{Name} in use by {Count} accounts",
+                    role.RoleId, role.Name, role.AccountRoles.Count);
                 throw new BusinessRuleException(
-                    $"Vai trò {string.Join(", ", rolesInUse.Select(r => r.Name))} đang được sử dụng",
+                    $"Không thể xóa vai trò {role.Name} vì đang được sử dụng",
                     "ROLE_IN_USE");
             }
 
-            // All checks passed → Delete ALL
+            // Delete
             if (softDelete)
             {
-                foreach (var role in existing)
-                {
-                    role.DeletedAt = DateTime.UtcNow;
-                    _logger.LogInformation("Soft deleted role {RoleId}:{RoleName}", role.RoleId, role.Name);
-                }
-                _db.Roles.UpdateRange(existing);
+                role.DeletedAt = DateTime.UtcNow;
+                _db.Roles.Update(role);
             }
             else
             {
+                // Hard delete - remove claims first
                 var roleClaims = await _db.RoleClaims
-                    .Where(rc => roleIds.Contains(rc.RoleId))
+                    .Where(rc => rc.RoleId == roleId)
                     .ToListAsync();
-                
                 _db.RoleClaims.RemoveRange(roleClaims);
-                
-                if (roleClaims.Any())
-                {
-                    _logger.LogInformation("Removed {Count} role-claim relationships", roleClaims.Count);
-                }
-                
-                _db.Roles.RemoveRange(existing);
-                
-                foreach (var role in existing)
-                {
-                    _logger.LogInformation("Hard deleted role {RoleId}:{RoleName}", role.RoleId, role.Name);
-                }
+                _db.Roles.Remove(role);
             }
 
             await _db.SaveChangesAsync();
 
-            _logger.LogInformation("Batch delete SUCCESS | Deleted: {Count} roles", existing.Count);
+            _logger.LogInformation("Deleted role {RoleId}:{Name} successfully",
+                role.RoleId, role.Name);
 
-            return true;
+            return true;  // Or void/Task
+        }
+
+        public async Task<BulkDeleteResultDto> DeleteRolesAsync(List<int> roleIds, bool softDelete = true)
+        {
+            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}", roleIds.Count, softDelete);
+
+            using var transaction = await _db.Database.BeginTransactionAsync();
+            
+            try
+            {
+                // ✅ Step 1: Validate ALL items BEFORE any deletion
+                var existing = await _db.Roles
+                    .Where(r => roleIds.Contains(r.RoleId) && r.DeletedAt == null)
+                    .Include(r => r.AccountRoles)
+                    .ToListAsync();
+
+                var notFoundIds = roleIds.Except(existing.Select(r => r.RoleId)).ToList();
+                if (notFoundIds.Any())
+                {
+                    _logger.LogWarning("Roles not found: {Ids}", string.Join(", ", notFoundIds));
+                    throw new NotFoundException($"Vai trò không tồn tại: {string.Join(", ", notFoundIds)}");
+                }
+
+                // ✅ Step 2: Check business rules for ALL items
+                var rolesInUse = existing.Where(r => r.AccountRoles.Any()).ToList();
+                if (rolesInUse.Any())
+                {
+                    _logger.LogWarning("Roles in use: {Roles}", 
+                        string.Join(", ", rolesInUse.Select(r => $"{r.RoleId}:{r.Name}")));
+                    throw new BusinessRuleException(
+                        $"Không thể xóa vai trò {string.Join(", ", rolesInUse.Select(r => r.Name))} vì đang được sử dụng",
+                        "ROLE_IN_USE");
+                }
+
+                // ✅ Step 3: All checks passed → Delete ALL
+                foreach (var role in existing)
+                {
+                    if (softDelete)
+                        role.DeletedAt = DateTime.UtcNow;
+                    else
+                        _db.Roles.Remove(role);
+                        
+                    _logger.LogInformation("Deleted role {RoleId}:{Name}", role.RoleId, role.Name);
+                }
+
+                await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Batch delete SUCCESS | Count: {Count}", existing.Count);
+
+                return new BulkDeleteResultDto
+                {
+                    Success = true,
+                    DeletedCount = existing.Count,
+                    TotalRequested = roleIds.Count,
+                    Message = $"Đã xóa {existing.Count} vai trò thành công"
+                };
+            }
+            catch
+            {
+                await transaction.RollbackAsync();  // ✅ Rollback on ANY error
+                throw;
+            }
         }
 
         public async Task<List<ClaimDto>> GetAllClaimsAsync()
