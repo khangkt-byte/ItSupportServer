@@ -10,6 +10,11 @@ namespace ItSupportServer.src.Modules.Area
                 .NotEmpty().WithMessage("Tên là bắt buộc.")
                 .MaximumLength(255).WithMessage("Tên không được quá 255 ký tự.")
                 .Matches(@"^[\p{L}\p{M}\p{N} _-]+$").WithMessage("Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_).");
+
+            RuleFor(x => x.Description)
+                .MaximumLength(500)
+                .WithMessage("Mô tả không được quá 1000 ký tự.")
+                .When(x => !string.IsNullOrWhiteSpace(x.Description));
         }
     }
 
@@ -20,6 +25,11 @@ namespace ItSupportServer.src.Modules.Area
             RuleFor(x => x.Name)
                 .MaximumLength(255).WithMessage("Tên không được quá 255 ký tự.")
                 .Matches(@"^[\p{L}\p{M}\p{N} _-]+$").WithMessage("Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_).");
+
+            RuleFor(x => x.Description)
+                .MaximumLength(500)
+                .WithMessage("Mô tả không được quá 1000 ký tự.")
+                .When(x => !string.IsNullOrWhiteSpace(x.Description));
         }
     }
 }
