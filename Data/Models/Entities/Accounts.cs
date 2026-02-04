@@ -38,5 +38,6 @@ namespace ItSupportServer.Data.Models.Entities
         public ICollection<AccountRoles> AccountRoles { get; set; } = new List<AccountRoles>();
         public ICollection<AccountClaims> AccountClaims { get; set; } = new List<AccountClaims>();
         public ICollection<AccountTokens> AccountTokens { get; set; } = new List<AccountTokens>();
+        public ICollection<PasswordResetTokens> PasswordResetTokens { get; set; } = new List<PasswordResetTokens>();
     }
 }

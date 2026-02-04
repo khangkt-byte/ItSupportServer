@@ -29,8 +29,7 @@ namespace ItSupportServer.Data.Models.Configurations
 
             // Properties
             builder.Property(c => c.IssId)
-                .HasColumnName("iss_id")
-                .IsRequired();
+                .HasColumnName("iss_id");
 
             builder.Property(c => c.Name)
                 .HasColumnName("name")

@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using ItSupportServer.Data.Models;
+using ItSupportServer.Data.Models.Entities;
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Exceptions;
 using ItSupportServer.src.Shared.Extensions;

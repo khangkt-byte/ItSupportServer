@@ -19,10 +19,10 @@ namespace ItSupportServer.Data.Models.Configurations
             // Ignore the inherited Id property
             builder.Ignore(a => a.Id);
 
-
             // Indexes
-            builder.HasIndex(a => a.Username).IsUnique();
-
+            builder.HasIndex(a => a.Username)
+                   .IsUnique()
+                   .HasFilter("\"DeletedAt\" IS NULL");
 
             // Properties
             builder.Property(a => a.Username)
@@ -57,7 +57,6 @@ namespace ItSupportServer.Data.Models.Configurations
 
             builder.Property(a => a.ExpiredOtp)
                    .HasColumnName("expired_otp");
-
 
             // Relationships
             builder.HasOne(a => a.Employee)

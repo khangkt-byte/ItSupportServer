@@ -1,5 +1,7 @@
 ﻿using FluentValidation;
 using ItSupportServer.Data.Models;
+using ItSupportServer.Data.Models.Entities;
+using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Exceptions;
 using ItSupportServer.src.Shared.Extensions;
@@ -16,6 +18,7 @@ namespace ItSupportServer.src.Modules.Role
         private readonly IValidator<CreateRoleDto> _createValidator;
         private readonly IValidator<UpdateRoleDto> _updateValidator;
         private readonly IValidator<AssignRolesDto> _assignRolesValidator;
+        private readonly IAuthorizationService _authorizationService;  // ✅ ADD THIS
 
         public RoleService(
             AppDbContext db,
@@ -23,7 +26,8 @@ namespace ItSupportServer.src.Modules.Role
             ILogger<RoleService> logger,
             IValidator<CreateRoleDto> createValidator,
             IValidator<UpdateRoleDto> updateValidator,
-            IValidator<AssignRolesDto> assignRolesValidator)
+            IValidator<AssignRolesDto> assignRolesValidator,
+            IAuthorizationService authorizationService)  // ✅ ADD THIS
         {
             _db = db;
             _mapper = mapper;
@@ -31,6 +35,7 @@ namespace ItSupportServer.src.Modules.Role
             _createValidator = createValidator;
             _updateValidator = updateValidator;
             _assignRolesValidator = assignRolesValidator;
+            _authorizationService = authorizationService;  // ✅ ADD THIS
         }
 
         public async Task<PaginatedResult<RoleDto>> GetRolesAsync(QueryParameters parameters)
@@ -165,6 +170,7 @@ namespace ItSupportServer.src.Modules.Role
             }
 
             bool hasChanges = false;
+            var affectedAccountIds = new List<Guid>();
 
             // Update Name
             if (dto.Name != null && role.Name != dto.Name)
@@ -219,6 +225,12 @@ namespace ItSupportServer.src.Modules.Role
                 {
                     hasChanges = true;
 
+                    // ✅ Get affected accounts for cache invalidation
+                    affectedAccountIds = await _db.AccountRoles
+                        .Where(ar => ar.RoleId == roleId)
+                        .Select(ar => ar.AccountId)
+                        .ToListAsync();
+
                     // Add new claims
                     if (toAdd.Any())
                     {
@@ -247,6 +259,16 @@ namespace ItSupportServer.src.Modules.Role
             {
                 // UpdatedAt set automatically by interceptor
                 await _db.SaveChangesAsync();
+                
+                // ✅ Invalidate permission cache for all affected accounts
+                if (affectedAccountIds.Any())
+                {
+                    _authorizationService.InvalidatePermissionCache(affectedAccountIds);
+                    _logger.LogInformation(
+                        "Invalidated permission cache for {Count} accounts affected by role {RoleId} update",
+                        affectedAccountIds.Count, roleId);
+                }
+                
                 _logger.LogInformation("Successfully updated role {RoleId}", roleId);
             }
             else
@@ -315,6 +337,13 @@ namespace ItSupportServer.src.Modules.Role
                         $"Không thể xóa vai trò {string.Join(", ", usedRoleNames)} vì đang được sử dụng");
                 }
 
+                // ✅ Get affected accounts before deletion (for cache invalidation)
+                var affectedAccountIds = await _db.AccountRoles
+                    .Where(ar => roleIds.Contains(ar.RoleId))
+                    .Select(ar => ar.AccountId)
+                    .Distinct()
+                    .ToListAsync();
+
                 if (softDelete)
                 {
                     foreach (var item in existing)
@@ -337,6 +366,15 @@ namespace ItSupportServer.src.Modules.Role
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
+                // ✅ Invalidate cache for affected accounts
+                if (affectedAccountIds.Any())
+                {
+                    _authorizationService.InvalidatePermissionCache(affectedAccountIds);
+                    _logger.LogInformation(
+                        "Invalidated permission cache for {Count} accounts after deleting roles",
+                        affectedAccountIds.Count);
+                }
+
                 _logger.LogInformation("Successfully deleted {Count} roles", existing.Count);
 
                 return true;
@@ -352,15 +390,10 @@ namespace ItSupportServer.src.Modules.Role
         {
             _logger.LogInformation("Fetching all claims");
 
-            var claims = await _db.Claims
+            var claims = await _mapper.ProjectToClaimDto(_db.Claims
                 .OrderBy(c => c.Category)
                     .ThenBy(c => c.Claim)
-                .Select(c => new ClaimDto
-                {
-                    ClaimId = c.ClaimId,
-                    Claim = c.Claim,
-                    Category = c.Category
-                })
+                .AsNoTracking())
                 .ToListAsync();
 
             _logger.LogInformation("Retrieved {Count} claims", claims.Count);
@@ -436,23 +469,19 @@ namespace ItSupportServer.src.Modules.Role
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                // ✅ Invalidate permission cache
+                // ✅ Invalidate permission cache (already has field now)
                 _authorizationService.InvalidatePermissionCache(dto.AccountId);
+                _logger.LogInformation(
+                    "Invalidated permission cache for account {AccountId} after role assignment",
+                    dto.AccountId);
 
                 _logger.LogInformation("Successfully assigned {Count} roles to account {AccountId}",
                     dto.RoleIds.Count, dto.AccountId);
 
                 // Return updated account with roles
-                var updatedRoles = await _db.Roles
+                var updatedRoles = await _mapper.ProjectToRoleDto(_db.Roles
                     .Where(r => dto.RoleIds.Contains(r.RoleId))
-                    .Select(r => new RoleDto
-                    {
-                        RoleId = r.RoleId,
-                        Name = r.Name,
-                        Description = r.Description,
-                        CreatedAt = r.CreatedAt,
-                        UpdatedAt = r.UpdatedAt
-                    })
+                    .AsNoTracking())
                     .ToListAsync();
 
                 return new AccountRolesDto

@@ -15,9 +15,6 @@
         public Guid? EmpId { get; set; }
         public Employees? Employee { get; set; }
 
-        // ✅ For non-employee requesters or Excel import
-        public string? RequesterName { get; set; }
-
         public string? RequesterType { get; set; }  // "Employee", "Department", "External"
     }
 }

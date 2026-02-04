@@ -4,44 +4,35 @@ using Microsoft.Extensions.Options;
 namespace ItSupportServer.src.Modules.Authorization
 {
     /// <summary>
-    /// Custom policy provider for dynamic permission policies
-    /// Pattern: Convention-based policy creation
-    /// Purpose: Auto-create policies from permission strings
+    /// Dynamic permission policy provider
+    /// Pattern: Convention-based policy naming
+    /// Usage: [HasPermission("Department.View")] → Creates policy automatically
+    /// Reference: ASP.NET Core Authorization documentation
     /// </summary>
-    public class PermissionPolicyProvider : IAuthorizationPolicyProvider
+    public class PermissionPolicyProvider : DefaultAuthorizationPolicyProvider
     {
-        private readonly DefaultAuthorizationPolicyProvider _fallbackPolicyProvider;
-
         public PermissionPolicyProvider(IOptions<AuthorizationOptions> options)
+            : base(options)
         {
-            _fallbackPolicyProvider = new DefaultAuthorizationPolicyProvider(options);
         }
 
-        public Task<AuthorizationPolicy> GetDefaultPolicyAsync()
+        /// <summary>
+        /// Dynamically create policies based on permission names
+        /// Pattern: Fallback policy provider
+        /// </summary>
+        public override async Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
         {
-            return _fallbackPolicyProvider.GetDefaultPolicyAsync();
-        }
-
-        public Task<AuthorizationPolicy?> GetFallbackPolicyAsync()
-        {
-            return _fallbackPolicyProvider.GetFallbackPolicyAsync();
-        }
-
-        public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
-        {
-            // If policy name looks like a permission (e.g., "Employee.View")
-            // create a policy with PermissionRequirement
-            if (!string.IsNullOrEmpty(policyName) && policyName.Contains('.'))
+            // ✅ Try to get existing policy first
+            var policy = await base.GetPolicyAsync(policyName);
+            if (policy != null)
             {
-                var policy = new AuthorizationPolicyBuilder()
-                    .AddRequirements(new PermissionRequirement(policyName))
-                    .Build();
-
-                return Task.FromResult<AuthorizationPolicy?>(policy);
+                return policy;
             }
 
-            // Otherwise use default policy provider
-            return _fallbackPolicyProvider.GetPolicyAsync(policyName);
+            // ✅ Create dynamic policy for permission strings
+            return new AuthorizationPolicyBuilder()
+                .AddRequirements(new PermissionRequirement(policyName))
+                .Build();
         }
     }
 }

@@ -31,4 +31,32 @@ namespace ItSupportServer.src.Modules.Authentication
                 .NotEmpty().WithMessage("UserId là bắt buộc.");
         }
     }
+
+    /// <summary>
+    /// Validator for password reset
+    /// </summary>
+    public class ResetPasswordDtoValidator : AbstractValidator<ResetPasswordDto>
+    {
+        public ResetPasswordDtoValidator()
+        {
+            RuleFor(x => x.Token)
+                .NotEmpty()
+                .WithMessage("Token không được để trống")
+                .MinimumLength(40)  // Base64(32 bytes) = ~44 chars
+                .WithMessage("Token không hợp lệ");
+
+            RuleFor(x => x.NewPassword)
+                .NotEmpty()
+                .MinimumLength(8)
+                .WithMessage("Mật khẩu phải có ít nhất 8 ký tự")
+                .Matches(@"[A-Z]").WithMessage("Mật khẩu phải có ít nhất 1 chữ hoa")
+                .Matches(@"[a-z]").WithMessage("Mật khẩu phải có ít nhất 1 chữ thường")
+                .Matches(@"[0-9]").WithMessage("Mật khẩu phải có ít nhất 1 số")
+                .Matches(@"[\W_]").WithMessage("Mật khẩu phải có ít nhất 1 ký tự đặc biệt");
+
+            RuleFor(x => x.ConfirmPassword)
+                .Equal(x => x.NewPassword)
+                .WithMessage("Xác nhận mật khẩu không khớp");
+        }
+    }
 }

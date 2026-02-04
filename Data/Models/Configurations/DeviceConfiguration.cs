@@ -21,6 +21,8 @@ namespace ItSupportServer.Data.Models.Configurations
             builder.Ignore(d => d.Id);
 
             // Indexes
+            builder.HasIndex(d => d.DeviceTypeId);
+
             builder.HasIndex(d => d.Name)
                    .HasMethod("gin")
                    .HasOperators("gin_trgm_ops")

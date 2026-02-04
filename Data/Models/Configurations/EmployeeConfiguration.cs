@@ -8,27 +8,40 @@ namespace ItSupportServer.Data.Models.Configurations
     {
         public void Configure(EntityTypeBuilder<Employees> builder)
         {
-            // 1. Khai báo bảng và Schema (tùy chọn)
+            // Table
             builder.ToTable("employees");
 
-            // 2. Cấu hình Khóa chính và Ánh xạ với BaseEntity
+            // Primary Key
             builder.HasKey(e => e.EmpId);
             builder.Property(e => e.EmpId)
                   .HasColumnName("emp_id");
 
-            // Bỏ qua thuộc tính Id từ BaseEntity vì bạn đã dùng EmpId làm khóa chính
+            // Ignore the inherited Id property
             builder.Ignore(e => e.Id);
 
-            // 3. Cấu hình Index và Unique (Duy nhất)
-            builder.HasIndex(e => e.EmpCode).IsUnique();
+            // Indexes
+            builder.HasIndex(e => e.EmpCode)
+                   .IsUnique()
+                   .HasFilter("\"DeletedAt\" IS NULL");
+
             builder.HasIndex(e => e.FullName)
                    .HasMethod("gin")
                    .HasOperators("gin_trgm_ops")
                    .HasFilter("\"DeletedAt\" IS NULL");
-            builder.HasIndex(e => e.Email).IsUnique();
-            builder.HasIndex(e => e.PhoneNumber).IsUnique();
 
-            // 4. Cấu hình các thuộc tính (Properties)
+            builder.HasIndex(e => e.Email)
+                   .IsUnique()
+                   .HasFilter("\"DeletedAt\" IS NULL");
+
+            builder.HasIndex(e => e.PhoneNumber)
+                   .IsUnique()
+                   .HasFilter("\"DeletedAt\" IS NULL");
+
+            builder.HasIndex(e => e.DptId);
+
+            builder.HasIndex(e => e.AreaId);
+
+            // Properties
             builder.Property(e => e.EmpCode)
                   .HasColumnName("emp_code")
                   .HasMaxLength(20);
@@ -58,15 +71,12 @@ namespace ItSupportServer.Data.Models.Configurations
                   .HasColumnName("position")
                   .HasMaxLength(150);
 
-            // 5. Cấu hình Quan hệ (Relationships)
-
-            // Employees -> Departments (n : 1)
+            // Relationships
             builder.HasOne(e => e.Department)
                   .WithMany(d => d.Employees)
                   .HasForeignKey(e => e.DptId)
                   .OnDelete(DeleteBehavior.Restrict);
 
-            // Employees -> Areas (n : 1)
             builder.HasOne(e => e.Area)
                   .WithMany(a => a.Employees)
                   .HasForeignKey(e => e.AreaId)
