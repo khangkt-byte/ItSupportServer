@@ -20,7 +20,6 @@ namespace ItSupportServer.Data.Models.Configurations
 
             // Indexes
             builder.HasIndex(ac => ac.ClaimId);
-            builder.HasIndex(ac => ac.AccountId);
 
             // Relationships
             builder.HasOne(ac => ac.Account)

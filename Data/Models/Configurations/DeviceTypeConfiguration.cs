@@ -22,7 +22,9 @@ namespace ItSupportServer.Data.Models.Configurations
 
             // Indexes
             builder.HasIndex(dt => dt.Name)
-                   .IsUnique();
+                   .HasMethod("gin")
+                   .HasOperators("gin_trgm_ops")
+                   .HasFilter("\"DeletedAt\" IS NULL");
 
             // Properties
             builder.Property(dt => dt.Name)
@@ -34,6 +36,5 @@ namespace ItSupportServer.Data.Models.Configurations
                    .HasMaxLength(500)
                    .HasColumnName("description");
         }
-    {
     }
 }

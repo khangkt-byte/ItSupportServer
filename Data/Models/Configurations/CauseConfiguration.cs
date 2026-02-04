@@ -22,6 +22,10 @@ namespace ItSupportServer.Data.Models.Configurations
 
             // Indexes
             builder.HasIndex(c => c.IssId);
+            builder.HasIndex(c => c.Name)
+                   .HasMethod("gin")
+                   .HasOperators("gin_trgm_ops")
+                   .HasFilter("\"DeletedAt\" IS NULL");
 
             // Properties
             builder.Property(c => c.IssId)

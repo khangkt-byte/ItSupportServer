@@ -19,7 +19,6 @@ namespace ItSupportServer.Data.Models.Configurations
                    .HasColumnName("claim_id");
 
             // Indexes
-            builder.HasIndex(rc => rc.RoleId);
             builder.HasIndex(rc => rc.ClaimId);
 
             // Relationships
