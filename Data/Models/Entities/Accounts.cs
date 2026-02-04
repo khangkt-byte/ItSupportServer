@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ItSupportServer.Data.Models
+namespace ItSupportServer.Data.Models.Entities
 {
     [Table("accounts")]
     [Index(nameof(Username), IsUnique = true)]

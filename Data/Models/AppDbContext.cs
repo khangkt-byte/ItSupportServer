@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using ItSupportServer.Data.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace ItSupportServer.Data.Models
 {
@@ -29,6 +30,8 @@ namespace ItSupportServer.Data.Models
         {
             base.OnModelCreating(modelBuilder);
             // Configure your entity mappings here
+
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
         }
     }
 }

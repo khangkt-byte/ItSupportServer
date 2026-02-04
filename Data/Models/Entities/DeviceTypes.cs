@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ItSupportServer.Data.Models
+namespace ItSupportServer.Data.Models.Entities
 {
     [Table("device_types")]
     public class DeviceTypes : BaseEntity<int>

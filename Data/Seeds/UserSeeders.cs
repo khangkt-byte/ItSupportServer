@@ -1,4 +1,4 @@
-﻿using ItSupportServer.Data.Models;
+﻿using ItSupportServer.Data.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace ItSupportServer.Data.Seeds

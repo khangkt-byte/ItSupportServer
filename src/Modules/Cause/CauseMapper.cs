@@ -1,4 +1,4 @@
-﻿using ItSupportServer.Data.Models;
+﻿using ItSupportServer.Data.Models.Entities;
 using Riok.Mapperly.Abstractions;
 
 namespace ItSupportServer.src.Modules.Cause
