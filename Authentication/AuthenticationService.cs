@@ -1,18 +1,16 @@
-﻿using AutoMapper;
-using Google.Apis.Auth;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
-using ITSupportServer.EF_Core.Data;
-using ITSupportServer.src.Shared.Base;
-using ITSupportServer.src.Shared.Helper;
+using ITSupportServer.Data;
+using ITSupportServer.Base;
+using ITSupportServer.Helper;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using static ITSupportServer.src.Shared.Base.BaseEnum;
+using static ITSupportServer.Base.BaseEnum;
 
-namespace ITSupportServer.src.Modules.Authentication
+namespace ITSupportServer.Authentication
 {
     public class AuthenticationService(AppDbContext db, IConfiguration configuration, IMapper mapper, IMemoryCache _cache) : IAuthenticationService
     {
