@@ -1,0 +1,16 @@
+on:
+  pull_request:
+    branches:
+      - master # Chỉ kích hoạt action này khi đích đến là master
+
+jobs:
+  check-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch
+        shell: bash
+        run: |
+          if [[ "${{ github.head_ref }}" != "dev" ]]; then
+            echo "Chỉ được phép merge từ dev vào master!"
+            exit 1
+          fi
