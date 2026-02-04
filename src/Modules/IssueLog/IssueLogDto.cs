@@ -10,55 +10,107 @@ namespace ItSupportServer.src.Modules.IssueLog
     //    CLOSED = 4
     //}
 
-    public record IssueLogDto(
-        Guid IssLogId,
-        string Operator,
-        string? Requester,
-        //int DptId,
-        //int AreaId,
-        string Department,
-        string Area,
-        string IssueDescription,
-        string? Cause,
-        string? Resolution,
-        string? PermanentFix,
-        string? Notes,
-        DateTime DateReported,
-        string? Status
-        );
+    /// <summary>
+    /// Issue log response DTO
+    /// </summary>
+    public record IssueLogDto
+    {
+        public Guid IssLogId { get; init; }
+        public required string Operator { get; init; }
+        public string? Requester { get; init; }
+        public required string Department { get; init; }
+        public required string Area { get; init; }
+        public required string IssueDescription { get; init; }
+        public string? Cause { get; init; }
+        public string? Resolution { get; init; }
+        public string? PermanentFix { get; init; }
+        public string? Notes { get; init; }
+        public DateTime DateReported { get; init; }
+        public string? Status { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? UpdatedAt { get; init; }
+    }
 
-    public record CreateIssueLogDto(
-        Guid IssLogId,
-        string Operator,
-        string? Requester,
-        //int DptId,
-        //int AreaId,
-        string Department,
-        string Area,
-        string IssueDescription,
-        string? Cause,
-        string? Resolution,
-        string? PermanentFix,
-        string? Notes,
-        DateTime DateReported,
-        string? Status,
-        DateTime CreatedAt
-        );
+    /// <summary>
+    /// Create issue log request DTO
+    /// </summary>
+    public record CreateIssueLogDto
+    {
+        /// <summary>
+        /// Operator name or comma-separated names
+        /// </summary>
+        public required string Operator { get; init; }
 
-    public record UpdateIssueLogDto(
-        string? Operator,
-        string? Requester,
-        //int? DptId,
-        //int? AreaId,
-        string? Department,
-        string? Area,
-        string? IssueDescription,
-        string? Cause,
-        string? Resolution,
-        string? PermanentFix,
-        string? Notes,
-        DateTime? DateReported,
-        string? Status,
-        DateTime UpdatedAt
-        );
+        /// <summary>
+        /// Person who requested support
+        /// </summary>
+        public string? Requester { get; init; }
+
+        /// <summary>
+        /// Department name
+        /// </summary>
+        public required string Department { get; init; }
+
+        /// <summary>
+        /// Area name
+        /// </summary>
+        public required string Area { get; init; }
+
+        /// <summary>
+        /// Description of the issue
+        /// </summary>
+        public required string IssueDescription { get; init; }
+
+        /// <summary>
+        /// Root cause of the issue (optional)
+        /// </summary>
+        public string? Cause { get; init; }
+
+        /// <summary>
+        /// How the issue was resolved (optional)
+        /// </summary>
+        public string? Resolution { get; init; }
+
+        /// <summary>
+        /// Permanent fix applied (optional)
+        /// </summary>
+        public string? PermanentFix { get; init; }
+
+        /// <summary>
+        /// Additional notes (optional)
+        /// </summary>
+        public string? Notes { get; init; }
+
+        /// <summary>
+        /// Date when issue was reported
+        /// </summary>
+        public DateTime DateReported { get; init; }
+
+        /// <summary>
+        /// Current status (optional)
+        /// </summary>
+        public string? Status { get; init; }
+    }
+
+    /// <summary>
+    /// Update issue log request DTO (partial updates supported)
+    /// </summary>
+    public record UpdateIssueLogDto
+    {
+        /// <summary>
+        /// Operator name (optional - null means don't update)
+        /// </summary>
+        public string? Operator { get; init; }
+
+        public string? Requester { get; init; }
+        public string? Department { get; init; }
+        public string? Area { get; init; }
+        public string? IssueDescription { get; init; }
+        public string? Cause { get; init; }
+        public string? Resolution { get; init; }
+        public string? PermanentFix { get; init; }
+        public string? Notes { get; init; }
+        public DateTime? DateReported { get; init; }
+        public string? Status { get; init; }
+    }
 }

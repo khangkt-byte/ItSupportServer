@@ -2,22 +2,33 @@
 
 namespace ItSupportServer.src.Modules.Issue
 {
-    public record IssueDto(
-        int IssId,
-        string Name,
-        string? Description
-        );
+    /// <summary>
+    /// Issue response DTO
+    /// </summary>
+    public record IssueDto
+    {
+        public int IssueId { get; init; }
+        public required string Name { get; init; }
+        public string? Description { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? UpdatedAt { get; init; }
+    }
 
-    public record CreateIssueDto(
-        string Name,
-        string? Description,
-        DateTime CreatedAt
-        );
+    /// <summary>
+    /// Create issue request DTO
+    /// </summary>
+    public record CreateIssueDto
+    {        
+        public required string Name { get; init; }
+        public string? Description { get; init; }
+    }
 
-    public record UpdateIssueDto(
-        long IssId,
-        string? Name,
-        string? Description,
-        DateTime UpdatedAt
-        );
+    /// <summary>
+    /// Update issue request DTO (partial updates supported)
+    /// </summary>
+    public record UpdateIssueDto
+    {
+        public string? Name { get; init; }
+        public string? Description { get; init; }
+    }
 }

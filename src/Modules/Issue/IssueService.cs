@@ -28,7 +28,7 @@ namespace ItSupportServer.src.Modules.Issue
                     issuesQuery = issuesQuery.Where(a => a.Name.Contains(query) || (a.Description != null && a.Description.Contains(query)));
                 }
 
-                var result = await Pagination<IssueDto>.PaginationAsync(issuesQuery, page, pageSize, sort);
+                var result = await Pagination<IssueDto>.ToPaginatedResultAsync(issuesQuery, page, pageSize, sort);
                 return BaseResult<PaginatedResult<List<IssueDto>>>.Ok(result);
             }
             catch (Exception ex)

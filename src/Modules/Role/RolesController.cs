@@ -1,94 +1,132 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Base;
-using ItSupportServer.src.Shared.Attributes;
-using ItSupportServer.src.Modules.Authorization;
-using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ItSupportServer.src.Modules.Role
 {
-    [Route("api/roles")]
+    /// <summary>
+    /// API quản lý vai trò và phân quyền
+    /// </summary>
     [ApiController]
-    public class RolesController(IRoleService service) : ControllerBase
+    [Route("api/roles")]
+    [Produces("application/json")]
+    public class RolesController : ControllerBase
     {
+        private readonly IRoleService _service;
+
+        public RolesController(IRoleService service)
+        {
+            _service = service;
+        }
+
+        /// <summary>
+        /// Lấy danh sách vai trò (có phân trang)
+        /// </summary>
         [HttpGet]
         [HasPermission(Permissions.RoleClaims.View)]
-        public async Task<IActionResult> GetRolesAsync(
-            [FromQuery] string? query,
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] SortOBJ? sort = null
-            )
+        [ProducesResponseType(typeof(PaginatedResult<RoleDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        public async Task<ActionResult<PaginatedResult<RoleDto>>> GetRoles(
+            [FromQuery] QueryParameters parameters)
         {
-            var result = await service.GetRolesAsync(query, page, pageSize, sort);
-            return this.MyStatusCode(result);
+            var result = await _service.GetRolesAsync(parameters);
+            return Ok(result);
         }
 
+        /// <summary>
+        /// Lấy thông tin vai trò theo ID (bao gồm claims)
+        /// </summary>
         [HttpGet("{id}")]
         [HasPermission(Permissions.RoleClaims.View)]
-        public async Task<IActionResult> GetRoleAsync([FromRoute] int id)
+        [ProducesResponseType(typeof(RoleDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<RoleDto>> GetRole(int id)
         {
-            var result = await service.GetRoleAsync(id);
-            return this.MyStatusCode(result);
+            var result = await _service.GetRoleByIdAsync(id);
+            return Ok(result);
         }
 
+        /// <summary>
+        /// Tạo vai trò mới
+        /// </summary>
         [HttpPost]
         [HasPermission(Permissions.RoleClaims.Create)]
-        public async Task<IActionResult> CreateRoleAsync(
-            [FromBody] CreateRoleDto dto,
-            [FromServices] IValidator<CreateRoleDto> validator)
+        [ProducesResponseType(typeof(RoleDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<RoleDto>> CreateRole([FromBody] CreateRoleDto dto)
         {
-            var validationResult = await validator.ValidateAsync(dto);
-            if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
-
-            var result = await service.CreateRoleAsync(dto);
-            return this.MyStatusCode(result);
+            var result = await _service.CreateRoleAsync(dto);
+            return CreatedAtAction(nameof(GetRole), new { id = result.RoleId }, result);
         }
 
+        /// <summary>
+        /// Cập nhật vai trò
+        /// </summary>
         [HttpPut("{id}")]
         [HasPermission(Permissions.RoleClaims.Edit)]
-        public async Task<IActionResult> UpdateRoleAsync(
+        [ProducesResponseType(typeof(RoleDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<RoleDto>> UpdateRole(
             [FromRoute] int id,
-            [FromBody] UpdateRoleDto dto,
-            [FromServices] IValidator<UpdateRoleDto> validator)
+            [FromBody] UpdateRoleDto dto)
         {
-            var validationResult = await validator.ValidateAsync(dto);
-            if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
-
-            dto.RoleId = id;
-            var result = await service.UpdateRoleAsync(dto);
-            return this.MyStatusCode(result);
+            var result = await _service.UpdateRoleAsync(id, dto);
+            return Ok(result);
         }
 
+        /// <summary>
+        /// Xóa vai trò
+        /// </summary>
         [HttpDelete("{id}")]
         [HasPermission(Permissions.RoleClaims.Delete)]
-        public async Task<IActionResult> DeleteRoleAsync([FromRoute] int id)
+        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        public async Task<ActionResult<bool>> DeleteRole([FromRoute] int id)
         {
-            var result = await service.DeleteRoleAsync(id);
-            return this.MyStatusCode(result);
+            var result = await _service.DeleteRoleAsync(id);
+            return Ok(result);
         }
 
+        /// <summary>
+        /// Xóa nhiều vai trò
+        /// </summary>
+        [HttpDelete]
+        [HasPermission(Permissions.RoleClaims.Delete)]
+        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<bool>> DeleteRoles([FromBody] List<int> roleIds)
+        {
+            var result = await _service.DeleteRolesAsync(roleIds);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Lấy danh sách tất cả claims có thể gán
+        /// </summary>
         [HttpGet("claims")]
         [HasPermission(Permissions.RoleClaims.View)]
-        public async Task<IActionResult> GetAllClaimsAsync()
+        [ProducesResponseType(typeof(List<ClaimDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<ClaimDto>>> GetAllClaims()
         {
-            var result = await service.GetAllClaimsAsync();
-            return this.MyStatusCode(result);
+            var result = await _service.GetAllClaimsAsync();
+            return Ok(result);
         }
 
-        [HttpPost("set-role")]
+        /// <summary>
+        /// Gán roles cho tài khoản
+        /// </summary>
+        [HttpPost("assign")]
         [HasPermission(Permissions.RoleClaims.SetRole)]
-        public async Task<IActionResult> SetRoleAsync(
-            [FromBody] AccountRoleDto dto,
-            [FromServices] IValidator<AccountRoleDto> validator)
+        [ProducesResponseType(typeof(AccountRolesDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AccountRolesDto>> AssignRolesToAccount(
+            [FromBody] AssignRolesDto dto)
         {
-            var validationResult = await validator.ValidateAsync(dto);
-            if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
-
-            var result = await service.SetRoleAsync(dto);
-            return this.MyStatusCode(result);
+            var result = await _service.AssignRolesToAccountAsync(dto);
+            return Ok(result);
         }
     }
 }

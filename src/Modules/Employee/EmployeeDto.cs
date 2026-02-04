@@ -5,82 +5,108 @@ using static ItSupportServer.src.Modules.User.UserEnum;
 
 namespace ItSupportServer.src.Modules.Employee
 {
-    public record CreateEmployeeDto(
-        Guid EmpId,
-        string? EmpCode,
-        string FullName,
-        string? PhoneNumber,
-        string? Email,
-        int DptId,
-        int AreaId,
-        string? Position,
-        DateTime CreatedAt
-        //string Password,
-
-        //[DataType(DataType.Date, ErrorMessage = "Ngày sinh không đúng định dạng.")]
-        //[CustomValidation(typeof(MyValidate), nameof(MyValidate.ValidateBirthdayStaff))]
-        //DateTime? Birthday,
-        //GENDER? Gender,
-        //IFormFile? UrlImage
-        );
-
-    public record UpdateEmployeeDto(
-        string? EmpCode,
-        string FullName,
-        string? PhoneNumber,
-        string? Email,
-        int DptId,
-        int AreaId,
-        //[Required(ErrorMessage = "Ngày sinh là bắt buộc.")]
-        //[DataType(DataType.Date, ErrorMessage = "Ngày sinh không đúng định dạng.")]
-        //[CustomValidation(typeof(MyValidate), nameof(MyValidate.ValidateBirthdayStaff))]
-        //DateTime Birthday,
-        //GENDER? Gender,
-        string? Position,
-        DateTime? UpdatedAt
-        //string? UrlImage,
-        //IFormFile? NewImage
-        );
-
-    public record ListEmployeeDto(
-        Guid EmpId,
-        string? EmpCode,
-        string FullName,
-        string? Email,
-        string? PhoneNumber,
-        string? Position,
-        //string? UrlImage,
-        //bool? Status,
-        DateTime CreatedAt
-        );
-
-    public record UpdateProfileDto(
-        string FullName,
-        string? PhoneNumber,
-        //GENDER? Gender,
-        string? Email,
-        DateTime? UpdatedAt
-        //[DataType(DataType.Date, ErrorMessage = "Ngày sinh không đúng định dạng.")]
-        //DateTime? Birthday,
-        //IFormFile? Img
-        );
-
-    public record DetailUserDto
+    /// <summary>
+    /// Employee response DTO
+    /// </summary>
+    public record EmployeeDto
     {
         public Guid EmpId { get; init; }
         public string? EmpCode { get; init; }
-        public string FullName { get; init; }
-        //DateTime? Birthday,
-        //string? Gender,
+        public required string FullName { get; init; }
         public string? PhoneNumber { get; init; }
         public string? Email { get; init; }
         public int DptId { get; init; }
         public int AreaId { get; init; }
-        string? Position { get; init; }
-        //string? UrlImage,
-        //bool? Status,
+        public string? Position { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
-        public List<RolesDto>? Roles { get; init; }
-    };
+    }
+
+    /// <summary>
+    /// List view of employee (minimal info)
+    /// </summary>
+    public record ListEmployeeDto
+    {
+        public Guid EmpId { get; init; }
+        public string? EmpCode { get; init; }
+        public required string FullName { get; init; }
+        public string? Email { get; init; }
+        public string? PhoneNumber { get; init; }
+        public string? Position { get; init; }
+        public DateTime CreatedAt { get; init; }
+    }
+
+    /// <summary>
+    /// Detailed employee info with roles
+    /// </summary>
+    public record DetailEmployeeDto
+    {
+        public Guid EmpId { get; init; }
+        public string? EmpCode { get; init; }
+        public required string FullName { get; init; }
+        public string? PhoneNumber { get; init; }
+        public string? Email { get; init; }
+        public int DptId { get; init; }
+        public int AreaId { get; init; }
+        public string? Position { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? UpdatedAt { get; init; }
+        public List<RoleDto>? Roles { get; init; }
+    }
+
+    /// <summary>
+    /// User profile DTO (self-service view)
+    /// </summary>
+    public record ProfileDto
+    {
+        public Guid EmpId { get; init; }
+        public string? EmpCode { get; init; }
+        public required string FullName { get; init; }
+        public string? PhoneNumber { get; init; }
+        public string? Email { get; init; }
+        public int DptId { get; init; }
+        public int AreaId { get; init; }
+        public string? Position { get; init; }
+        public string? Username { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? UpdatedAt { get; init; }
+    }
+
+    /// <summary>
+    /// Create employee request DTO
+    /// </summary>
+    public record CreateEmployeeDto
+    {
+        public string? EmpCode { get; init; }
+        public required string FullName { get; init; }
+        public string? PhoneNumber { get; init; }
+        public string? Email { get; init; }
+        public int DptId { get; init; }
+        public int AreaId { get; init; }
+        public string? Position { get; init; }
+    }
+
+    /// <summary>
+    /// Update employee request DTO (partial updates supported)
+    /// </summary>
+    public record UpdateEmployeeDto
+    {
+        public string? EmpCode { get; init; }
+        public string? FullName { get; init; }
+        public string? PhoneNumber { get; init; }
+        public string? Email { get; init; }
+        public int? DptId { get; init; }
+        public int? AreaId { get; init; }
+        public string? Position { get; init; }
+    }
+
+    /// <summary>
+    /// Update user profile DTO (self-service)
+    /// </summary>
+    public record UpdateProfileDto
+    {
+        public required string FullName { get; init; }
+        public string? PhoneNumber { get; init; }
+        public string? Email { get; init; }
+    }
 }

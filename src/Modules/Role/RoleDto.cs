@@ -2,41 +2,73 @@
 
 namespace ItSupportServer.src.Modules.Role
 {
-    public record CreateRoleDto(
-        string Name,
-        string? Description,
-        List<int>? ClaimIds
-        );
-
-    public record UpdateRoleDto(
-        int RoleId,
-        string Name,
-        string? Description,
-        List<int>? ClaimIds
-        );
-
-    public record RolesDto
+    /// <summary>
+    /// Role response DTO
+    /// </summary>
+    public record RoleDto
     {
         public int RoleId { get; init; }
-        public string Name { get; init; }
+        public required string Name { get; init; }
         public string? Description { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? UpdatedAt { get; init; }
         public List<ClaimDto>? Claims { get; init; }
-    };
+    }
 
-    public record ClaimDto(
-        int ClaimId,
-        string Claim,
-        string? Category
-        );
+    /// <summary>
+    /// Claim information DTO
+    /// </summary>
+    public record ClaimDto
+    {
+        public int ClaimId { get; init; }
+        public required string Claim { get; init; }
+        public string? Category { get; init; }
+    }
 
-    public record AccountRoleDto(
-        Guid AccountId,
-        List<int> RoleId
-        );
+    /// <summary>
+    /// Create role request DTO
+    /// </summary>
+    public record CreateRoleDto
+    {
+        public required string Name { get; init; }
+        public string? Description { get; init; }
 
-    public record AccountRoleResponseDto(
-        Guid AccountId,
-        string? Username,
-        List<int> RoleId
-        );
+        /// <summary>
+        /// List of claim IDs to assign to this role
+        /// </summary>
+        public List<int>? ClaimIds { get; init; }
+    }
+
+    /// <summary>
+    /// Update role request DTO (partial updates supported)
+    /// </summary>
+    public record UpdateRoleDto
+    {
+        public string? Name { get; init; }
+        public string? Description { get; init; }
+
+        /// <summary>
+        /// List of claim IDs (null = don't update, empty = clear all)
+        /// </summary>
+        public List<int>? ClaimIds { get; init; }
+    }
+
+    /// <summary>
+    /// Assign roles to account request DTO
+    /// </summary>
+    public record AssignRolesDto
+    {
+        public required Guid AccountId { get; init; }
+        public required List<int> RoleIds { get; init; } 
+    }
+
+    /// <summary>
+    /// Account with assigned roles response DTO
+    /// </summary>
+    public record AccountRolesDto
+    {
+        public Guid AccountId { get; init; }
+        public required string Username { get; init; }
+        public List<RoleDto> Roles { get; init; } = [];
+    }
 }

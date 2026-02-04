@@ -3,14 +3,16 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ItSupportServer.src.Modules.Account
 {
-    public record CreateAccountsDto(
-        Guid? EmpId,
-        string Username,
-        string Password
-        );
+    public record CreateAccountsDto
+    {
+        Guid? EmpId { get; init; }
+        string Username { get; init; }
+        string Password { get; init; }
+    }
 
-    public record ChangePasswordDto(
-        string CurrentPassword,
-        string NewPassword
-        );
+    public record ChangePasswordDto
+    {
+        string CurrentPassword { get; init; }
+        string NewPassword { get; init; }
+    }
 }
