@@ -20,7 +20,7 @@ namespace ItSupportServer.Data.Models.Configurations
             builder.Ignore(il => il.Id);
 
             // Indexes
-            builder.HasIndex(il => il.DepartmentId);
+            builder.HasIndex(il => il.DptId);
 
             builder.Property(il => il.AreaId);
 
@@ -38,7 +38,7 @@ namespace ItSupportServer.Data.Models.Configurations
                    .HasMaxLength(500)
                    .HasColumnName("requester");
 
-            builder.Property(il => il.DepartmentId)
+            builder.Property(il => il.DptId)
                    .IsRequired()
                    .HasColumnName("dpt_id");
 
@@ -83,7 +83,7 @@ namespace ItSupportServer.Data.Models.Configurations
             // Relationships
             builder.HasOne(il => il.Department)
                    .WithMany(d => d.IssueLogs)
-                   .HasForeignKey(il => il.DepartmentId);
+                   .HasForeignKey(il => il.DptId);
                    //.OnDelete(DeleteBehavior.SetNull);
 
             builder.HasOne(il => il.Area)

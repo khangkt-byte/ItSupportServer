@@ -300,7 +300,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                         {
                             Operator = operatorText,
                             Requester = requesterText,
-                            DepartmentId = departmentId,
+                            DptId = departmentId,
                             AreaId = areaId,
                             IssueDescription = issueDesc,
                             Cause = cause,
@@ -597,7 +597,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             // Exact match
             var exactMatches = recentLogs
                 .Where(log =>
-                    log.DepartmentId == departmentId &&
+                    log.DptId == departmentId &&
                     log.DateReported.Date == dateReported.Date &&
                     log.IssueDescription.Equals(issueDescription, StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -619,7 +619,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             {
                 var fuzzyMatches = recentLogs
                     .Where(log =>
-                        log.DepartmentId == departmentId &&
+                        log.DptId == departmentId &&
                         Math.Abs((log.DateReported.Date - dateReported.Date).TotalDays) <= 3)
                     .Select(log => _importMapper.CreateFuzzyMatchResult(
                         log,
@@ -689,7 +689,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             var exactMatch = await _db.IssueLogs
                 .Where(il =>
                     il.IssueDescription == issueDescription &&
-                    il.DepartmentId == departmentId &&
+                    il.DptId == departmentId &&
                     il.DateReported.Date == dateReported.Date &&
                     il.DeletedAt == null)
                 .FirstOrDefaultAsync();
@@ -704,7 +704,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             var nearMatch = await _db.IssueLogs
                 .Where(il =>
                     il.IssueDescription == issueDescription &&
-                    il.DepartmentId == departmentId &&
+                    il.DptId == departmentId &&
                     il.Operator == operatorText &&
                     il.DateReported >= dateReported.AddDays(-7) &&
                     il.DateReported <= dateReported.AddDays(7) &&

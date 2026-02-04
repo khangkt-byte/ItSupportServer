@@ -61,7 +61,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         //        Requester = il.Requester,
 
         //        // Department & Area
-        //        DepartmentId = il.DepartmentId,
+        //        DptId = il.DptId,
         //        DepartmentName = il.Department.Name,
         //        AreaId = il.AreaId,
         //        AreaName = il.Area.Name,
