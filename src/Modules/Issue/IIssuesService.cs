@@ -8,6 +8,6 @@ namespace ItSupportServer.src.Modules.Issue
         Task<BaseResult<IssueDto>> GetIssueByIdAsync(string issueId);
         Task<BaseResult<IssueCreateDto>> CreateIssueAsync(IssueCreateDto dto);
         Task<BaseResult<IssueUpdateDto>> UpdateIssueAsync(IssueUpdateDto dto);
-        Task<BaseResult<bool>> DeleteIssueAsync(List<string> issueIds);
+        Task<BaseResult<bool>> DeleteIssueAsync(List<string> issueIds, bool softDelete = true);
     }
 }
