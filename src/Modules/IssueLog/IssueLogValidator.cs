@@ -7,15 +7,15 @@ namespace ItSupportServer.src.Modules.IssueLog
     /// Pattern: FluentValidation (industry standard)
     /// Security: Input validation, XSS prevention
     /// </summary>
-    public class CreateIssueLogDtoValidator : AbstractValidator<CreateIssueLogDto>
+    public class CreateIssueLogValidator : AbstractValidator<CreateIssueLogDto>
     {
-        public CreateIssueLogDtoValidator()
+        public CreateIssueLogValidator()
         {
             // ===== Operators & Requesters =====
             
             RuleFor(x => x.Operator)
                 .NotEmpty()
-                .WithMessage("Người thực hiện là bắt buộc.")
+                .WithMessage("Vui lòng nhập người thực hiện.")
                 .MaximumLength(500)
                 .WithMessage("Người thực hiện không được quá 500 ký tự.")
                 .Matches(@"^[\p{L}\p{N}\s,;.-]+$")
@@ -32,17 +32,17 @@ namespace ItSupportServer.src.Modules.IssueLog
             
             RuleFor(x => x.DepartmentId)
                 .GreaterThan(0)
-                .WithMessage("Bộ phận là bắt buộc.");
+                .WithMessage("Vui lòng chọn bộ phận.");
 
             RuleFor(x => x.AreaId)
                 .GreaterThan(0)
-                .WithMessage("Khu vực là bắt buộc.");
+                .WithMessage("Vui lòng chọn khu vực.");
 
             // ===== Issue =====
             
             RuleFor(x => x.IssueId)
                 .GreaterThan(0)
-                .WithMessage("Issue ID không hợp lệ.")
+                .WithMessage("Vấn đề không hợp lệ.")
                 .When(x => x.IssueId.HasValue);
 
             RuleFor(x => x.IssueDescription)
@@ -55,7 +55,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             
             RuleFor(x => x.CauseId)
                 .GreaterThan(0)
-                .WithMessage("Cause ID không hợp lệ.")
+                .WithMessage("Nguyên nhân không hợp lệ.")
                 .When(x => x.CauseId.HasValue);
 
             RuleFor(x => x.Cause)
@@ -82,9 +82,9 @@ namespace ItSupportServer.src.Modules.IssueLog
             
             RuleFor(x => x.DateReported)
                 .NotEmpty()
-                .WithMessage("Ngày báo cáo là bắt buộc.")
-                .Must(date => date <= DateTime.UtcNow.AddDays(1))
-                .WithMessage("Ngày báo cáo không được lớn hơn ngày hiện tại.");
+                .WithMessage("Vui lòng nhập ngày sửa chữa.")
+                .LessThanOrEqualTo(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)))
+                .WithMessage("Ngày sửa chữa không được lớn hơn ngày hiện tại.");
 
             RuleFor(x => x.Status)
                 .MaximumLength(50)
@@ -97,9 +97,9 @@ namespace ItSupportServer.src.Modules.IssueLog
     /// Update DTO validator
     /// Pattern: Partial update validation (PATCH semantics)
     /// </summary>
-    public class UpdateIssueLogDtoValidator : AbstractValidator<UpdateIssueLogDto>
+    public class UpdateIssueLogValidator : AbstractValidator<UpdateIssueLogDto>
     {
-        public UpdateIssueLogDtoValidator()
+        public UpdateIssueLogValidator()
         {
             RuleFor(x => x.Operator)
                 .NotEmpty()
@@ -119,17 +119,17 @@ namespace ItSupportServer.src.Modules.IssueLog
 
             RuleFor(x => x.DepartmentId)
                 .GreaterThan(0)
-                .WithMessage("Department ID không hợp lệ.")
+                .WithMessage("Bộ phận không hợp lệ.")
                 .When(x => x.DepartmentId.HasValue);
 
             RuleFor(x => x.AreaId)
                 .GreaterThan(0)
-                .WithMessage("Area ID không hợp lệ.")
+                .WithMessage("Khu vực không hợp lệ.")
                 .When(x => x.AreaId.HasValue);
 
             RuleFor(x => x.IssueId)
                 .GreaterThan(0)
-                .WithMessage("Issue ID không hợp lệ.")
+                .WithMessage("Vấn đề không hợp lệ.")
                 .When(x => x.IssueId.HasValue);
 
             RuleFor(x => x.IssueDescription)
@@ -141,7 +141,7 @@ namespace ItSupportServer.src.Modules.IssueLog
 
             RuleFor(x => x.CauseId)
                 .GreaterThan(0)
-                .WithMessage("Cause ID không hợp lệ.")
+                .WithMessage("Nguyên nhân không hợp lệ.")
                 .When(x => x.CauseId.HasValue);
 
             RuleFor(x => x.Cause)
@@ -165,8 +165,8 @@ namespace ItSupportServer.src.Modules.IssueLog
                 .When(x => !string.IsNullOrWhiteSpace(x.Notes));
             
             RuleFor(x => x.DateReported)
-                .Must(date => !date.HasValue || date.Value <= DateTime.UtcNow.AddDays(1))
-                .WithMessage("Ngày báo cáo không được lớn hơn ngày hiện tại.")
+                .LessThanOrEqualTo(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)))
+                .WithMessage("Ngày sửa chữa không được lớn hơn ngày hiện tại.")
                 .When(x => x.DateReported.HasValue);
 
             RuleFor(x => x.Status)

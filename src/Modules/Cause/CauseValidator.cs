@@ -7,9 +7,9 @@ namespace ItSupportServer.src.Modules.Cause
     /// Pattern: FluentValidation
     /// Reference: Input validation best practices (OWASP)
     /// </summary>
-    public class CreateCauseDtoValidator : AbstractValidator<CreateCauseDto>
+    public class CreateCauseValidator : AbstractValidator<CreateCauseDto>
     {
-        public CreateCauseDtoValidator()
+        public CreateCauseValidator()
         {
             RuleFor(x => x.IssId)
                 .GreaterThan(0)
@@ -17,7 +17,7 @@ namespace ItSupportServer.src.Modules.Cause
 
             RuleFor(x => x.Name)
                 .NotEmpty()
-                .WithMessage("Tên nguyên nhân là bắt buộc.")
+                .WithMessage("Vui lòng nhập tên nguyên nhân.")
                 .MaximumLength(255)
                 .WithMessage("Tên nguyên nhân không được quá 255 ký tự.")
                 .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()]+$")
@@ -33,9 +33,9 @@ namespace ItSupportServer.src.Modules.Cause
     /// <summary>
     /// Update Cause DTO Validator
     /// </summary>
-    public class UpdateCauseDtoValidator : AbstractValidator<UpdateCauseDto>
+    public class UpdateCauseValidator : AbstractValidator<UpdateCauseDto>
     {
-        public UpdateCauseDtoValidator()
+        public UpdateCauseValidator()
         {
             RuleFor(x => x.Name)
                 .NotEmpty()
@@ -49,11 +49,11 @@ namespace ItSupportServer.src.Modules.Cause
             RuleFor(x => x.Description)
                 .MaximumLength(1000)
                 .WithMessage("Mô tả không được quá 1000 ký tự.")
-                .When(x => x.Description != null);
+                .When(x => !string.IsNullOrWhiteSpace(x.Description));
 
             RuleFor(x => x)
                 .Must(dto => dto.Name != null || dto.Description != null)
-                .WithMessage("Phải cung cấp ít nhất một trường để cập nhật.")
+                .WithMessage("Phải cung cấp ít nhất một trong các trường: Tên hoặc Mô tả.")
                 .WithName("UpdateCauseDto");
         }
     }
