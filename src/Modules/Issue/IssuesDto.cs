@@ -21,7 +21,7 @@ namespace ItSupportServer.src.Modules.Issue
     public class IssueUpdateDto
     {
         [Required]
-        required public string IssId { get; set; }
+        required public long IssId { get; set; }
         [RegularExpression(@"^[\p{L}\p{M}\p{N} _-]+$",
         ErrorMessage = "Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_)")]
         public string? Name { get; set; }

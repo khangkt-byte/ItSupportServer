@@ -36,7 +36,7 @@ namespace ItSupportServer.src.Modules.Role
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateRoleAsync([FromRoute] string id, [FromBody] UpdateRoleDto dto)
         {
-            dto.Id = id;
+            dto.RoleId = id;
             var result = await service.UpdateRoleAsync(dto);
             return this.MyStatusCode(result);
         }

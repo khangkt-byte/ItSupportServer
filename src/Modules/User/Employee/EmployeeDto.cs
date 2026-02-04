@@ -11,7 +11,7 @@ namespace ItSupportServer.src.Modules.User.Employee
         [MaxLength(200, ErrorMessage = "Tên không được quá 200 ký tự")]
         [RegularExpression(@"^[\p{L}\p{M}\p{N} _-]+$",
         ErrorMessage = "Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_)")]
-        public string Name { get; set; } = null!;
+        public string FullName { get; set; } = null!;
 
         [Required(ErrorMessage = "Email là bắt buộc")]
         [EmailAddress(ErrorMessage = "Email không đúng định dạng")]
@@ -50,7 +50,7 @@ namespace ItSupportServer.src.Modules.User.Employee
         [RegularExpression(
         @"^[\p{L}\p{M}\p{N} _-]+$",
         ErrorMessage = "Tên chỉ được chứa chữ cái (a-z, A-Z), số (0-9), dấu cách, gạch ngang (-) và gạch dưới (_)")]
-        public string Name { get; set; }
+        public string FullName { get; set; }
 
         [Required(ErrorMessage = "Email là bắt buộc")]
         [EmailAddress(ErrorMessage = "Email không đúng định dạng")]
@@ -85,10 +85,10 @@ namespace ItSupportServer.src.Modules.User.Employee
 
     public class ListEmployeeDto
     {
-        public Guid Id { get; set; }
-        public string EmployeeCode { get; set; }
-        public string UserName { get; set; }
-        public string Name { get; set; }
+        public Guid EmpId { get; set; }
+        public string EmpCode { get; set; }
+        public string Username { get; set; }
+        public string FullName { get; set; }
         public string Email { get; set; }
         public string? PhoneNumber { get; set; }
         public string Position { get; set; }
@@ -123,10 +123,10 @@ namespace ItSupportServer.src.Modules.User.Employee
 
     public class DetailUserDto
     {
-        public Guid Id { get; set; }
-        public string Code { get; set; }
-        public string UserName { get; set; }
-        public string Name { get; set; }
+        public string EmpId { get; set; }
+        public string EmpCode { get; set; }
+        public string Username { get; set; }
+        public string FullName { get; set; }
         public string Email { get; set; }
         public string? PhoneNumber { get; set; }
         public Dictionary<string, object>? Address { get; set; }
@@ -135,7 +135,7 @@ namespace ItSupportServer.src.Modules.User.Employee
         public DateTime? UpdatedAt { get; set; }
         public string Position { get; set; }
         public string? UrlImage { get; set; }
-        public bool Status { get; set; }
+        public bool? Status { get; set; }
         public List<RolesDto>? Roles { get; set; } = new List<RolesDto>();
     }
 

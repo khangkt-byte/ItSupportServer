@@ -12,7 +12,7 @@ namespace ItSupportServer.Data
     {
         [Column("role_id")]
         [Required]
-        public string RoleId { get; set; }
+        public int RoleId { get; set; }
         
         [ForeignKey(nameof(RoleId))]
         public Roles Role { get; set; }

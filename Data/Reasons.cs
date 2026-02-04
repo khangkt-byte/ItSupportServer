@@ -1,34 +1,27 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using ItSupportServer.src.Shared.Base;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ItSupportServer.Data
 {
     [Table("reasons")]
-    public class Reasons
+    public class Reasons : BaseEntity<long>
     {
         [Key]
         [Column("reason_id")]
         [Required]
-        public string ReasonId { get; set; }
+        required public long ReasonId { get; set; }
+        public override long Id => ReasonId;
 
         [Column("name")]
         [Required]
-        public string Name { get; set; }
+        required public string Name { get; set; }
 
         [Column("iss_id")]
         [Required]
-        public string IssId { get; set; }
+        required public string IssId { get; set; }
 
         [ForeignKey(nameof(IssId))]
-        public Issues Issues { get; set; }
-
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        [Column("updated_at")]
-        public DateTime? UpdatedAt { get; set; }
-
-        [Column("deleted_at")]
-        public DateTime? DeletedAt { get; set; }
+        required public Issues Issues { get; set; }
     }
 }

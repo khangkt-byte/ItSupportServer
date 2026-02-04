@@ -1,37 +1,85 @@
-﻿using Microsoft.EntityFrameworkCore;
-using ItSupportServer.Data;
-using System.Linq.Dynamic.Core;
+﻿using ItSupportServer.Data;
 using ItSupportServer.src.Shared.Helper;
+using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace ItSupportServer.src.Shared.Base
 {
     public class BaseCrud<T, TKey>(AppDbContext db) where T : BaseEntity<TKey>
     {
-        public IQueryable<T> Get(string[]? fields, string? query, CancellationToken ct = default)
+        public IQueryable<T> Get(
+            string[]? fields,
+            string? query)
         {
-            IQueryable<T> q = db.Set<T>().Where(e => e.DeletedAt == null);
-            if (fields is not null && fields.Length > 0 && !string.IsNullOrEmpty(query))
+            var q = db.Set<T>()
+                      .Where(e => e.DeletedAt == null);
+
+            if (fields == null || fields.Length == 0 || string.IsNullOrWhiteSpace(query))
+                return q.AsNoTracking();
+
+            var slug = ConvertToSlug.GetSlug(query);
+
+            var parameter = Expression.Parameter(typeof(T), "e");
+            Expression? predicate = null;
+
+            foreach (var field in fields)
             {
-                var slug = ConvertToSlug.GetSlug(query);
-                var where = string.Join(" OR ", fields.Select(f => $"{f} != null && {f}.Contains(@0)"));
-                var q1 = q.Where(where, query);
-                var q2 = q.Where(where, slug);
-                q = q1.Union(q2);
+                var property = typeof(T).GetProperty(field);
+                if (property == null || property.PropertyType != typeof(string))
+                    continue;
+
+                var member = Expression.Property(parameter, property);
+
+                // e.Field != null
+                var notNull = Expression.NotEqual(
+                    member,
+                    Expression.Constant(null, typeof(string)));
+
+                // EF.Functions.ILike(e.Field, %query%)
+                Expression BuildILike(string value)
+                {
+                    return Expression.Call(
+                        typeof(NpgsqlDbFunctionsExtensions),
+                        nameof(NpgsqlDbFunctionsExtensions.ILike),
+                        Type.EmptyTypes,
+                        Expression.Property(null, typeof(EF), nameof(EF.Functions)),
+                        member,
+                        Expression.Constant($"%{value}%"));
+                }
+
+                var condition =
+                    Expression.AndAlso(
+                        notNull,
+                        Expression.OrElse(
+                            BuildILike(query),
+                            BuildILike(slug)));
+
+                predicate = predicate == null
+                    ? condition
+                    : Expression.OrElse(predicate, condition);
             }
-            return q.AsNoTracking();
+            if (predicate == null)
+                return q.AsNoTracking();
+
+            var lambda = Expression.Lambda<Func<T, bool>>(predicate, parameter);
+            return q.Where(lambda).AsNoTracking();
         }
 
-        public async Task<T> FindById(TKey Id, bool IsDeleted = false, CancellationToken ct = default)
+        public async Task<T> FindByIdAsync(TKey Id, bool IsDeleted = false, CancellationToken ct = default)
         {
             if (IsDeleted)
             {
-                var data = await db.Set<T>().FirstOrDefaultAsync(d => d.Id!.Equals(Id), ct);
-                return data ?? null;
+                var data = await db.Set<T>()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id!.Equals(Id), ct);
+                return data ?? null!;
             }
             else
             {
-                var data = await db.Set<T>().FirstOrDefaultAsync(d => d.Id!.Equals(Id) && d.DeletedAt == null, ct);
-                return data ?? null;
+                var data = await db.Set<T>()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id!.Equals(Id) && d.DeletedAt == null, ct);
+                return data ?? null!;
             }
         }
 
@@ -55,7 +103,7 @@ namespace ItSupportServer.src.Shared.Base
                     return true;
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
                 return false;
             }

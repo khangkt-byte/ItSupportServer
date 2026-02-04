@@ -6,19 +6,20 @@ namespace ItSupportServer.Data.Seeds
     {
         public static void SeedUsers(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Users>().HasData(
-                new Users
+            modelBuilder.Entity<Employees>().HasData(
+                new Employees
                 {
-                    Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                    EmployeeCode = "NV001",
-                    Name = "Nguyễn Văn A",
+                    //EmpId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                    EmpId = "NV001",
+                    EmpCode = "NV001",
+                    FullName = "Nguyễn Văn A",
                     Email = "nguyenvana@gmail.com",
                     PhoneNumber = "0123456789",
-                    Gender = "Nam",
+                    DptId = 1,
+                    AreaId = 1,
                     Birthday = new DateTime(1990, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     Status = true,
                     CreatedAt = new DateTime(2025, 10, 30, 9, 38, 50, DateTimeKind.Utc),
-                    Position = "Supper_Admin"
                 });
             modelBuilder.Entity<Accounts>().HasData(
                 new Accounts
@@ -33,7 +34,7 @@ namespace ItSupportServer.Data.Seeds
                 new AccountRoles
                 {
                     AccountId = "TK001",
-                    RoleId = "admin"
+                    RoleId = 1 // Supper_Admin
                 });
         }
     }

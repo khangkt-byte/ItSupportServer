@@ -1,32 +1,24 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using ItSupportServer.src.Shared.Base;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ItSupportServer.Data
 {
     [Table("departments")]
-    public class Departments
+    public class Departments : BaseEntity<int>
     {
         [Key]
         [Column("dpt_id")]
         [Required]
-        public string DptId { get; set; }
+        required public int DptId { get; set; }
+        public override int Id => DptId;
 
         [Column("name")]
         [Required, MaxLength(100)]
-        public string Name { get; set; }
+        required public string Name { get; set; }
 
         [Column("description")]
         public string? Description { get; set; }
-
-        [Column("created_at")]
-        [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        [Column("updated_at")]
-        public DateTime? UpdatedAt { get; set; }
-
-        [Column("deleted_at")]
-        public DateTime? DeletedAt { get; set; }
 
         public ICollection<Employees> Employees { get; set; } = new List<Employees>();
         public ICollection<IssueLogs> IssueLogs { get; set; } = new List<IssueLogs>();
