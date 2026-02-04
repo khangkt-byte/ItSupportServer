@@ -1,28 +1,27 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace ItSupportServer.src.Modules.Area
+namespace ItSupportServer.src.Modules.Issue
 {
-    public class AreaDto
+    public class IssueDto
     {
         public string Name { get; set; }
         public string? Description { get; set; }
     }
 
-    public class AreaCreateDto
+    public class IssueCreateDto
     {
         [Required(ErrorMessage = "Tên là bắt buộc")]
-        [MaxLength(255, ErrorMessage = "Tên không được quá 255 ký tự")]
+        [MaxLength(200, ErrorMessage = "Tên không được quá 200 ký tự")]
         [RegularExpression(@"^[\p{L}\p{M}\p{N} _-]+$",
         ErrorMessage = "Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_)")]
         public string Name { get; set; }
         public string? Description { get; set; }
     }
 
-    public class AreaUpdateDto
+    public class IssueUpdateDto
     {
         [Required]
-        required public string AreaId { get; set; }
-        [MaxLength(255, ErrorMessage = "Tên không được quá 255 ký tự")]
+        required public string IssId { get; set; }
         [RegularExpression(@"^[\p{L}\p{M}\p{N} _-]+$",
         ErrorMessage = "Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_)")]
         public string? Name { get; set; }

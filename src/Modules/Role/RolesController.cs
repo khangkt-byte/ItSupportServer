@@ -3,7 +3,7 @@ using ItSupportServer.src.Shared.Base;
 
 namespace ItSupportServer.src.Modules.Role
 {
-    [Route("api/[controller]")]
+    [Route("api/roles")]
     [ApiController]
     public class RolesController(IRolesService service) : ControllerBase
     {

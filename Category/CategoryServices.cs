@@ -7,7 +7,7 @@ using FastFood.MenuItem;
 
 namespace FastFood.Category
 {
-    public class CategoryServices(AppDbContext db, GitHubImageService git) : ICategoryServices
+    public class CategoryServices(AppDbContext db, GitHubImageService git)
     {
         public async Task<BaseResult<PaginatedResult<List<CategoryDTO>>>> GetCategoriesAsync(string? query, int page, int pageSize, SortOBJ? sort)
         {

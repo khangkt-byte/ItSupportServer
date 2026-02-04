@@ -12,7 +12,7 @@ namespace ItSupportServer.Data
         public string DptId { get; set; }
 
         [Column("name")]
-        [Required]
+        [Required, MaxLength(100)]
         public string Name { get; set; }
 
         [Column("description")]

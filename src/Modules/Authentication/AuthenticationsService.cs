@@ -12,7 +12,7 @@ using ItSupportServer.src.Shared.Helper;
 
 namespace ItSupportServer.src.Modules.Authentication
 {
-    public class AuthenticationsService(AppDbContext db, IConfiguration configuration, IMapper mapper, IMemoryCache _cache) : IAuthenticationsService
+    public class AuthenticationsService(AppDbContext db, IConfiguration configuration, IMemoryCache _cache) : IAuthenticationsService
     {
 
         //tạo token
@@ -22,8 +22,8 @@ namespace ItSupportServer.src.Modules.Authentication
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-                new Claim(ClaimTypes.Role, userRoles.Position),
+                new Claim(ClaimTypes.NameIdentifier, user.AccountId.ToString()),
+                //new Claim(ClaimTypes.Role, userRoles.Position),
 
             };
 

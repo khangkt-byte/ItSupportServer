@@ -11,9 +11,12 @@ namespace ItSupportServer.Data
         [Required]
         public string RoleId { get; set; }
 
-        [Required]
         [Column("name")]
+        [Required, MaxLength(150)]
         public string Name { get; set; }
+
+        [Column("description")]
+        public string? Description { get; set; }
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
