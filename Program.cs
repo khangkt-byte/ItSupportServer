@@ -1,8 +1,11 @@
-﻿using ITSupportServer;
-using ITSupportServer.Data;
+﻿using ItSupportServer;
+using ItSupportServer.Data;
+using ItSupportServer.src.Shared.Attributes;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Npgsql;
 using Scalar.AspNetCore;
 using System.Text;
 
@@ -10,18 +13,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-//Console.WriteLine(builder.Configuration["secret"]);
-//var dataSourceBuilder = new NpgsqlDataSourceBuilder(
-//    builder.Configuration.GetConnectionString("DefaultConnection")
-//);
+Console.WriteLine(builder.Configuration["secret"]);
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(
+    builder.Configuration.GetConnectionString("DefaultConnection")
+);
 
-//dataSourceBuilder.EnableDynamicJson();
+dataSourceBuilder.EnableDynamicJson();
 
-//var dataSource = dataSourceBuilder.Build();
+var dataSource = dataSourceBuilder.Build();
 
-//builder.Services.AddDbContext<AppDbContext>(options =>
-//    options.UseNpgsql(dataSource, npgsqlOptions =>
-//    npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name)));
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(dataSource, npgsqlOptions =>
+    npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name)));
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

@@ -1,6 +1,6 @@
-﻿using ITSupportServer.AreasController;
+﻿using ItSupportServer.AreasController;
 
-namespace ITSupportServer
+namespace ItSupportServer
 {
     public static class AppServices
     {

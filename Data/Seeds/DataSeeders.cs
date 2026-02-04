@@ -1,0 +1,14 @@
+﻿using Microsoft.EntityFrameworkCore;
+
+namespace ItSupportServer.EF_Core.Seeds
+{
+    public static class DataSeeders
+    {
+        public static void Seed(ModelBuilder modelBuilder)
+        {
+            UserSeeders.SeedUsers(modelBuilder);
+            PermissionSeeders.SeedPermissions(modelBuilder);
+            ConfigurationSeeders.SeedConfigurations(modelBuilder);
+        }
+    }
+}

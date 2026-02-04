@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ITSupportServer.Data
+namespace ItSupportServer.Data
 {
     [Table("role_claims")]
     [PrimaryKey(nameof(RoleId), nameof(ClaimId))]
