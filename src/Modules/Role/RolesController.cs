@@ -7,6 +7,8 @@ namespace ItSupportServer.src.Modules.Role
 {
     /// <summary>
     /// API quản lý vai trò và phân quyền
+    /// Pattern: RESTful API, RBAC
+    /// Reference: Microsoft Graph, GitHub API
     /// </summary>
     [ApiController]
     [Route("api/roles")]
@@ -28,6 +30,7 @@ namespace ItSupportServer.src.Modules.Role
         [ProducesResponseType(typeof(PaginatedResult<RoleDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<PaginatedResult<RoleDto>>> GetRoles(
             [FromQuery] QueryParameters parameters)
         {
@@ -41,7 +44,10 @@ namespace ItSupportServer.src.Modules.Role
         [HttpGet("{id}")]
         [HasPermission(Permissions.RoleClaims.View)]
         [ProducesResponseType(typeof(RoleDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<RoleDto>> GetRole(int id)
         {
             var result = await _service.GetRoleByIdAsync(id);
@@ -55,7 +61,11 @@ namespace ItSupportServer.src.Modules.Role
         [HasPermission(Permissions.RoleClaims.Create)]
         [ProducesResponseType(typeof(RoleDto), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<RoleDto>> CreateRole([FromBody] CreateRoleDto dto)
         {
             var result = await _service.CreateRoleAsync(dto);
@@ -68,7 +78,12 @@ namespace ItSupportServer.src.Modules.Role
         [HttpPut("{id}")]
         [HasPermission(Permissions.RoleClaims.Edit)]
         [ProducesResponseType(typeof(RoleDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<RoleDto>> UpdateRole(
             [FromRoute] int id,
             [FromBody] UpdateRoleDto dto)
@@ -80,28 +95,72 @@ namespace ItSupportServer.src.Modules.Role
         /// <summary>
         /// Xóa vai trò
         /// </summary>
+        /// <param name="id">Role ID</param>
+        /// <returns>No content (204)</returns>
+        /// <remarks>
+        /// **Pattern:** RESTful delete (no response body)
+        /// 
+        /// **Business rules:**
+        /// - Không thể xóa nếu role đang được sử dụng (422)
+        /// - Không thể xóa system roles (422)
+        /// </remarks>
         [HttpDelete("{id}")]
         [HasPermission(Permissions.RoleClaims.Delete)]
-        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
-        public async Task<ActionResult<bool>> DeleteRole([FromRoute] int id)
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DeleteRole([FromRoute] int id)
         {
-            var result = await _service.DeleteRoleAsync(id);
-            return Ok(result);
+            await _service.DeleteRoleAsync(id);
+            return NoContent();  // ✅ FIX: NoContent() instead of Ok()
         }
 
         /// <summary>
         /// Xóa nhiều vai trò
         /// </summary>
+        /// <param name="roleIds">Danh sách role IDs cần xóa</param>
+        /// <param name="softDelete">Soft delete (mặc định: true)</param>
+        /// <returns>Kết quả xóa hàng loạt</returns>
+        /// <remarks>
+        /// **Strategy:** All-or-nothing (transaction-based)
+        /// - Nếu TẤT CẢ thành công → 200 OK với summary
+        /// - Nếu BẤT KỲ lỗi nào → Rollback, throw error (4xx/5xx)
+        /// 
+        /// **Response:**
+        /// ```json
+        /// {
+        ///   "success": true,
+        ///   "deletedCount": 3,
+        ///   "totalRequested": 3,
+        ///   "message": "Đã xóa 3 vai trò thành công"
+        /// }
+        /// ```
+        /// </remarks>
         [HttpDelete]
         [HasPermission(Permissions.RoleClaims.Delete)]
-        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(BulkDeleteResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<bool>> DeleteRoles([FromBody] List<int> roleIds)
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<BulkDeleteResultDto>> DeleteRoles(
+            [FromBody] List<int> roleIds,
+            [FromQuery] bool softDelete = true)
         {
-            var result = await _service.DeleteRolesAsync(roleIds);
-            return Ok(result);
+            var deletedCount = await _service.DeleteRolesAsync(roleIds, softDelete);
+            
+            return Ok(new BulkDeleteResultDto
+            {
+                Success = true,
+                DeletedCount = deletedCount,
+                TotalRequested = roleIds.Count,
+                Message = $"Đã xóa {deletedCount} vai trò thành công"
+            });
         }
 
         /// <summary>
@@ -110,6 +169,9 @@ namespace ItSupportServer.src.Modules.Role
         [HttpGet("claims")]
         [HasPermission(Permissions.RoleClaims.View)]
         [ProducesResponseType(typeof(List<ClaimDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<List<ClaimDto>>> GetAllClaims()
         {
             var result = await _service.GetAllClaimsAsync();
@@ -122,7 +184,12 @@ namespace ItSupportServer.src.Modules.Role
         [HttpPost("assign")]
         [HasPermission(Permissions.RoleClaims.SetRole)]
         [ProducesResponseType(typeof(AccountRolesDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<AccountRolesDto>> AssignRolesToAccount(
             [FromBody] AssignRolesDto dto)
         {

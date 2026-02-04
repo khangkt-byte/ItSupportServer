@@ -26,6 +26,9 @@ namespace ItSupportServer.src.Modules.Authentication
         [ProducesResponseType(typeof(TokenResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)] // Account locked
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)] // Rate limit
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<TokenResponseDto>> Login([FromBody] LoginDto dto)
         {
             var result = await _service.LoginAsync(dto);
@@ -49,6 +52,8 @@ namespace ItSupportServer.src.Modules.Authentication
         [AllowAnonymous]
         [ProducesResponseType(typeof(TokenResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<TokenResponseDto>> RefreshToken()
         {
             // ✅ Read refresh token from cookie
@@ -80,6 +85,8 @@ namespace ItSupportServer.src.Modules.Authentication
         [HttpPost("logout")]
         [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> Logout()
         {
             var accountId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
@@ -102,6 +109,10 @@ namespace ItSupportServer.src.Modules.Authentication
         [AllowAnonymous]
         [ProducesResponseType(typeof(OtpResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<OtpResponseDto>> ConfirmOtp([FromBody] OtpDto dto)
         {
             var result = await _service.ConfirmOtpAsync(dto);
@@ -124,7 +135,12 @@ namespace ItSupportServer.src.Modules.Authentication
         [HttpPost("resend-otp")]
         [AllowAnonymous]
         [ProducesResponseType(typeof(OtpSentResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status502BadGateway)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<OtpSentResponseDto>> ResendOtp([FromBody] string email)
         {
             var result = await _service.RefreshOtpAsync(email);
@@ -137,10 +153,29 @@ namespace ItSupportServer.src.Modules.Authentication
         [HttpPost("forgot-password")]
         [AllowAnonymous]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)] // Rate limit (line 336)
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status502BadGateway)] // Email service fail
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> ForgotPassword([FromBody] string emailOrUsername)
         {
             await _service.ForgotPasswordAsync(emailOrUsername);
-            return Ok(new { message = "Nếu email tồn tại, mật khẩu mới đã được gửi" });
+            return Ok(new { message = "Nếu email tồn tại, link đặt lại mật khẩu đã được gửi" });
+        }
+
+        /// <summary>
+        /// Đặt lại mật khẩu (từ email reset link)
+        /// </summary>
+        [HttpPost("reset-password")]
+        [AllowAnonymous]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]  // Validation
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]  // Invalid/expired token
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+        {
+            await _service.ResetPasswordAsync(dto);
+            return Ok(new { message = "Đặt lại mật khẩu thành công" });
         }
     }
 }

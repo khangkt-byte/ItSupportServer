@@ -30,6 +30,7 @@ namespace ItSupportServer.src.Modules.Area
         [ProducesResponseType(typeof(PaginatedResult<AreaDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<PaginatedResult<AreaDto>>> GetAreas(
             [FromQuery] QueryParameters parameters)
         {
@@ -45,7 +46,10 @@ namespace ItSupportServer.src.Modules.Area
         [HttpGet("{id}")]
         [HasPermission(Permissions.AreaClaims.View)]
         [ProducesResponseType(typeof(AreaDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<AreaDto>> GetArea(int id)
         {
             var result = await _service.GetAreaByIdAsync(id);
@@ -61,7 +65,11 @@ namespace ItSupportServer.src.Modules.Area
         [HasPermission(Permissions.AreaClaims.Create)]
         [ProducesResponseType(typeof(AreaDto), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<AreaDto>> CreateArea([FromBody] CreateAreaDto dto)
         {
             var result = await _service.CreateAreaAsync(dto);
@@ -77,8 +85,12 @@ namespace ItSupportServer.src.Modules.Area
         [HttpPut("{id}")]
         [HasPermission(Permissions.AreaClaims.Edit)]
         [ProducesResponseType(typeof(AreaDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<AreaDto>> UpdateArea(
             [FromRoute] int id,
             [FromBody] UpdateAreaDto dto)
@@ -97,7 +109,11 @@ namespace ItSupportServer.src.Modules.Area
         [HasPermission(Permissions.AreaClaims.Delete)]
         [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<bool>> DeleteAreas(
             [FromBody] List<int> areaIds,
             [FromQuery] bool softDelete = true)
