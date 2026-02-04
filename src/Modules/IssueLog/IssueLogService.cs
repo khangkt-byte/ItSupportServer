@@ -11,14 +11,14 @@ namespace ItSupportServer.src.Modules.IssueLog
     public class IssueLogService : IIssueLogService
     {
         private readonly AppDbContext _db;
-        private readonly IssueLogMapper _mapper;  // ✅ Use mapper
+        private readonly IssueLogMapper _mapper;
         private readonly ILogger<IssueLogService> _logger;
         private readonly IValidator<CreateIssueLogDto> _createValidator;
         private readonly IValidator<UpdateIssueLogDto> _updateValidator;
 
         public IssueLogService(
             AppDbContext db,
-            IssueLogMapper mapper,  // ✅ Inject mapper
+            IssueLogMapper mapper,
             ILogger<IssueLogService> logger,
             IValidator<CreateIssueLogDto> createValidator,
             IValidator<UpdateIssueLogDto> updateValidator)
@@ -30,31 +30,31 @@ namespace ItSupportServer.src.Modules.IssueLog
             _updateValidator = updateValidator;
         }
 
-        public async Task<PaginatedResult<List<IssueLogDto>>> GetIssueLogsAsync(
-            string? query, int page, int pageSize, SortOBJ? sort)
+        public async Task<PaginatedResult<IssueLogDto>> GetIssueLogsAsync(QueryParameters parameters)
         {
-            _logger.LogInformation("Fetching issue logs with query: {Query}, page: {Page}", query, page);
+            _logger.LogInformation("Fetching issue logs with search: {Search}, page: {Page}",
+                parameters.Search, parameters.Page);
 
-            // ✅ Use mapper projection
-            var issueLogsQuery = _mapper.ProjectToIssueLogDto(_db.IssueLogs
+            var query = _mapper.ProjectToIssueLogDto(_db.IssueLogs
                 .Where(il => il.DeletedAt == null)
                 .AsNoTracking());
 
-            if (!string.IsNullOrWhiteSpace(query))
+            // Apply search filter
+            if (!string.IsNullOrWhiteSpace(parameters.Search))
             {
-                issueLogsQuery = issueLogsQuery.Where(il =>
-                    il.Operator.Contains(query) ||
-                    (il.Requester != null && il.Requester.Contains(query)) ||
-                    il.Department.Contains(query) ||
-                    il.Area.Contains(query) ||
-                    (il.IssueDescription != null && il.IssueDescription.Contains(query)) ||
-                    (il.Resolution != null && il.Resolution.Contains(query)));
+                query = query.Where(il =>
+                    il.Operator.Contains(parameters.Search) ||
+                    (il.Requester != null && il.Requester.Contains(parameters.Search)) ||
+                    il.Department.Contains(parameters.Search) ||
+                    il.Area.Contains(parameters.Search) ||
+                    (il.IssueDescription != null && il.IssueDescription.Contains(parameters.Search)) ||
+                    (il.Resolution != null && il.Resolution.Contains(parameters.Search)));
             }
 
-            var result = await Pagination<IssueLogDto>.ToPaginatedResultAsync(issueLogsQuery, page, pageSize, sort);
-            
-            _logger.LogInformation("Retrieved {Count} issue logs", result.TotalItems);
-            
+            var result = await query.ToPaginatedResultAsync(parameters, defaultSortField: "DateReported");
+
+            _logger.LogInformation("Retrieved {Count} issue logs", result.TotalCount);
+
             return result;
         }
 
@@ -84,10 +84,9 @@ namespace ItSupportServer.src.Modules.IssueLog
             validationResult.ThrowIfInvalid();
 
             using var transaction = await _db.Database.BeginTransactionAsync();
-            
+
             try
             {
-                // ✅ Use mapper instead of manual mapping
                 var newIssueLog = _mapper.MapToIssueLog(dto);
                 newIssueLog.IssLogId = Guid.CreateVersion7();
                 // CreatedAt set automatically by interceptor
@@ -98,7 +97,8 @@ namespace ItSupportServer.src.Modules.IssueLog
 
                 _logger.LogInformation("Successfully created issue log {IssLogId}", newIssueLog.IssLogId);
 
-                return _mapper.MapToIssueLogDto(newIssueLog);
+                // Reload from DB to get interceptor-set fields
+                return await GetIssueLogByIdAsync(newIssueLog.IssLogId);
             }
             catch
             {
@@ -122,69 +122,79 @@ namespace ItSupportServer.src.Modules.IssueLog
                 throw new NotFoundException("Nhật ký sự cố", issLogId);
             }
 
-            // ✅ Partial update logic
             bool hasChanges = false;
 
+            // Operator
             if (dto.Operator != null && issueLog.Operator != dto.Operator)
             {
                 issueLog.Operator = dto.Operator;
                 hasChanges = true;
             }
 
+            // Requester
             if (dto.Requester != null && issueLog.Requester != dto.Requester)
             {
-                issueLog.Requester = dto.Requester;
+                issueLog.Requester = string.IsNullOrWhiteSpace(dto.Requester) ? null : dto.Requester;
                 hasChanges = true;
             }
 
+            // Department
             if (dto.Department != null && issueLog.Department != dto.Department)
             {
                 issueLog.Department = dto.Department;
                 hasChanges = true;
             }
 
+            // Area
             if (dto.Area != null && issueLog.Area != dto.Area)
             {
                 issueLog.Area = dto.Area;
                 hasChanges = true;
             }
 
+            // IssueDescription
             if (dto.IssueDescription != null && issueLog.IssueDescription != dto.IssueDescription)
             {
                 issueLog.IssueDescription = dto.IssueDescription;
                 hasChanges = true;
             }
 
+            // Cause
             if (dto.Cause != null && issueLog.Cause != dto.Cause)
             {
                 issueLog.Cause = string.IsNullOrWhiteSpace(dto.Cause) ? null : dto.Cause;
                 hasChanges = true;
             }
 
+            // Resolution
             if (dto.Resolution != null && issueLog.Resolution != dto.Resolution)
             {
                 issueLog.Resolution = string.IsNullOrWhiteSpace(dto.Resolution) ? null : dto.Resolution;
                 hasChanges = true;
             }
 
+            // PermanentFix
             if (dto.PermanentFix != null && issueLog.PermanentFix != dto.PermanentFix)
             {
                 issueLog.PermanentFix = string.IsNullOrWhiteSpace(dto.PermanentFix) ? null : dto.PermanentFix;
                 hasChanges = true;
             }
 
+            // Notes
             if (dto.Notes != null && issueLog.Notes != dto.Notes)
             {
                 issueLog.Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes;
                 hasChanges = true;
             }
 
+            // DateReported
             if (dto.DateReported.HasValue && issueLog.DateReported != dto.DateReported.Value)
             {
                 issueLog.DateReported = dto.DateReported.Value;
                 hasChanges = true;
             }
 
+            // Status
             if (dto.Status != null && issueLog.Status != dto.Status)
             {
                 issueLog.Status = string.IsNullOrWhiteSpace(dto.Status) ? null : dto.Status;
@@ -202,24 +212,24 @@ namespace ItSupportServer.src.Modules.IssueLog
                 _logger.LogInformation("No changes detected for issue log {IssLogId}", issLogId);
             }
 
-            return _mapper.MapToIssueLogDto(issueLog);
+            return await GetIssueLogByIdAsync(issLogId);
         }
 
         public async Task<bool> DeleteIssueLogsAsync(List<Guid> issLogIds, bool softDelete = true)
         {
-            _logger.LogInformation("Deleting {Count} issue logs (soft: {SoftDelete})", 
+            _logger.LogInformation("Deleting {Count} issue logs (soft: {SoftDelete})",
                 issLogIds?.Count ?? 0, softDelete);
 
             ArgumentNullException.ThrowIfNull(issLogIds);
 
             if (issLogIds.Count == 0)
             {
-                throw new Shared.Exceptions.ValidationException("issLogIds", 
+                throw new Shared.Exceptions.ValidationException("issLogIds",
                     "Vui lòng chọn nhật ký sự cố để xóa");
             }
 
             using var transaction = await _db.Database.BeginTransactionAsync();
-            
+
             try
             {
                 var existing = await _db.IssueLogs

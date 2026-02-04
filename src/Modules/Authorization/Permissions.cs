@@ -32,7 +32,8 @@
             public const string Create = "Account.Create";
             public const string Edit = "Account.Edit";
             public const string Delete = "Account.Delete";
-            //public const string ResetPassword = "Account.ResetPassword";
+            public const string ResetPassword = "Account.ResetPassword";
+            public const string Lock = "Account.Lock";
         }
 
         public static class RoleClaims

@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -10,6 +9,7 @@ using ItSupportServer.src.Shared.Helpers;
 using FluentValidation;
 using Microsoft.Extensions.Caching.Memory;
 using ItSupportServer.src.Shared.Extensions;
+using ItSupportServer.src.Modules.Account;
 
 namespace ItSupportServer.src.Modules.Authentication
 {
@@ -21,6 +21,7 @@ namespace ItSupportServer.src.Modules.Authentication
         private readonly ILogger<AuthenticationService> _logger;
         private readonly IValidator<LoginDto> _loginValidator;
         private readonly IValidator<OtpDto> _otpValidator;
+        private readonly IAccountService _accountService;
 
         public AuthenticationService(
             AppDbContext db,
@@ -28,7 +29,8 @@ namespace ItSupportServer.src.Modules.Authentication
             IMemoryCache cache,
             ILogger<AuthenticationService> logger,
             IValidator<LoginDto> loginValidator,
-            IValidator<OtpDto> otpValidator)
+            IValidator<OtpDto> otpValidator,
+            IAccountService accountService)
         {
             _db = db;
             _configuration = configuration;
@@ -36,6 +38,7 @@ namespace ItSupportServer.src.Modules.Authentication
             _logger = logger;
             _loginValidator = loginValidator;
             _otpValidator = otpValidator;
+            _accountService = accountService;
         }
 
         public async Task<TokenResponseDto> LoginAsync(LoginDto dto)
@@ -61,11 +64,17 @@ namespace ItSupportServer.src.Modules.Authentication
                 throw new UnauthorizedException("Tên đăng nhập hoặc mật khẩu không đúng");
             }
 
-            // ✅ Check account status
             if (user.DeletedAt != null)
             {
                 _logger.LogWarning("Login blocked: Account deleted {AccountId}", user.AccountId);
-                throw new ForbiddenException("Tài khoản đã bị khóa");
+                throw new ForbiddenException("Tài khoản đã bị vô hiệu hóa");
+            }
+
+            // ✅ Check if account is locked
+            if (await _accountService.IsAccountLockedAsync(user.AccountId))
+            {
+                _logger.LogWarning("Login blocked: Account locked {AccountId}", user.AccountId);
+                throw new ForbiddenException("Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.");
             }
 
             // Check OTP verification
@@ -75,26 +84,39 @@ namespace ItSupportServer.src.Modules.Authentication
                 throw new OtpRequiredException(user.AccountId);
             }
 
-            // ✅ Verify password
-            var result = new PasswordHasher<Accounts>().VerifyHashedPassword(
-                user, user.Password, dto.Password);
+            // VALIDATE PASSWORD
+            // ❌ OLD (Microsoft.AspNetCore.Identity)
+            // var result = new PasswordHasher<Accounts>().VerifyHashedPassword(
+            //     user, user.Password, dto.Password);
 
-            if (result == PasswordVerificationResult.Failed)
+            // if (result == PasswordVerificationResult.Failed)
+            // {
+            //     // ...
+            // }
+
+            // ✅ NEW (BCrypt)
+            if (!PasswordHelper.VerifyPassword(dto.Password, user.Password))
             {
                 _logger.LogWarning("Login failed: Invalid password for {Identifier}", dto.Identifier);
                 
-                // ✅ TODO: Implement account lockout after N failed attempts
-                // await IncrementFailedLoginAttempts(user.AccountId);
+                // Record failed login attempt
+                await RecordFailedLoginAsync(user.AccountId);
                 
+                // ✅ Record failed login
+                await _accountService.RecordLoginAttemptAsync(user.AccountId, success: false);
+
                 throw new UnauthorizedException("Tên đăng nhập hoặc mật khẩu không đúng");
             }
 
-            // ✅ Password rehashing if needed (security best practice)
-            if (result == PasswordVerificationResult.SuccessRehashNeeded)
+            // ✅ Check if password needs rehashing (security best practice)
+            if (PasswordHelper.NeedsRehash(user.Password))
             {
-                user.Password = new PasswordHasher<Accounts>().HashPassword(user, dto.Password);
+                user.Password = PasswordHelper.HashPassword(dto.Password);
                 await _db.SaveChangesAsync();
             }
+
+            // ✅ Record successful login
+            await _accountService.RecordLoginAttemptAsync(user.AccountId, success: true);
 
             // ✅ Revoke old refresh tokens (optional, for better security)
             await RevokeOldRefreshTokensAsync(user.AccountId);
@@ -323,9 +345,9 @@ namespace ItSupportServer.src.Modules.Authentication
             using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
-                var newPassword = RandomString.GenerateRandomString(12);
-                var hashedPassword = new PasswordHasher<Accounts>().HashPassword(user, newPassword);
-                user.Password = hashedPassword;
+                // ✅ Use PasswordHelper
+                var newPassword = PasswordHelper.GenerateRandomPassword(12);
+                user.Password = PasswordHelper.HashPassword(newPassword);
 
                 await _db.SaveChangesAsync();
 
@@ -458,6 +480,25 @@ namespace ItSupportServer.src.Modules.Authentication
             {
                 await _db.SaveChangesAsync();
             }
+        }
+
+        private async Task RecordFailedLoginAsync(Guid accountId)
+        {
+            var account = await _db.Accounts.FindAsync(accountId);
+            if (account is null) return;
+
+            account.FailedLoginAttempts++;
+
+            // Auto-lock after 5 failed attempts
+            if (account.FailedLoginAttempts >= 5)
+            {
+                account.IsLocked = true;
+                account.LockedUntil = DateTime.UtcNow.AddMinutes(30);
+                _logger.LogWarning("Account {AccountId} locked due to {Attempts} failed attempts",
+                    accountId, account.FailedLoginAttempts);
+            }
+
+            await _db.SaveChangesAsync();
         }
 
         #endregion
