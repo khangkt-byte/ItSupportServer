@@ -1,5 +1,6 @@
 ﻿using ItSupportServer.Data.Models.Entities;
 using ItSupportServer.src.Modules.Cause;
+using ItSupportServer.src.Modules.Role;
 using Riok.Mapperly.Abstractions;
 
 namespace ItSupportServer.src.Modules.Issue
@@ -12,6 +13,9 @@ namespace ItSupportServer.src.Modules.Issue
     [Mapper]
     public partial class IssueMapper
     {
+        [UseMapper]
+        private static readonly CauseMapper causeMapper = new();
+
         // ===== ENTITY → DTO (Simple Mapping) =====
 
         /// <summary>
@@ -23,8 +27,19 @@ namespace ItSupportServer.src.Modules.Issue
         [MapperIgnoreSource(nameof(Issues.Causes))]
         [MapperIgnoreSource(nameof(Issues.IssueLogs))]
         [MapperIgnoreTarget(nameof(IssueDto.UsageCount))]  // Calculated separately
-        [MapperIgnoreTarget(nameof(IssueDto.Causes))]
+        //[MapperIgnoreTarget(nameof(IssueDto.Causes))]
+        [MapPropertyFromSource(nameof(IssueDto.Causes), Use = nameof(MapCauses))]
         public partial IssueDto MapToIssueDto(Issues issue);
+
+        private static List<CauseDto>? MapCauses(Issues issue)
+        {
+            if (issue.Causes == null)
+                return null;
+            return causeMapper.ProjectToCauseDto(issue.Causes
+                .Where(c => c.DeletedAt == null)
+                .AsQueryable())
+                .ToList();
+        }
 
         // ===== DTO → ENTITY (Create) =====
 
@@ -67,36 +82,36 @@ namespace ItSupportServer.src.Modules.Issue
         /// Mapperly: Cannot auto-generate (too complex for source generator)
         /// Reference: EF Core - Query projection best practices
         /// </summary>
-        public IQueryable<IssueDto> ProjectToIssueDto(IQueryable<Issues> query)
-        {
-            return query.Select(i => new IssueDto
-            {
-                IssId = i.IssId,
-                Name = i.Name,
-                Description = i.Description,
-                Category = i.Category,
-                Severity = i.Severity,
-                UsageCount = 0,  // Calculated separately in service
-                CreatedAt = i.CreatedAt,
-                UpdatedAt = i.UpdatedAt,
+        public partial IQueryable<IssueDto> ProjectToIssueDto(IQueryable<Issues> query);
+        //{
+        //    return query.Select(i => new IssueDto
+        //    {
+        //        IssId = i.IssId,
+        //        Name = i.Name,
+        //        Description = i.Description,
+        //        Category = i.Category,
+        //        Severity = i.Severity,
+        //        UsageCount = 0,  // Calculated separately in service
+        //        CreatedAt = i.CreatedAt,
+        //        UpdatedAt = i.UpdatedAt,
 
-                // Nested causes projection
-                Causes = i.Causes
-                    .Where(c => c.DeletedAt == null)
-                    .Select(c => new CauseDto
-                    {
-                        CauseId = c.CauseId,
-                        IssId = c.IssId,
-                        IssueName = i.Name,  // From parent
-                        Name = c.Name,
-                        Description = c.Description,
-                        UsageCount = 0,  // Calculated separately
-                        CreatedAt = c.CreatedAt,
-                        UpdatedAt = c.UpdatedAt
-                    })
-                    .ToList()
-            });
-        }
+        //        // Nested causes projection
+        //        Causes = i.Causes
+        //            .Where(c => c.DeletedAt == null)
+        //            .Select(c => new CauseDto
+        //            {
+        //                CauseId = c.CauseId,
+        //                IssId = c.IssId,
+        //                IssueName = i.Name,  // From parent
+        //                Name = c.Name,
+        //                Description = c.Description,
+        //                UsageCount = 0,  // Calculated separately
+        //                CreatedAt = c.CreatedAt,
+        //                UpdatedAt = c.UpdatedAt
+        //            })
+        //            .ToList()
+        //    });
+        //}
 
         /// <summary>
         /// ✅ NEW: Project to IssueSuggestionDto with usage statistics
@@ -123,27 +138,39 @@ namespace ItSupportServer.src.Modules.Issue
                         Name = issue.Name,
                         Description = issue.Description,
                         UsageCount = logs.Count(),
-                        LastUsed = logs.Any() 
-                            ? logs.Max(l => (DateTime?)l.CreatedAt) 
+                        LastUsed = logs.Any()
+                            ? logs.Max(l => (DateTime?)l.CreatedAt)
                             : null
                     });
         }
+
+        [MapperIgnoreTarget(nameof(IssueSuggestionDto.UsageCount))]
+        [MapperIgnoreTarget(nameof(IssueSuggestionDto.LastUsed))]
+        [MapperIgnoreSource(nameof(Issues.Id))]
+        [MapperIgnoreSource(nameof(Issues.Category))]
+        [MapperIgnoreSource(nameof(Issues.Severity))]
+        [MapperIgnoreSource(nameof(Issues.CreatedAt))]
+        [MapperIgnoreSource(nameof(Issues.UpdatedAt))]
+        [MapperIgnoreSource(nameof(Issues.DeletedAt))]
+        [MapperIgnoreSource(nameof(Issues.Causes))]
+        [MapperIgnoreSource(nameof(Issues.IssueLogs))]
+        public partial IssueSuggestionDto MapToIssueSuggestionDto(Issues issue);
 
         /// <summary>
         /// ✅ ALTERNATIVE: Project to lightweight issue (no stats)
         /// Use this for scenarios where you calculate stats separately
         /// </summary>
-        public IQueryable<IssueSuggestionDto> ProjectToIssueSuggestionWithoutStats(
-            IQueryable<Issues> query)
-        {
-            return query.Select(i => new IssueSuggestionDto
-            {
-                IssId = i.IssId,
-                Name = i.Name,
-                Description = i.Description,
-                UsageCount = 0,  // Set later
-                LastUsed = null  // Set later
-            });
-        }
+        public partial IQueryable<IssueSuggestionDto> ProjectToIssueSuggestionWithoutStats(
+            IQueryable<Issues> query);
+        //{
+        //    return query.Select(i => new IssueSuggestionDto
+        //    {
+        //        IssId = i.IssId,
+        //        Name = i.Name,
+        //        Description = i.Description,
+        //        UsageCount = 0,  // Set later
+        //        LastUsed = null  // Set later
+        //    });
+        //}
     }
 }

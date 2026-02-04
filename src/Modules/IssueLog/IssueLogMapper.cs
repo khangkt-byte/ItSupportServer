@@ -12,7 +12,12 @@ namespace ItSupportServer.src.Modules.IssueLog
     [Mapper]
     public partial class IssueLogMapper
     {
-        // ===== DTO → Entity (Create) =====
+        [MapperIgnoreSource(nameof(IssueLogs.Id))]
+        [MapperIgnoreSource(nameof(IssueLogs.DeletedAt))]
+        [MapperIgnoreSource(nameof(IssueLogs.IssueLogOperators))]
+        [MapperIgnoreSource(nameof(IssueLogs.IssueLogRequesters))]
+        [MapProperty(nameof(IssueLogs.CauseRef.Name), nameof(IssueLogDto.CauseName))]
+        public partial IssueLogDto MapToIssueLogDto(IssueLogs issueLog);
 
         [MapperIgnoreTarget(nameof(IssueLogs.IssLogId))]
         [MapperIgnoreTarget(nameof(IssueLogs.Id))]
@@ -27,8 +32,6 @@ namespace ItSupportServer.src.Modules.IssueLog
         [MapperIgnoreTarget(nameof(IssueLogs.IssueLogRequesters))]
         public partial IssueLogs MapToIssueLog(CreateIssueLogDto dto);
 
-        // ===== DTO → Entity (Update - Partial) =====
-
         [MapperIgnoreTarget(nameof(IssueLogs.IssLogId))]
         [MapperIgnoreTarget(nameof(IssueLogs.Id))]
         [MapperIgnoreTarget(nameof(IssueLogs.CreatedAt))]
@@ -42,51 +45,49 @@ namespace ItSupportServer.src.Modules.IssueLog
         [MapperIgnoreTarget(nameof(IssueLogs.IssueLogRequesters))]
         public partial void MapToIssueLog(UpdateIssueLogDto dto, IssueLogs issueLog);
 
-        // ===== Projection for EF Core (Manual - for complex joins) =====
-
         /// <summary>
         /// Project to DTO with all navigation properties
         /// Pattern: Manual projection for EF Core query optimization
         /// Performance: Single SQL query with joins
         /// </summary>
-        public IQueryable<IssueLogDto> ProjectToIssueLogDto(IQueryable<IssueLogs> query)
-        {
-            return query.Select(il => new IssueLogDto
-            {
-                IssLogId = il.IssLogId,
+        public partial IQueryable<IssueLogDto> ProjectToIssueLogDto(IQueryable<IssueLogs> query);
+        //{
+        //    return query.Select(il => new IssueLogDto
+        //    {
+        //        IssLogId = il.IssLogId,
 
-                // Operators & Requesters
-                Operator = il.Operator,
-                Requester = il.Requester,
+        //        // Operators & Requesters
+        //        Operator = il.Operator,
+        //        Requester = il.Requester,
 
-                // Department & Area
-                DepartmentId = il.DepartmentId,
-                DepartmentName = il.Department.Name,
-                AreaId = il.AreaId,
-                AreaName = il.Area.Name,
+        //        // Department & Area
+        //        DepartmentId = il.DepartmentId,
+        //        DepartmentName = il.Department.Name,
+        //        AreaId = il.AreaId,
+        //        AreaName = il.Area.Name,
 
-                // Issue (KB reference + actual text)
-                IssueId = il.IssueId,
-                IssueName = il.Issue != null ? il.Issue.Name : null,
-                IssueDescription = il.IssueDescription,
+        //        // Issue (KB reference + actual text)
+        //        IssueId = il.IssueId,
+        //        IssueName = il.Issue != null ? il.Issue.Name : null,
+        //        IssueDescription = il.IssueDescription,
 
-                // Cause (KB reference + actual text)
-                CauseId = il.CauseId,
-                CauseName = il.CauseRef != null ? il.CauseRef.Name : null,
-                Cause = il.Cause,
+        //        // Cause (KB reference + actual text)
+        //        CauseId = il.CauseId,
+        //        CauseName = il.CauseRef != null ? il.CauseRef.Name : null,
+        //        Cause = il.Cause,
 
-                // Resolution
-                Resolution = il.Resolution,
-                PermanentFix = il.PermanentFix,
-                Notes = il.Notes,
+        //        // Resolution
+        //        Resolution = il.Resolution,
+        //        PermanentFix = il.PermanentFix,
+        //        Notes = il.Notes,
 
-                // Metadata
-                DateReported = il.DateReported,
-                Status = il.Status,
-                CreatedAt = il.CreatedAt,
-                UpdatedAt = il.UpdatedAt
-            });
-        }
+        //        // Metadata
+        //        DateReported = il.DateReported,
+        //        Status = il.Status,
+        //        CreatedAt = il.CreatedAt,
+        //        UpdatedAt = il.UpdatedAt
+        //    });
+        //}
 
         public IQueryable<IssueSuggestionDto> ProjectToIssueSuggestion(
             IQueryable<Issues> issuesQuery,

@@ -13,6 +13,8 @@ namespace ItSupportServer.src.Modules.Employee
         [MapperIgnoreSource(nameof(Employees.Department))]
         [MapperIgnoreSource(nameof(Employees.Account))]
         [MapperIgnoreSource(nameof(Employees.DeletedAt))]
+        [MapperIgnoreSource(nameof(Employees.IssueLogOperators))]
+        [MapperIgnoreSource(nameof(Employees.IssueLogRequesters))]
         public partial EmployeeDto MapToEmployeeDto(Employees employee);
 
         [MapperIgnoreSource(nameof(Employees.Id))]
@@ -23,6 +25,8 @@ namespace ItSupportServer.src.Modules.Employee
         [MapperIgnoreSource(nameof(Employees.Account))]
         [MapperIgnoreSource(nameof(Employees.DeletedAt))]
         [MapperIgnoreSource(nameof(Employees.UpdatedAt))]
+        [MapperIgnoreSource(nameof(Employees.IssueLogOperators))]
+        [MapperIgnoreSource(nameof(Employees.IssueLogRequesters))]
         public partial ListEmployeeDto MapToListEmployeeDto(Employees employee);
 
         [MapperIgnoreSource(nameof(Employees.Id))]
@@ -31,6 +35,8 @@ namespace ItSupportServer.src.Modules.Employee
         [MapperIgnoreSource(nameof(Employees.Account))]
         [MapperIgnoreSource(nameof(Employees.DeletedAt))]
         [MapperIgnoreTarget(nameof(DetailEmployeeDto.Roles))]
+        [MapperIgnoreSource(nameof(Employees.IssueLogOperators))]
+        [MapperIgnoreSource(nameof(Employees.IssueLogRequesters))]
         public partial DetailEmployeeDto MapToDetailEmployeeDto(Employees employee);
 
         [MapperIgnoreSource(nameof(Employees.Id))]
@@ -39,6 +45,8 @@ namespace ItSupportServer.src.Modules.Employee
         [MapperIgnoreSource(nameof(Employees.Account))]
         [MapperIgnoreSource(nameof(Employees.DeletedAt))]
         [MapperIgnoreTarget(nameof(ProfileDto.Username))]
+        [MapperIgnoreSource(nameof(Employees.IssueLogOperators))]
+        [MapperIgnoreSource(nameof(Employees.IssueLogRequesters))]
         public partial ProfileDto MapToProfileDto(Employees employee);
 
         // ===== DTOs → Entity =====
@@ -51,6 +59,8 @@ namespace ItSupportServer.src.Modules.Employee
         [MapperIgnoreTarget(nameof(Employees.UpdatedAt))]
         [MapperIgnoreTarget(nameof(Employees.DeletedAt))]
         [MapperIgnoreTarget(nameof(Employees.Account))]  // Navigation property
+        [MapperIgnoreTarget(nameof(Employees.IssueLogOperators))]
+        [MapperIgnoreTarget(nameof(Employees.IssueLogRequesters))]
         public partial Employees MapToEmployee(CreateEmployeeDto dto);
 
         [MapperIgnoreTarget(nameof(Employees.EmpId))]  // Never change
@@ -61,6 +71,8 @@ namespace ItSupportServer.src.Modules.Employee
         [MapperIgnoreTarget(nameof(Employees.UpdatedAt))]  // Interceptor
         [MapperIgnoreTarget(nameof(Employees.DeletedAt))]
         [MapperIgnoreTarget(nameof(Employees.Account))]
+        [MapperIgnoreTarget(nameof(Employees.IssueLogOperators))]
+        [MapperIgnoreTarget(nameof(Employees.IssueLogRequesters))]
         public partial void MapToEmployee(UpdateEmployeeDto dto, Employees employee);
 
         [MapperIgnoreTarget(nameof(Employees.EmpId))]
@@ -75,6 +87,8 @@ namespace ItSupportServer.src.Modules.Employee
         [MapperIgnoreTarget(nameof(Employees.UpdatedAt))]
         [MapperIgnoreTarget(nameof(Employees.DeletedAt))]
         [MapperIgnoreTarget(nameof(Employees.Account))]
+        [MapperIgnoreTarget(nameof(Employees.IssueLogOperators))]
+        [MapperIgnoreTarget(nameof(Employees.IssueLogRequesters))]
         public partial void MapToEmployee(UpdateProfileDto dto, Employees employee);
 
         // ===== Projections for EF Core =====

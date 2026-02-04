@@ -45,16 +45,14 @@ namespace ItSupportServer.src.Modules.Account
                 parameters.Search, parameters.Page);
 
             var query = _mapper.ProjectToListAccountDto(_db.Accounts
-                .Include(a => a.Employee)
-                .Where(a => a.DeletedAt == null)
                 .AsNoTracking());
 
             if (!string.IsNullOrWhiteSpace(parameters.Search))
             {
                 query = query.Where(a =>
                     a.Username.Contains(parameters.Search) ||
-                    (a.EmployeeName != null && a.EmployeeName.Contains(parameters.Search)) ||
-                    (a.EmployeeCode != null && a.EmployeeCode.Contains(parameters.Search)));
+                    (a.EmpName != null && a.EmpName.Contains(parameters.Search)) ||
+                    (a.EmpCode != null && a.EmpCode.Contains(parameters.Search)));
             }
 
             var result = await query.ToPaginatedResultAsync(parameters, defaultSortField: "CreatedAt");
@@ -72,6 +70,8 @@ namespace ItSupportServer.src.Modules.Account
                 .Include(a => a.Employee)
                 .Include(a => a.AccountRoles)
                     .ThenInclude(ar => ar.Role)
+                    .ThenInclude(r => r.RoleClaims)
+                    .ThenInclude(rc => rc.Claim)
                 .Where(a => a.AccountId == accountId && a.DeletedAt == null)
                 .AsNoTracking())
                 .FirstOrDefaultAsync();
@@ -87,18 +87,18 @@ namespace ItSupportServer.src.Modules.Account
 
         public async Task<AccountDto> CreateAccountAsync(CreateAccountDto dto)
         {
-            _logger.LogInformation("Creating account for employee {EmployeeId}", dto.EmployeeId);
+            _logger.LogInformation("Creating account for employee {EmployeeId}", dto.EmpId);
 
             var validationResult = await _createValidator.ValidateAsync(dto);
             validationResult.ThrowIfInvalid();
 
             var employee = await _db.Employees
                 .Include(e => e.Account)
-                .FirstOrDefaultAsync(e => e.EmpId == dto.EmployeeId && e.DeletedAt == null);
+                .FirstOrDefaultAsync(e => e.EmpId == dto.EmpId && e.DeletedAt == null);
 
             if (employee is null)
             {
-                throw new NotFoundException("Nhân viên", dto.EmployeeId);
+                throw new NotFoundException("Nhân viên", dto.EmpId);
             }
 
             if (employee.Account != null && employee.Account.DeletedAt == null)
@@ -135,7 +135,7 @@ namespace ItSupportServer.src.Modules.Account
             {
                 var newAccount = new Accounts
                 {
-                    AccountId = dto.EmployeeId,
+                    AccountId = dto.EmpId,
                     Username = dto.Username,
                     Password = PasswordHelper.HashPassword(dto.Password),
                     IsLocked = false,

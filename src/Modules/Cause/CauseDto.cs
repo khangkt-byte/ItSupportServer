@@ -27,15 +27,13 @@
     {
         public long CauseId { get; init; }
         public long IssId { get; init; }
-        
-        /// <summary>
-        /// Issue name - nullable khi không có Include
-        /// </summary>
         public string? IssueName { get; init; }
         
         public required string Name { get; init; }
+        public string? Description { get; init; }
         public int UsageCount { get; init; }
         public DateTime CreatedAt { get; init; }
+        public DateTime? UpdatedAt { get; init; }
     }
 
     /// <summary>

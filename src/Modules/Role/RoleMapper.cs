@@ -12,8 +12,21 @@ namespace ItSupportServer.src.Modules.Role
         [MapperIgnoreSource(nameof(Roles.RoleClaims))]
         [MapperIgnoreSource(nameof(Roles.AccountRoles))]
         [MapperIgnoreSource(nameof(Roles.DeletedAt))]
-        [MapperIgnoreTarget(nameof(RoleDto.Claims))]
+        //[MapperIgnoreTarget(nameof(RoleDto.Claims))]
+        [MapPropertyFromSource(nameof(RoleDto.Claims), Use = nameof(MapClaims))]
         public partial RoleDto MapToRoleDto(Roles role);
+
+        private static List<ClaimDto>? MapClaims(Roles role)
+        {
+            if (role.RoleClaims == null)
+                return null;
+            return role.RoleClaims.Select(rc => new ClaimDto
+            {
+                ClaimId = rc.Claim.ClaimId,
+                Claim = rc.Claim.Claim,
+                Category = rc.Claim.Category
+            }).ToList();
+        }
 
         [MapperIgnoreSource(nameof(Claims.AccountClaims))]
         [MapperIgnoreSource(nameof(Claims.RoleClaims))]

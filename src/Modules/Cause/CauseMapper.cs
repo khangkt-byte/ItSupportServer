@@ -44,35 +44,42 @@ namespace ItSupportServer.src.Modules.Cause
         /// <summary>
         /// Project to CauseDto with Issue name
         /// </summary>
-        public IQueryable<CauseDto> ProjectToCauseDto(IQueryable<Causes> query)
-        {
-            return query.Select(c => new CauseDto
-            {
-                CauseId = c.CauseId,
-                IssId = c.IssId,
-                IssueName = c.Issues.Name,
-                Name = c.Name,
-                Description = c.Description,
-                UsageCount = 0,  // Calculate separately in service
-                CreatedAt = c.CreatedAt,
-                UpdatedAt = c.UpdatedAt
-            });
-        }
+        public partial IQueryable<CauseDto> ProjectToCauseDto(IQueryable<Causes> query);
+        //{
+        //    return query.Select(c => new CauseDto
+        //    {
+        //        CauseId = c.CauseId,
+        //        IssId = c.IssId,
+        //        IssueName = c.Issues.Name,
+        //        Name = c.Name,
+        //        Description = c.Description,
+        //        UsageCount = 0,  // Calculate separately in service
+        //        CreatedAt = c.CreatedAt,
+        //        UpdatedAt = c.UpdatedAt
+        //    });
+        //}
+
+        [MapperIgnoreSource(nameof(Causes.Id))]
+        [MapperIgnoreSource(nameof(Causes.DeletedAt))]
+        [MapperIgnoreSource(nameof(Causes.IssueLogs))]
+        [MapperIgnoreTarget(nameof(ListCauseDto.UsageCount))]
+        [MapProperty(nameof(Causes.Issues.Name), nameof(ListCauseDto.IssueName))]
+        public partial ListCauseDto MapToListCauseDto(Causes cause);
 
         /// <summary>
         /// Project to ListCauseDto (for paginated list)
         /// </summary>
-        public IQueryable<ListCauseDto> ProjectToListCauseDto(IQueryable<Causes> query)
-        {
-            return query.Select(c => new ListCauseDto
-            {
-                CauseId = c.CauseId,
-                IssId = c.IssId,
-                IssueName = c.Issues.Name,
-                Name = c.Name,
-                UsageCount = 0,  // Calculate separately
-                CreatedAt = c.CreatedAt
-            });
-        }
+        public partial IQueryable<ListCauseDto> ProjectToListCauseDto(IQueryable<Causes> query);
+        //{
+        //    return query.Select(c => new ListCauseDto
+        //    {
+        //        CauseId = c.CauseId,
+        //        IssId = c.IssId,
+        //        IssueName = c.Issues.Name,
+        //        Name = c.Name,
+        //        UsageCount = 0,  // Calculate separately
+        //        CreatedAt = c.CreatedAt
+        //    });
+        //}
     }
 }
