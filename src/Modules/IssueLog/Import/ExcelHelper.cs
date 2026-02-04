@@ -4,13 +4,19 @@ namespace ItSupportServer.src.Modules.IssueLog
 {
     /// <summary>
     /// Excel utility helper
-    /// Pattern: Static utility class
+    /// Pattern: Static utility class (Helper pattern)
     /// Purpose: Reusable Excel operations
+    /// Security: Safe cell reading, error handling
+    /// References:
+    /// - ClosedXML Documentation
+    /// - Microsoft Office Open XML SDK
     /// </summary>
     public static class ExcelHelper
     {
         /// <summary>
-        /// Get cell string safely (handles empty cells)
+        /// Get cell string safely (handles empty cells, errors)
+        /// Pattern: Null Object pattern
+        /// Security: Prevents null reference exceptions
         /// </summary>
         public static string GetCellString(IXLRow row, int columnNumber)
         {
@@ -18,7 +24,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             {
                 return row.Cell(columnNumber).GetString().Trim();
             }
-            catch
+            catch (Exception)
             {
                 return string.Empty;
             }
@@ -26,58 +32,77 @@ namespace ItSupportServer.src.Modules.IssueLog
 
         /// <summary>
         /// Try to get DateTime from cell
+        /// Pattern: Try-Parse pattern (C# convention)
+        /// Reference: Microsoft Framework Design Guidelines
         /// </summary>
         public static DateTime? TryGetDateTime(IXLCell cell)
         {
             try
             {
-                return cell.GetDateTime();
+                // Prefer Excel DateTime format
+                if (cell.DataType == XLDataType.DateTime)
+                    return cell.GetDateTime();
+
+                // Fallback to string parsing
+                return cell.GetString() is string str && DateTime.TryParse(str, out var date)
+                    ? date
+                    : null;
             }
             catch
             {
-                if (DateTime.TryParse(cell.GetString(), out var date))
-                    return date;
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Try to get integer from cell
+        /// </summary>
+        public static int? TryGetInt(IXLCell cell)
+        {
+            try
+            {
+                if (cell.DataType == XLDataType.Number)
+                    return (int)cell.GetDouble();
+
+                return int.TryParse(cell.GetString(), out var number) ? number : null;
+            }
+            catch
+            {
                 return null;
             }
         }
 
         /// <summary>
         /// Set standard header row for issue log Excel
+        /// Pattern: Template method
+        /// Purpose: Consistent Excel format
         /// </summary>
         public static void SetHeaderRow(IXLWorksheet worksheet)
         {
-            worksheet.Cell(1, 1).Value = "Người thực hiện";
-            worksheet.Cell(1, 2).Value = "Người yêu cầu";
-            worksheet.Cell(1, 3).Value = "Bộ phận";
-            worksheet.Cell(1, 4).Value = "Công ty";
-            worksheet.Cell(1, 5).Value = "Chi nhánh";
-            worksheet.Cell(1, 6).Value = "Mô tả sự cố";
-            worksheet.Cell(1, 7).Value = "Nguyên nhân";
-            worksheet.Cell(1, 8).Value = "Cách xử lý";
-            worksheet.Cell(1, 9).Value = "Giải pháp lâu dài";
-            worksheet.Cell(1, 10).Value = "Ngày báo cáo";
-            worksheet.Cell(1, 11).Value = "Trạng thái";
+            var headers = new[]
+            {
+                "Người thực hiện",
+                "Người yêu cầu",
+                "Bộ phận",
+                "Công ty",
+                "Chi nhánh",
+                "Mô tả sự cố",
+                "Nguyên nhân",
+                "Cách xử lý",
+                "Giải pháp lâu dài",
+                "Ngày báo cáo",
+                "Trạng thái"
+            };
 
-            var headerRange = worksheet.Range(1, 1, 1, 11);
+            for (int i = 0; i < headers.Length; i++)
+            {
+                worksheet.Cell(1, i + 1).Value = headers[i];
+            }
+
+            var headerRange = worksheet.Range(1, 1, 1, headers.Length);
             headerRange.Style.Font.Bold = true;
             headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
             headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        }
-
-        /// <summary>
-        /// Remove Vietnamese accents for fuzzy matching
-        /// Pattern: Unicode normalization (W3C standard)
-        /// </summary>
-        public static string RemoveVietnameseAccents(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text)) return string.Empty;
-            
-            var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
-            var result = new string(normalized
-                .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) !=
-                    System.Globalization.UnicodeCategory.NonSpacingMark)
-                .ToArray());
-            return result.Normalize(System.Text.NormalizationForm.FormC);
         }
     }
 }

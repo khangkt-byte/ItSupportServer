@@ -38,9 +38,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Add application services
 builder.Services.AddApplicationServices();
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
-
 builder.Services.AddMemoryCache();
 
 // JWT Authentication

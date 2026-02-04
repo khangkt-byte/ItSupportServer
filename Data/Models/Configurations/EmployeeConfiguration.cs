@@ -22,20 +22,20 @@ namespace ItSupportServer.Data.Models.Configurations
             // Indexes
             builder.HasIndex(e => e.EmpCode)
                    .IsUnique()
-                   .HasFilter("\"DeletedAt\" IS NULL");
+                   .HasFilter("deleted_at IS NULL");
 
             builder.HasIndex(e => e.FullName)
                    .HasMethod("gin")
                    .HasOperators("gin_trgm_ops")
-                   .HasFilter("\"DeletedAt\" IS NULL");
+                   .HasFilter("deleted_at IS NULL");
 
             builder.HasIndex(e => e.Email)
                    .IsUnique()
-                   .HasFilter("\"DeletedAt\" IS NULL");
+                   .HasFilter("deleted_at IS NULL");
 
             builder.HasIndex(e => e.PhoneNumber)
                    .IsUnique()
-                   .HasFilter("\"DeletedAt\" IS NULL");
+                   .HasFilter("deleted_at IS NULL");
 
             builder.HasIndex(e => e.DptId);
 

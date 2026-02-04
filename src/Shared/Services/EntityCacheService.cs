@@ -80,31 +80,31 @@ namespace ItSupportServer.src.Shared.Services
 }
 
 // ✅ USAGE in Service:
-public class AreaService : IAreaService
-{
-    private readonly EntityCacheService _cacheService;
+//public class AreaService : IAreaService
+//{
+//    private readonly EntityCacheService _cacheService;
 
-    public async Task<AreaDto> GetAreaByIdAsync(int areaId)
-    {
-        // ✅ Generic caching via abstract Id
-        var area = await _cacheService.GetOrCreateAsync<Areas, int>(
-            areaId,
-            async id => await _db.Areas.FindAsync(id),
-            TimeSpan.FromMinutes(30));
+//    public async Task<AreaDto> GetAreaByIdAsync(int areaId)
+//    {
+//        // ✅ Generic caching via abstract Id
+//        var area = await _cacheService.GetOrCreateAsync<Areas, int>(
+//            areaId,
+//            async id => await _db.Areas.FindAsync(id),
+//            TimeSpan.FromMinutes(30));
 
-        if (area is null || area.DeletedAt != null)
-            throw new NotFoundException("Khu vực", areaId);
+//        if (area is null || area.DeletedAt != null)
+//            throw new NotFoundException("Khu vực", areaId);
 
-        return _mapper.MapToAreaDto(area);
-    }
+//        return _mapper.MapToAreaDto(area);
+//    }
 
-    public async Task<AreaDto> UpdateAreaAsync(int areaId, UpdateAreaDto dto)
-    {
-        // ... update logic ...
+    //public async Task<AreaDto> UpdateAreaAsync(int areaId, UpdateAreaDto dto)
+    //{
+    //    // ... update logic ...
 
-        // ✅ Invalidate cache after update
-        _cacheService.InvalidateEntity<Areas, int>(areaId);
+    //    // ✅ Invalidate cache after update
+    //    _cacheService.InvalidateEntity<Areas, int>(areaId);
 
-        return result;
-    }
-}
+    //    return result;
+    //}
+//}

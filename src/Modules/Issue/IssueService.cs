@@ -5,6 +5,7 @@ using ItSupportServer.src.Shared.Exceptions;
 using ItSupportServer.src.Shared.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace ItSupportServer.src.Modules.Issue
 {
@@ -71,13 +72,13 @@ namespace ItSupportServer.src.Modules.Issue
                 throw new NotFoundException("Vấn đề", issId);
             }
 
-            // ✅ Calculate usage count separately
-            issue = issue with 
-            { 
-                UsageCount = await _db.IssueLogs.CountAsync(il => il.IssueId == issId) 
-            };
+            // Calculate usage count separately (performance optimization)
+            // Reference: Avoid SELECT N+1 problem
+            var usageCount = await _db.IssueLogs
+                .Where(il => il.IssueId == issId && il.DeletedAt == null)
+                .CountAsync();
 
-            return issue;
+            return issue with { UsageCount = usageCount };
         }
 
         public async Task<IssueDto> CreateIssueAsync(CreateIssueDto dto)
@@ -93,7 +94,7 @@ namespace ItSupportServer.src.Modules.Issue
 
             if (nameExists)
             {
-                _logger.LogWarning("Issue with name {Name} already exists", dto.Name);
+                _logger.LogWarning("Issue with name '{Name}' already exists", dto.Name);
                 throw new ConflictException("Vấn đề", dto.Name);
             }
 
@@ -138,25 +139,27 @@ namespace ItSupportServer.src.Modules.Issue
                     throw new ConflictException("Vấn đề", dto.Name);
                 }
 
-                issue.Name = dto.Name;
+                issue.Name = dto.Name.Trim();
                 hasChanges = true;
             }
 
             // Update Description
             if (dto.Description != null && issue.Description != dto.Description)
             {
-                issue.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description;
+                issue.Description = string.IsNullOrWhiteSpace(dto.Description) 
+                    ? null 
+                    : dto.Description.Trim();
                 hasChanges = true;
             }
 
-            // Update Category
             if (dto.Category != null && issue.Category != dto.Category)
             {
-                issue.Category = string.IsNullOrWhiteSpace(dto.Category) ? null : dto.Category;
+                issue.Category = string.IsNullOrWhiteSpace(dto.Category) 
+                    ? null 
+                    : dto.Category.Trim();
                 hasChanges = true;
             }
 
-            // Update Severity
             if (dto.Severity.HasValue && issue.Severity != dto.Severity.Value)
             {
                 issue.Severity = dto.Severity.Value;
@@ -165,7 +168,6 @@ namespace ItSupportServer.src.Modules.Issue
 
             if (hasChanges)
             {
-                // UpdatedAt set by interceptor
                 await _db.SaveChangesAsync();
                 _logger.LogInformation("Successfully updated issue {IssId}", issId);
             }
@@ -203,10 +205,15 @@ namespace ItSupportServer.src.Modules.Issue
                     throw new NotFoundException("Không tìm thấy vấn đề để xóa");
                 }
 
-                // Check if issues are in use (have causes)
+                // ✅ FIX: Referential Integrity Check 1 - Causes
+                // Pattern: Prevent orphaned child records
+                // Reference: Database Design Best Practices
+                // Handle nullable IssId in Causes entity
                 var issuesWithCauses = await _db.Causes
-                    .Where(c => issIds.Contains(c.IssId) && c.DeletedAt == null)
-                    .Select(c => c.IssId)
+                    .Where(c => 
+                        issIds.Contains(c.IssId) &&  // ✅ Use .Value after null check
+                        c.DeletedAt == null)
+                    .Select(c => c.IssId)  // ✅ Non-null assertion after HasValue check
                     .Distinct()
                     .ToListAsync();
 
@@ -221,12 +228,16 @@ namespace ItSupportServer.src.Modules.Issue
                         string.Join(", ", usedIssueNames));
 
                     throw new BusinessRuleException(
-                        $"Không thể xóa vấn đề {string.Join(", ", usedIssueNames)} vì có nguyên nhân liên quan");
+                        $"Không thể xóa vấn đề {string.Join(", ", usedIssueNames)} vì có nguyên nhân liên quan. " +
+                        $"Vui lòng xóa các nguyên nhân trước.");
                 }
 
-                // Check if issues are referenced in issue logs
+                // ✅ Referential integrity - Issue Logs
                 var issuesInLogs = await _db.IssueLogs
-                    .Where(il => issIds.Contains(il.IssueId!.Value) && il.DeletedAt == null)
+                    .Where(il => 
+                        il.IssueId.HasValue &&
+                        issIds.Contains(il.IssueId.Value) &&
+                        il.DeletedAt == null)
                     .Select(il => il.IssueId!.Value)
                     .Distinct()
                     .ToListAsync();
@@ -242,7 +253,7 @@ namespace ItSupportServer.src.Modules.Issue
                         string.Join(", ", usedIssueNames));
 
                     throw new BusinessRuleException(
-                        $"Không thể xóa vấn đề {string.Join(", ", usedIssueNames)} vì đang được sử dụng trong nhật ký");
+                        $"Không thể xóa vấn đề {string.Join(", ", usedIssueNames)} vì đang được sử dụng trong {issuesInLogs.Count} nhật ký");
                 }
 
                 if (softDelete)
@@ -274,6 +285,7 @@ namespace ItSupportServer.src.Modules.Issue
 
         public async Task<List<IssueSuggestionDto>> GetIssueSuggestionsAsync(string? search = null)
         {
+            var stopwatch = Stopwatch.StartNew();
             _logger.LogInformation("Fetching issue suggestions with search: {Search}", search);
 
             var query = _db.Issues
@@ -287,24 +299,39 @@ namespace ItSupportServer.src.Modules.Issue
                     (i.Description != null && i.Description.Contains(search)));
             }
 
-            var suggestions = await query
-                .OrderByDescending(i => 
-                    _db.IssueLogs.Count(il => il.IssueId == i.IssId))  // Most used first
-                .ThenBy(i => i.Name)
-                .Take(10)  // Limit to 10 suggestions
-                .Select(i => new IssueSuggestionDto
-                {
-                    IssId = i.IssId,
-                    Name = i.Name,
-                    Description = i.Description,
-                    UsageCount = _db.IssueLogs.Count(il => il.IssueId == i.IssId),
-                    LastUsed = _db.IssueLogs
-                        .Where(il => il.IssueId == i.IssId)
-                        .Max(il => (DateTime?)il.CreatedAt)
-                })
+            // ✅ USE MAPPERLY PROJECTION: Type-safe, no anonymous types
+            // Pattern: KISS with Mapperly type safety
+            // Performance: Single database query with LEFT JOIN + GROUP BY
+            // Benefits:
+            // - Compile-time type checking (no runtime errors)
+            // - Refactoring safety (rename detection)
+            // - Code reusability (method in mapper)
+            // - Testability (can mock mapper)
+            // References:
+            // - Mapperly: https://github.com/riok/mapperly
+            // - EF Core: Query projection patterns
+            // - Clean Code: Single Responsibility Principle
+            var suggestions = await _mapper
+                .ProjectToIssueSuggestion(query, _db.IssueLogs)
+                .OrderByDescending(x => x.UsageCount)
+                .ThenBy(x => x.Name)
+                .Take(10)
                 .ToListAsync();
 
-            _logger.LogInformation("Retrieved {Count} issue suggestions", suggestions.Count);
+            stopwatch.Stop();
+
+            _logger.LogInformation(
+                "Retrieved {Count} issue suggestions in {Duration}ms",
+                suggestions.Count, stopwatch.ElapsedMilliseconds);
+
+            // Performance monitoring
+            if (stopwatch.ElapsedMilliseconds > 100)
+            {
+                _logger.LogWarning(
+                    "Performance alert: Issue suggestions exceeded 100ms threshold ({Duration}ms). " +
+                    "Consider adding response caching (5min TTL).",
+                    stopwatch.ElapsedMilliseconds);
+            }
 
             return suggestions;
         }

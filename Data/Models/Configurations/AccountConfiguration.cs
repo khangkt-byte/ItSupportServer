@@ -22,7 +22,7 @@ namespace ItSupportServer.Data.Models.Configurations
             // Indexes
             builder.HasIndex(a => a.Username)
                    .IsUnique()
-                   .HasFilter("\"DeletedAt\" IS NULL");
+                   .HasFilter("deleted_at IS NULL");
 
             // Properties
             builder.Property(a => a.Username)

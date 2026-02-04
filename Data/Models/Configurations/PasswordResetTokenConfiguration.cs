@@ -19,8 +19,8 @@ namespace ItSupportServer.Data.Models.Configurations
             // Primary key
             builder.HasKey(t => t.TokenId);
             builder.Property(t => t.TokenId)
-                .HasColumnName("token_id")
-                .HasDefaultValueSql("uuid_generate_v7()");  // PostgreSQL function for UUID v7
+                .HasColumnName("token_id");
+                //.HasDefaultValueSql("uuidv7()");  // PostgreSQL function for UUID v7
 
             // Indexes
             builder.HasIndex(t => t.Token)

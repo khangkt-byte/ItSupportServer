@@ -22,10 +22,11 @@ namespace ItSupportServer.Data.Models.Configurations
 
             // Indexes
             builder.HasIndex(c => c.IssId);
+
             builder.HasIndex(c => c.Name)
                    .HasMethod("gin")
                    .HasOperators("gin_trgm_ops")
-                   .HasFilter("\"DeletedAt\" IS NULL");
+                   .HasFilter("deleted_at IS NULL");
 
             // Properties
             builder.Property(c => c.IssId)
@@ -44,7 +45,7 @@ namespace ItSupportServer.Data.Models.Configurations
             builder.HasOne(c => c.Issues)
                 .WithMany(i => i.Causes)
                 .HasForeignKey(c => c.IssId)
-                .OnDelete(DeleteBehavior.ClientSetNull);
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
