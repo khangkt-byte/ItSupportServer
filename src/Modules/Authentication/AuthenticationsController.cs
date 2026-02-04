@@ -6,7 +6,7 @@ namespace ItSupportServer.src.Modules.Authentication
 {
     [Route("api/authentications")]
     [ApiController]
-    public class AuthenticationsController(IAuthenticationsService service) : ControllerBase
+    public class AuthenticationsController(IAuthenticationService service) : ControllerBase
     {
         [HttpPost("login")]
         public async Task<IActionResult> Login(

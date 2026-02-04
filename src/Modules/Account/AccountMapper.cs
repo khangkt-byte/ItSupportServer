@@ -3,7 +3,7 @@
 namespace ItSupportServer.src.Modules.Account
 {
     [Mapper]
-    public partial class AccountsMapper
+    public partial class AccountMapper
     {
     }
 }

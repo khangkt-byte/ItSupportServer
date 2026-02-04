@@ -2,7 +2,7 @@
 
 namespace ItSupportServer.src.Modules.Role
 {
-    public interface IRolesService
+    public interface IRoleService
     {
         Task<BaseResult<PaginatedResult<List<RolesDto>>>> GetRolesAsync(string? query, int page, int pageSize, SortOBJ? sort);
         Task<BaseResult<RolesDto>> GetRoleAsync(int roleId);

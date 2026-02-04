@@ -12,7 +12,7 @@ using ItSupportServer.Data.Models;
 
 namespace ItSupportServer.src.Modules.Authentication
 {
-    public class AuthenticationsService(AppDbContext db, IConfiguration configuration, IMemoryCache _cache) : IAuthenticationsService
+    public class AuthenticationService(AppDbContext db, IConfiguration configuration, IMemoryCache _cache) : IAuthenticationService
     {
 
         //tạo token

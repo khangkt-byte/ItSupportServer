@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ItSupportServer.src.Modules.Account
 {
-    public class AccountsService(AppDbContext db) : IAccountsService
+    public class AccountService(AppDbContext db) : IAccountService
     {
         public async Task<BaseResult<ProfileDto>> GetProfileAsync(string empId)
         {

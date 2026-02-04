@@ -4,7 +4,7 @@ using Riok.Mapperly.Abstractions;
 namespace ItSupportServer.src.Modules.Issue
 {
     [Mapper]
-    public partial class IssuesMapper
+    public partial class IssueMapper
     {
         [MapperIgnoreSource(nameof(Issues.Id))]
         [MapperIgnoreSource(nameof(Issues.Causes))]

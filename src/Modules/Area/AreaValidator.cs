@@ -17,9 +17,6 @@ namespace ItSupportServer.src.Modules.Area
     {
         public UpdateAreaDtoValidator()
         {
-            RuleFor(x => x.AreaId)
-                .NotEmpty().WithMessage("Mã khu vực là bắt buộc.");
-
             RuleFor(x => x.Name)
                 .MaximumLength(255).WithMessage("Tên không được quá 255 ký tự.")
                 .Matches(@"^[\p{L}\p{M}\p{N} _-]+$").WithMessage("Tên chỉ được chứa chữ cái có dấu, số, khoảng trắng, gạch ngang (-) và gạch dưới (_).");

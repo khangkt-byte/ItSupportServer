@@ -4,7 +4,7 @@ using Riok.Mapperly.Abstractions;
 namespace ItSupportServer.src.Modules.Role
 {
     [Mapper]
-    public partial class RolesMapper
+    public partial class RoleMapper
     {
         [MapperIgnoreSource(nameof(Claims.AccountClaims))]
         [MapperIgnoreSource(nameof(Claims.RoleClaims))]

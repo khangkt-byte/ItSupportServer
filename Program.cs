@@ -1,9 +1,7 @@
 ﻿using ItSupportServer;
 using ItSupportServer.Data.Models;
+using ItSupportServer.Data.Interceptors;  // ✅ ADD THIS
 using ItSupportServer.src.Shared.Middleware;
-
-
-//using ItSupportServer.src.Shared.Attributes;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -15,7 +13,9 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddControllers();
 
+// Database with PostgreSQL + Interceptor
 Console.WriteLine(builder.Configuration["secret"]);
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(
     builder.Configuration.GetConnectionString("DefaultConnection")
@@ -26,17 +26,23 @@ dataSourceBuilder.EnableDynamicJson();
 var dataSource = dataSourceBuilder.Build();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
+{
     options.UseNpgsql(dataSource, npgsqlOptions =>
-    npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name)));
+        npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name));
+    
+    // ✅ ADD AUDIT INTERCEPTOR
+    options.AddInterceptors(new AuditInterceptor());
+});
 
-builder.Services.AddControllers();
+// Add application services
+builder.Services.AddApplicationServices();
+
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.Services.AddApplicationServices();
-
 builder.Services.AddMemoryCache();
 
+// JWT Authentication
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -71,6 +77,7 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Scalar configuration
 builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer((document, context, cancellationToken) =>
@@ -84,21 +91,6 @@ builder.Services.AddOpenApi(options =>
             BearerFormat = "JWT",
             Description = "Nhập JWT Token vào đây "
         });
-
-        //document.SecurityRequirements.Add(new OpenApiSecurityRequirement
-        //{
-        //    {
-        //        new OpenApiSecurityScheme
-        //        {
-        //            Reference = new OpenApiReference
-        //            {
-        //                Type = ReferenceType.SecurityScheme,
-        //                Id = "Bearer"
-        //            }
-        //        },
-        //        Array.Empty<string>()
-        //    }
-        //});
 
         // Sửa thông tin Info của tài liệu
         document.Info = new OpenApiInfo
@@ -121,14 +113,15 @@ builder.Services.AddOpenApi(options =>
     });
 });
 
-// Add global exception handler
+// Global exception handler
 builder.Services.AddExceptionHandler<GlobalExceptionHandlerMiddleware>();
 builder.Services.AddProblemDetails();
 
-// Add logging
+// Logging
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
+
 if (builder.Environment.IsProduction())
 {
     // Add Application Insights or Serilog in production
@@ -137,7 +130,7 @@ if (builder.Environment.IsProduction())
 
 var app = builder.Build();
 
-// Use exception handler (MUST be before other middleware)
+// Middleware pipeline
 app.UseExceptionHandler();
 
 // In development, include developer exception page for unhandled exceptions
@@ -147,7 +140,19 @@ if (app.Environment.IsDevelopment())
     // but you can add dev-specific features here
 }
 
+// Scalar UI (instead of Swagger)
+app.MapOpenApi();
+app.MapScalarApiReference(options =>
+{
+    options
+        .WithTitle("IT Support API Documentation")
+        .WithTheme(ScalarTheme.DeepSpace)
+        .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+});
+
+app.UseCors("CorPolicy");
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 

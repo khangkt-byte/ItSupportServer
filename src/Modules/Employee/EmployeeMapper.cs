@@ -5,10 +5,10 @@ using Riok.Mapperly.Abstractions;
 namespace ItSupportServer.src.Modules.Employee
 {
     [Mapper]
-    public partial class EmployeesMapper
+    public partial class EmployeeMapper
     {
         [UseMapper]
-        private readonly RolesMapper _rolesMapper;
+        private readonly RoleMapper _rolesMapper;
 
         [MapperIgnoreTarget(nameof(Employees.Department))]
         [MapperIgnoreTarget(nameof(Employees.Area))]

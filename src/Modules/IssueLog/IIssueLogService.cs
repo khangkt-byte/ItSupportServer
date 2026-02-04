@@ -2,7 +2,7 @@
 
 namespace ItSupportServer.src.Modules.IssueLog
 {
-    public interface IIssueLogsService
+    public interface IIssueLogService
     {
         Task<BaseResult<PaginatedResult<List<IssueLogDto>>>> GetIssueLogsAsync(string? query, int page, int pageSize, SortOBJ? sort);
         Task<BaseResult<IssueLogDto>> GetIssueLogByIdAsync(Guid issLogId);

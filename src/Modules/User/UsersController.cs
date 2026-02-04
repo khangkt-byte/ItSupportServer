@@ -9,7 +9,7 @@ namespace ItSupportServer.src.Modules.User
 {
     [Route("api/users")]
     [ApiController]
-    public class UsersController(IEmployeesService service) : ControllerBase
+    public class UsersController(IEmployeeService service) : ControllerBase
     {
         [Authorize]
         [HttpGet("me")]
