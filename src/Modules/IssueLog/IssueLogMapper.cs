@@ -3,15 +3,14 @@ using Riok.Mapperly.Abstractions;
 
 namespace ItSupportServer.src.Modules.IssueLog
 {
+    /// <summary>
+    /// Issue log mapper using Mapperly
+    /// Pattern: Microsoft recommendation for high-performance mapping
+    /// Performance: Zero-allocation, compile-time generated code
+    /// </summary>
     [Mapper]
     public partial class IssueLogMapper
     {
-        // ===== Entity → DTO =====
-
-        [MapperIgnoreSource(nameof(IssueLogs.Id))]
-        [MapperIgnoreSource(nameof(IssueLogs.DeletedAt))]
-        public partial IssueLogDto MapToIssueLogDto(IssueLogs issueLog);
-
         // ===== DTO → Entity (Create) =====
 
         [MapperIgnoreTarget(nameof(IssueLogs.IssLogId))]
@@ -19,6 +18,12 @@ namespace ItSupportServer.src.Modules.IssueLog
         [MapperIgnoreTarget(nameof(IssueLogs.CreatedAt))]
         [MapperIgnoreTarget(nameof(IssueLogs.UpdatedAt))]
         [MapperIgnoreTarget(nameof(IssueLogs.DeletedAt))]
+        [MapperIgnoreTarget(nameof(IssueLogs.Department))]
+        [MapperIgnoreTarget(nameof(IssueLogs.Area))]
+        [MapperIgnoreTarget(nameof(IssueLogs.Issue))]
+        [MapperIgnoreTarget(nameof(IssueLogs.CauseRef))]
+        [MapperIgnoreTarget(nameof(IssueLogs.IssueLogOperators))]
+        [MapperIgnoreTarget(nameof(IssueLogs.IssueLogRequesters))]
         public partial IssueLogs MapToIssueLog(CreateIssueLogDto dto);
 
         // ===== DTO → Entity (Update - Partial) =====
@@ -28,10 +33,58 @@ namespace ItSupportServer.src.Modules.IssueLog
         [MapperIgnoreTarget(nameof(IssueLogs.CreatedAt))]
         [MapperIgnoreTarget(nameof(IssueLogs.UpdatedAt))]
         [MapperIgnoreTarget(nameof(IssueLogs.DeletedAt))]
+        [MapperIgnoreTarget(nameof(IssueLogs.Department))]
+        [MapperIgnoreTarget(nameof(IssueLogs.Area))]
+        [MapperIgnoreTarget(nameof(IssueLogs.Issue))]
+        [MapperIgnoreTarget(nameof(IssueLogs.CauseRef))]
+        [MapperIgnoreTarget(nameof(IssueLogs.IssueLogOperators))]
+        [MapperIgnoreTarget(nameof(IssueLogs.IssueLogRequesters))]
         public partial void MapToIssueLog(UpdateIssueLogDto dto, IssueLogs issueLog);
 
-        // ===== Projection for EF Core =====
+        // ===== Projection for EF Core (Manual - for complex joins) =====
 
-        public partial IQueryable<IssueLogDto> ProjectToIssueLogDto(IQueryable<IssueLogs> query);
+        /// <summary>
+        /// Project to DTO with all navigation properties
+        /// Pattern: Manual projection for EF Core query optimization
+        /// Performance: Single SQL query with joins
+        /// </summary>
+        public IQueryable<IssueLogDto> ProjectToIssueLogDto(IQueryable<IssueLogs> query)
+        {
+            return query.Select(il => new IssueLogDto
+            {
+                IssLogId = il.IssLogId,
+                
+                // Operators & Requesters
+                Operator = il.Operator,
+                Requester = il.Requester,
+                
+                // Department & Area
+                DepartmentId = il.DepartmentId,
+                DepartmentName = il.Department.Name,
+                AreaId = il.AreaId,
+                AreaName = il.Area.Name,
+                
+                // Issue (KB reference + actual text)
+                IssueId = il.IssueId,
+                IssueName = il.Issue != null ? il.Issue.Name : null,
+                IssueDescription = il.IssueDescription,
+                
+                // Cause (KB reference + actual text)
+                CauseId = il.CauseId,
+                CauseName = il.CauseRef != null ? il.CauseRef.Name : null,
+                Cause = il.Cause,
+                
+                // Resolution
+                Resolution = il.Resolution,
+                PermanentFix = il.PermanentFix,
+                Notes = il.Notes,
+                
+                // Metadata
+                DateReported = il.DateReported,
+                Status = il.Status,
+                CreatedAt = il.CreatedAt,
+                UpdatedAt = il.UpdatedAt
+            });
+        }
     }
 }

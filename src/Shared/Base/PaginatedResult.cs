@@ -4,47 +4,58 @@ using System.Linq.Expressions;
 namespace ItSupportServer.src.Shared.Base
 {
     /// <summary>
-    /// Paginated result for list endpoints
-    /// Follows Microsoft REST API Guidelines
+    /// Paginated result for API responses
+    /// Pattern: Immutable value object (DDD)
+    /// Reference: Microsoft REST API Guidelines, GitHub API v3
+    /// Security: Immutable responses prevent tampering
     /// </summary>
-    public class PaginatedResult<T>
+    public record PaginatedResult<T>
     {
-        public int Page { get; set; }
-        public int PageSize { get; set; }
-        public int TotalCount { get; set; }
-        public int TotalPages { get; set; }
+        public required int Page { get; init; }
+        public required int PageSize { get; init; }
+        public required int TotalCount { get; init; }
+        public required int TotalPages { get; init; }
         public bool HasPreviousPage => Page > 1;
         public bool HasNextPage => Page < TotalPages;
-        public List<T> Items { get; set; } = [];
+        public required List<T> Items { get; init; } = [];
     }
 
     /// <summary>
     /// Query parameters for pagination, sorting, and searching
+    /// Pattern: Immutable request object
+    /// Reference: ASP.NET Core best practices
     /// </summary>
-    public class QueryParameters
+    public record QueryParameters
     {
-        private int _page = 1;
-        private int _pageSize = 10;
+        private const int MinPage = 1;
+        private const int MinPageSize = 1;
+        private const int MaxPageSize = 100;
+        private const int DefaultPageSize = 10;
 
-        public int Page
-        {
-            get => _page;
-            set => _page = value < 1 ? 1 : value;
-        }
+        public int Page { get; init; } = MinPage;
+        public int PageSize { get; init; } = DefaultPageSize;
+        public string? SortBy { get; init; }
+        public bool IsDescending { get; init; } = false;
+        public string? Search { get; init; }
 
-        public int PageSize
-        {
-            get => _pageSize;
-            set => _pageSize = value < 1 ? 10 : (value > 100 ? 100 : value);
-        }
+        /// <summary>
+        /// Validated page (always >= 1)
+        /// </summary>
+        public int ValidatedPage => Page < MinPage ? MinPage : Page;
 
-        public string? SortBy { get; set; }
-        public bool IsDescending { get; set; } = false;
-        public string? Search { get; set; }
+        /// <summary>
+        /// Validated page size (1-100)
+        /// </summary>
+        public int ValidatedPageSize =>
+            PageSize < MinPageSize ? DefaultPageSize :
+            PageSize > MaxPageSize ? MaxPageSize :
+            PageSize;
     }
 
     /// <summary>
     /// Extension methods for IQueryable pagination
+    /// Pattern: Repository pattern extension
+    /// Performance: Single query with Count + Skip/Take
     /// </summary>
     public static class PaginationExtensions
     {
@@ -53,24 +64,24 @@ namespace ItSupportServer.src.Shared.Base
             QueryParameters parameters,
             string defaultSortField = "CreatedAt") where T : class
         {
-            if (parameters.Page < 1) parameters.Page = 1;
-            if (parameters.PageSize < 1) parameters.PageSize = 10;
-            if (parameters.PageSize > 100) parameters.PageSize = 100;
+            // ✅ Use validated values
+            var page = parameters.ValidatedPage;
+            var pageSize = parameters.ValidatedPageSize;
 
             var totalCount = await query.CountAsync();
-            var totalPages = (int)Math.Ceiling(totalCount / (double)parameters.PageSize);
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
             query = ApplySorting(query, parameters.SortBy, parameters.IsDescending, defaultSortField);
 
             var items = await query
-                .Skip((parameters.Page - 1) * parameters.PageSize)
-                .Take(parameters.PageSize)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
             return new PaginatedResult<T>
             {
-                Page = parameters.Page,
-                PageSize = parameters.PageSize,
+                Page = page,
+                PageSize = pageSize,
                 TotalCount = totalCount,
                 TotalPages = totalPages,
                 Items = items

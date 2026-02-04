@@ -4,21 +4,28 @@ using Riok.Mapperly.Abstractions;
 
 namespace ItSupportServer.src.Modules.Issue
 {
+    /// <summary>
+    /// Issue mapper using Mapperly
+    /// Pattern: Compile-time code generation
+    /// Performance: Zero-allocation, no reflection
+    /// </summary>
     [Mapper]
     public partial class IssueMapper
     {
-        // ===== Entity → DTO =====
+        // ===== Entity → DTO (Simple - No nested Causes) =====
 
         [MapperIgnoreSource(nameof(Issues.Id))]
         [MapperIgnoreSource(nameof(Issues.DeletedAt))]
+        [MapperIgnoreSource(nameof(Issues.Causes))]
         [MapperIgnoreTarget(nameof(IssueDto.UsageCount))]
+        [MapperIgnoreTarget(nameof(IssueDto.Causes))]
         public partial IssueDto MapToIssueDto(Issues issue);
 
         // ===== DTO → Entity (Create) =====
 
-        [MapperIgnoreTarget(nameof(Issues.IssId))]  // Auto-increment
+        [MapperIgnoreTarget(nameof(Issues.IssId))]
         [MapperIgnoreTarget(nameof(Issues.Id))]
-        [MapperIgnoreTarget(nameof(Issues.CreatedAt))]  // Interceptor
+        [MapperIgnoreTarget(nameof(Issues.CreatedAt))]
         [MapperIgnoreTarget(nameof(Issues.UpdatedAt))]
         [MapperIgnoreTarget(nameof(Issues.DeletedAt))]
         [MapperIgnoreTarget(nameof(Issues.Causes))]
@@ -26,17 +33,22 @@ namespace ItSupportServer.src.Modules.Issue
 
         // ===== DTO → Entity (Update) =====
 
-        [MapperIgnoreTarget(nameof(Issues.IssId))]  // Never change
+        [MapperIgnoreTarget(nameof(Issues.IssId))]
         [MapperIgnoreTarget(nameof(Issues.Id))]
-        [MapperIgnoreTarget(nameof(Issues.CreatedAt))]  // Never change
-        [MapperIgnoreTarget(nameof(Issues.UpdatedAt))]  // Interceptor
+        [MapperIgnoreTarget(nameof(Issues.CreatedAt))]
+        [MapperIgnoreTarget(nameof(Issues.UpdatedAt))]
         [MapperIgnoreTarget(nameof(Issues.DeletedAt))]
         [MapperIgnoreTarget(nameof(Issues.Causes))]
         public partial void MapToIssue(UpdateIssueDto dto, Issues issue);
 
-        // ===== Projection (with Causes) =====
+        // ===== MANUAL PROJECTION (Complex - with nested Causes) =====
 
-        // Option 1: Calculate in Service layer instead
+        /// <summary>
+        /// Project to IssueDto with nested Causes
+        /// Pattern: Manual projection for complex scenarios (EF Core query optimization)
+        /// Performance: Single SQL query with joins
+        /// Note: UsageCount calculated separately in service layer
+        /// </summary>
         public IQueryable<IssueDto> ProjectToIssueDto(IQueryable<Issues> query)
         {
             return query.Select(i => new IssueDto
@@ -46,25 +58,26 @@ namespace ItSupportServer.src.Modules.Issue
                 Description = i.Description,
                 Category = i.Category,
                 Severity = i.Severity,
-                UsageCount = 0,  // ⚠️ Will be calculated in service
+                UsageCount = 0,  // ✅ Calculated separately in service
                 CreatedAt = i.CreatedAt,
                 UpdatedAt = i.UpdatedAt,
+
+                // ✅ FIX: Map nested Causes with all required fields
                 Causes = i.Causes
                     .Where(c => c.DeletedAt == null)
                     .Select(c => new CauseDto
                     {
                         CauseId = c.CauseId,
                         IssId = c.IssId,
+                        IssueName = c.Issues.Name,
                         Name = c.Name,
                         Description = c.Description,
+                        UsageCount = 0,
                         CreatedAt = c.CreatedAt,
                         UpdatedAt = c.UpdatedAt
                     })
                     .ToList()
             });
         }
-
-        // Note: Need AppDbContext reference for UsageCount
-        // You may need to inject it in mapper or calculate differently
     }
 }

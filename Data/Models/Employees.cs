@@ -5,7 +5,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ItSupportServer.Data.Models
 {
-    [Table("employees")]
     [Index(nameof(EmpCode), IsUnique = true)]
     [Index(nameof(Email), IsUnique = true)]
     [Index(nameof(PhoneNumber), IsUnique = true)]
@@ -13,8 +12,7 @@ namespace ItSupportServer.Data.Models
     {
         [Key]
         [Column("emp_id")]
-        [Required]
-        required public Guid EmpId { get; set; }
+        public Guid EmpId { get; set; }
         public override Guid Id => EmpId;
 
         [Column("emp_code")]

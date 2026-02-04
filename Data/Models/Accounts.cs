@@ -12,8 +12,7 @@ namespace ItSupportServer.Data.Models
         [Key]
         [Column("user_id")]
         [ForeignKey(nameof(Employee))]
-        [Required]
-        public required Guid AccountId { get; set; }
+        public Guid AccountId { get; set; }
         
         public override Guid Id => AccountId;
 

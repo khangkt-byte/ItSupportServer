@@ -9,6 +9,7 @@ using Microsoft.OpenApi;
 using Npgsql;
 using Scalar.AspNetCore;
 using System.Text;
+using ItSupportServer.src.Shared.Attributes;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -122,7 +123,7 @@ builder.Services.AddOpenApi(options =>
             }
         };
 
-        //options.AddSchemaTransformer<ExampleSchemaTransformer>();
+        options.AddSchemaTransformer<ExampleSchemaTransformer>();
 
         return Task.CompletedTask;
     });

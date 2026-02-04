@@ -12,19 +12,39 @@ namespace ItSupportServer.src.Modules.IssueLog
 
     /// <summary>
     /// Issue log response DTO
+    /// Pattern: ServiceNow incident response
     /// </summary>
     public record IssueLogDto
     {
         public Guid IssLogId { get; init; }
+        
+        // ===== Operators & Requesters =====
         public required string Operator { get; init; }
         public string? Requester { get; init; }
-        public required string Department { get; init; }
-        public required string Area { get; init; }
-        public required string IssueDescription { get; init; }
-        public string? Cause { get; init; }
+        
+        // ===== Department & Area =====
+        public int DepartmentId { get; init; }
+        public required string DepartmentName { get; init; }
+        
+        public int AreaId { get; init; }
+        public required string AreaName { get; init; }
+        
+        // ===== Issue (Knowledge Base - Optional) =====
+        public long? IssueId { get; init; }                    // KB reference (nullable)
+        public string? IssueName { get; init; }                // KB issue name (if selected)
+        public required string IssueDescription { get; init; }  // Actual description (always)
+        
+        // ===== Cause (Knowledge Base - Optional) =====
+        public long? CauseId { get; init; }                    // KB reference (nullable)
+        public string? CauseName { get; init; }                // KB cause name (if selected)
+        public string? Cause { get; init; }                    // Actual cause text
+        
+        // ===== Resolution =====
         public string? Resolution { get; init; }
         public string? PermanentFix { get; init; }
         public string? Notes { get; init; }
+        
+        // ===== Metadata =====
         public DateTime DateReported { get; init; }
         public string? Status { get; init; }
         public DateTime CreatedAt { get; init; }
@@ -33,79 +53,50 @@ namespace ItSupportServer.src.Modules.IssueLog
 
     /// <summary>
     /// Create issue log request DTO
+    /// Pattern: ServiceNow incident create request
+    /// Security: Validate all FKs, sanitize text inputs
     /// </summary>
     public record CreateIssueLogDto
     {
-        /// <summary>
-        /// Operator name or comma-separated names
-        /// </summary>
+        // ===== Operators & Requesters =====
         public required string Operator { get; init; }
-
-        /// <summary>
-        /// Person who requested support
-        /// </summary>
         public string? Requester { get; init; }
-
-        /// <summary>
-        /// Department name
-        /// </summary>
-        public required string Department { get; init; }
-
-        /// <summary>
-        /// Area name
-        /// </summary>
-        public required string Area { get; init; }
-
-        /// <summary>
-        /// Description of the issue
-        /// </summary>
-        public required string IssueDescription { get; init; }
-
-        /// <summary>
-        /// Root cause of the issue (optional)
-        /// </summary>
-        public string? Cause { get; init; }
-
-        /// <summary>
-        /// How the issue was resolved (optional)
-        /// </summary>
+        
+        // ===== Department & Area (Validated IDs) =====
+        public int DepartmentId { get; init; }
+        public int AreaId { get; init; }
+        
+        // ===== Issue (Flexible: KB ID or free text) =====
+        public long? IssueId { get; init; }                    // Optional: KB reference
+        public required string IssueDescription { get; init; }  // Required: actual text
+        
+        // ===== Cause (Flexible: KB ID or free text) =====
+        public long? CauseId { get; init; }                    // Optional: KB reference
+        public string? Cause { get; init; }                    // Optional: actual text
+        
+        // ===== Resolution =====
         public string? Resolution { get; init; }
-
-        /// <summary>
-        /// Permanent fix applied (optional)
-        /// </summary>
         public string? PermanentFix { get; init; }
-
-        /// <summary>
-        /// Additional notes (optional)
-        /// </summary>
         public string? Notes { get; init; }
-
-        /// <summary>
-        /// Date when issue was reported
-        /// </summary>
+        
+        // ===== Metadata =====
         public DateTime DateReported { get; init; }
-
-        /// <summary>
-        /// Current status (optional)
-        /// </summary>
         public string? Status { get; init; }
     }
 
     /// <summary>
-    /// Update issue log request DTO (partial updates supported)
+    /// Update issue log request DTO (partial update supported)
+    /// Pattern: ServiceNow incident update (PATCH semantics)
     /// </summary>
     public record UpdateIssueLogDto
     {
-        /// <summary>
-        /// Operator name (optional - null means don't update)
-        /// </summary>
         public string? Operator { get; init; }
-
         public string? Requester { get; init; }
-        public string? Department { get; init; }
-        public string? Area { get; init; }
+        public int? DepartmentId { get; init; }
+        public int? AreaId { get; init; }
+        public long? IssueId { get; init; }
         public string? IssueDescription { get; init; }
+        public long? CauseId { get; init; }
         public string? Cause { get; init; }
         public string? Resolution { get; init; }
         public string? PermanentFix { get; init; }
