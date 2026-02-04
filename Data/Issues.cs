@@ -3,13 +3,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ITSupportServer.Data
 {
-    [Table("departments")]
-    public class Departments
+    [Table("issues")]
+    public class Issues
     {
         [Key]
-        [Column("dpt_id")]
+        [Column("iss_id")]
         [Required]
-        public string DptId { get; set; }
+        public string IssId { get; set; }
 
         [Column("name")]
         [Required]
@@ -28,7 +28,6 @@ namespace ITSupportServer.Data
         [Column("deleted_at")]
         public DateTime? DeletedAt { get; set; }
 
-        public ICollection<Employees> Employees { get; set; } = new List<Employees>();
-        public ICollection<IssueLogs> IssueLogs { get; set; } = new List<IssueLogs>();
+        public ICollection<Reasons> Reasons { get; set; } = new List<Reasons>();
     }
 }

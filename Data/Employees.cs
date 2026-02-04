@@ -11,6 +11,10 @@ namespace ITSupportServer.Data
         [Required]
         public string EmpId { get; set; }
 
+        [Column("emp_code")]
+        [Required]
+        public string EmpCode { get; set; }
+
         [Column("full_name")]
         [Required]
         public string FullName { get; set; }
@@ -48,9 +52,9 @@ namespace ITSupportServer.Data
         //[Required]
         //public DateTime HireDate { get; set; }
 
-        //[Column("is_active")]
+        //[Column("status")]
         //[Required]
-        //public bool IsActive { get; set; }
+        //public bool Status { get; set; }
 
         [Column("created_at")]
         [Required]
@@ -61,5 +65,8 @@ namespace ITSupportServer.Data
 
         [Column("deleted_at")]
         public DateTime? DeletedAt { get; set; }
+
+        public ICollection<IssueLogs> IssueLogsAsOperator { get; set; } = new List<IssueLogs>();
+        public ICollection<IssueLogs> IssueLogsAsRequester { get; set; } = new List<IssueLogs>();
     }
 }
