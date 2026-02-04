@@ -23,7 +23,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         public string? Requester { get; init; }
         
         // ===== Department & Area =====
-        public int DepartmentId { get; init; }
+        public int DptId { get; init; }
         public required string DepartmentName { get; init; }
         
         public int AreaId { get; init; }
@@ -63,7 +63,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         public string? Requester { get; init; }
         
         // ===== Department & Area (Validated IDs) =====
-        public int DepartmentId { get; init; }
+        public int DptId { get; init; }
         public int AreaId { get; init; }
         
         // ===== Issue (Flexible: KB ID or free text) =====
@@ -92,7 +92,7 @@ namespace ItSupportServer.src.Modules.IssueLog
     {
         public string? Operator { get; init; }
         public string? Requester { get; init; }
-        public int? DepartmentId { get; init; }
+        public int? DptId { get; init; }
         public int? AreaId { get; init; }
         public long? IssueId { get; init; }
         public string? IssueDescription { get; init; }

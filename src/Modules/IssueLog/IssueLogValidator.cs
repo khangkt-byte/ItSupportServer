@@ -30,7 +30,7 @@ namespace ItSupportServer.src.Modules.IssueLog
 
             // ===== Department & Area (Validated IDs) =====
             
-            RuleFor(x => x.DepartmentId)
+            RuleFor(x => x.DptId)
                 .GreaterThan(0)
                 .WithMessage("Vui lòng chọn bộ phận.");
 
@@ -117,10 +117,10 @@ namespace ItSupportServer.src.Modules.IssueLog
                 .WithMessage("Người yêu cầu chứa ký tự không hợp lệ.")
                 .When(x => !string.IsNullOrWhiteSpace(x.Requester));
 
-            RuleFor(x => x.DepartmentId)
+            RuleFor(x => x.DptId)
                 .GreaterThan(0)
                 .WithMessage("Bộ phận không hợp lệ.")
-                .When(x => x.DepartmentId.HasValue);
+                .When(x => x.DptId.HasValue);
 
             RuleFor(x => x.AreaId)
                 .GreaterThan(0)

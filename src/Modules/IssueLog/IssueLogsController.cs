@@ -87,11 +87,11 @@ namespace ItSupportServer.src.Modules.IssueLog
         /// - Verify Cause belongs to Issue (if both provided)
         /// 
         /// **Validation errors (400):**
-        /// - Operator, DepartmentId, AreaId, IssueDescription, DateReported: required
+        /// - Operator, DptId, AreaId, IssueDescription, DateReported: required
         /// - Text fields: length limits, character restrictions
         /// 
         /// **Not Found errors (404):**
-        /// - DepartmentId không tồn tại
+        /// - DptId không tồn tại
         /// - AreaId không tồn tại
         /// - IssueId (nếu có) không tồn tại
         /// - CauseId (nếu có) không tồn tại
@@ -141,7 +141,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         /// 
         /// **Not Found (404):**
         /// - IssueLog không tồn tại
-        /// - DepartmentId mới không tồn tại (nếu update)
+        /// - DptId mới không tồn tại (nếu update)
         /// - AreaId mới không tồn tại (nếu update)
         /// 
         /// **Conflict (409):**

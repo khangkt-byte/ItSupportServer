@@ -32,9 +32,9 @@
     {
         public Guid IssLogId { get; init; }
         public required string Operator { get; init; }
-        public int DepartmentId { get; init; }
+        public int DptId { get; init; }
         public required string IssueDescription { get; init; }
-        public DateTime DateReported { get; init; }
+        public DateOnly DateReported { get; init; }
     }
 
     /// <summary>
@@ -46,13 +46,13 @@
     {
         public required string Operator { get; init; }
         public string? Requester { get; init; }
-        public int DepartmentId { get; init; }
+        public int DptId { get; init; }
         public int AreaId { get; init; }
         public required string IssueDescription { get; init; }
         public string? Cause { get; init; }
         public string? Resolution { get; init; }
         public string? PermanentFix { get; init; }
-        public DateTime DateReported { get; init; }
+        public DateOnly DateReported { get; init; }
         public string? Status { get; init; }
     }
 
@@ -82,7 +82,7 @@
         public string? MappedDepartment { get; init; }
         public required string Area { get; init; }
         public required string IssueDescription { get; init; }
-        public DateTime? DateReported { get; init; }
+        public DateOnly? DateReported { get; init; }
         public bool IsDuplicate { get; init; }
     }
 
@@ -97,7 +97,7 @@
         public int MatchScore { get; init; }
         public string MatchReason { get; init; } = string.Empty;
         public string? IssueDescription { get; init; }
-        public DateTime? DateReported { get; init; }
+        public DateOnly? DateReported { get; init; }
     }
 
     // ===== VALIDATION DTOs =====

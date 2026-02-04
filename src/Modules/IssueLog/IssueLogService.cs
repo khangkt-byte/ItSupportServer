@@ -101,11 +101,11 @@ namespace ItSupportServer.src.Modules.IssueLog
 
             // Step 2: Validate Department exists
             var deptExists = await _db.Departments
-                .AnyAsync(d => d.DptId == dto.DepartmentId && d.DeletedAt == null);
+                .AnyAsync(d => d.DptId == dto.DptId && d.DeletedAt == null);
 
             if (!deptExists)
             {
-                throw new NotFoundException("Bộ phận", dto.DepartmentId);
+                throw new NotFoundException("Bộ phận", dto.DptId);
             }
 
             // Step 3: Validate Area exists
@@ -199,7 +199,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                     IssLogId = Guid.CreateVersion7(),
                     Operator = dto.Operator,
                     Requester = dto.Requester,
-                    DepartmentId = dto.DepartmentId,
+                    DptId = dto.DptId,
                     AreaId = dto.AreaId,
 
                     // Set resolved IDs (may be auto-matched)
@@ -263,17 +263,17 @@ namespace ItSupportServer.src.Modules.IssueLog
             }
 
             // Update Department (with validation)
-            if (dto.DepartmentId.HasValue && issueLog.DepartmentId != dto.DepartmentId.Value)
+            if (dto.DptId.HasValue && issueLog.DptId != dto.DptId.Value)
             {
                 var deptExists = await _db.Departments
-                    .AnyAsync(d => d.DptId == dto.DepartmentId.Value && d.DeletedAt == null);
+                    .AnyAsync(d => d.DptId == dto.DptId.Value && d.DeletedAt == null);
 
                 if (!deptExists)
                 {
-                    throw new NotFoundException("Bộ phận", dto.DepartmentId.Value);
+                    throw new NotFoundException("Bộ phận", dto.DptId.Value);
                 }
 
-                issueLog.DepartmentId = dto.DepartmentId.Value;
+                issueLog.DptId = dto.DptId.Value;
                 hasChanges = true;
             }
 
