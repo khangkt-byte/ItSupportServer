@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using ItSupportServer.Data;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.Data.Models;
 
 namespace ItSupportServer.src.Modules.Authorization
 {

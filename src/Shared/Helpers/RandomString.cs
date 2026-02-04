@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace ItSupportServer.src.Shared.Helper
+namespace ItSupportServer.src.Shared.Helpers
 {
     public class RandomString
     {

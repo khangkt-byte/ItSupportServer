@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ItSupportServer.Data
+namespace ItSupportServer.Data.Models
 {
     [Table("employees")]
     [Index(nameof(EmpCode), IsUnique = true)]

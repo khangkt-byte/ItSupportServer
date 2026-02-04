@@ -1,8 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ItSupportServer.Data;
 using ItSupportServer.src.Shared.Base;
-using ItSupportServer.src.Shared.Helper;
+using ItSupportServer.src.Shared.Helpers;
 using System.Linq;
+using ItSupportServer.Data.Models;
 
 namespace ItSupportServer.src.Modules.Role
 {

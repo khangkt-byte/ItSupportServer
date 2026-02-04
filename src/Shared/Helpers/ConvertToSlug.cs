@@ -1,4 +1,4 @@
-﻿namespace ItSupportServer.src.Shared.Helper
+﻿namespace ItSupportServer.src.Shared.Helpers
 {
     public class ConvertToSlug
     {

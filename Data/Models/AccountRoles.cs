@@ -2,26 +2,26 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ItSupportServer.Data
+namespace ItSupportServer.Data.Models
 {
-    [Table("account_claims")]
-    [PrimaryKey(nameof(AccountId), nameof(ClaimId))]
+    [Table("account_roles")]
+    [PrimaryKey(nameof(AccountId), nameof(RoleId))]
     [Index(nameof(AccountId))]
-    [Index(nameof(ClaimId))]
-    public class AccountClaims
+    [Index(nameof(RoleId))]
+    public class AccountRoles
     {
         [Column("account_id")]
         [Required]
         required public Guid AccountId { get; set; }
-
+        
         [ForeignKey(nameof(AccountId))]
         public Accounts Account { get; set; }
 
-        [Column("claim_id")]
+        [Column("role_id")]
         [Required]
-        public int ClaimId { get; set; }
-
-        [ForeignKey(nameof(ClaimId))]
-        public Claims Claim { get; set; }
+        public int RoleId { get; set; }
+        
+        [ForeignKey(nameof(RoleId))]
+        public Roles Role { get; set; }
     }
 }
