@@ -1,7 +1,6 @@
 ﻿using ItSupportServer.src.Modules.Role;
 using ItSupportServer.src.Shared.Helpers;
 using System.ComponentModel.DataAnnotations;
-using static ItSupportServer.src.Modules.User.UserEnum;
 
 namespace ItSupportServer.src.Modules.Employee
 {

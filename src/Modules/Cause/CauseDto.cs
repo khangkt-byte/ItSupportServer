@@ -7,7 +7,12 @@
     {
         public long CauseId { get; init; }
         public long IssId { get; init; }
-        public required string IssueName { get; init; }
+        
+        /// <summary>
+        /// Issue name - nullable khi map từ entity không có Include
+        /// </summary>
+        public string? IssueName { get; init; }
+        
         public required string Name { get; init; }
         public string? Description { get; init; }
         public int UsageCount { get; init; }  // Number of times used in IssueLogs
@@ -22,7 +27,12 @@
     {
         public long CauseId { get; init; }
         public long IssId { get; init; }
-        public required string IssueName { get; init; }
+        
+        /// <summary>
+        /// Issue name - nullable khi không có Include
+        /// </summary>
+        public string? IssueName { get; init; }
+        
         public required string Name { get; init; }
         public int UsageCount { get; init; }
         public DateTime CreatedAt { get; init; }
@@ -69,7 +79,14 @@
         // ✅ NO CauseId - comes from route
         // ✅ NO IssId - cannot change parent issue
 
+        /// <summary>
+        /// Updated name (optional)
+        /// </summary>
         public string? Name { get; init; }
+
+        /// <summary>
+        /// Updated description (optional, null = don't update)
+        /// </summary>
         public string? Description { get; init; }
     }
 }

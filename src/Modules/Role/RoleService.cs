@@ -436,6 +436,9 @@ namespace ItSupportServer.src.Modules.Role
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
+                // ✅ Invalidate permission cache
+                _authorizationService.InvalidatePermissionCache(dto.AccountId);
+
                 _logger.LogInformation("Successfully assigned {Count} roles to account {AccountId}",
                     dto.RoleIds.Count, dto.AccountId);
 
