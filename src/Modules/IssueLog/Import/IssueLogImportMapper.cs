@@ -97,7 +97,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                 IssLogId = Guid.CreateVersion7(),
                 Operator = dto.Operator,
                 Requester = NormalizeNullableString(dto.Requester),
-                DepartmentId = dto.DepartmentId,
+                DptId = dto.DptId,
                 AreaId = dto.AreaId,
                 IssueDescription = dto.IssueDescription,
                 Cause = NormalizeNullableString(dto.Cause),
@@ -198,7 +198,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             string? mappedDepartment,
             string areaName,
             string issueDesc,
-            DateTime? dateReported,
+            DateOnly? dateReported,
             bool isDuplicate)
         {
             return new ImportPreviewDataDto

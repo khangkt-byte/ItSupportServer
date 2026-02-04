@@ -34,7 +34,7 @@ namespace ItSupportServer.Data.Models.Entities
         /// Department foreign key (validated)
         /// Pattern: Jira - department reference
         /// </summary>
-        public int DepartmentId { get; set; }
+        public int DptId { get; set; }
         public Departments Department { get; set; } = null!;
 
         /// <summary>

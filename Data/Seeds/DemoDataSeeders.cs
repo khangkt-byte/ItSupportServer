@@ -33,7 +33,7 @@ namespace ItSupportServer.Data.Seeds
                     IssLogId = Guid.Parse("22222222-2222-2222-2222-222222222221"),
                     Operator = "Nguyễn Văn A",
                     Requester = "Phòng Kế toán, Trần Thị B",
-                    DepartmentId = 3,  // Kế toán
+                    DptId = 3,  // Kế toán
                     AreaId = 2,        // Tầng 2
                     IssueId = 5,       // Mất kết nối mạng
                     IssueDescription = "Máy tính tại phòng kế toán không vào được mạng nội bộ",
@@ -53,7 +53,7 @@ namespace ItSupportServer.Data.Seeds
                     IssLogId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
                     Operator = "Nguyễn Văn A",
                     Requester = "Phòng Hành chính, Lê Văn C",
-                    DepartmentId = 2,  // Hành chính
+                    DptId = 2,  // Hành chính
                     AreaId = 1,        // Tầng 1
                     IssueId = 4,       // Máy in kẹt giấy
                     IssueDescription = "Máy in tầng 1 bị kẹt giấy liên tục",
@@ -73,7 +73,7 @@ namespace ItSupportServer.Data.Seeds
                     IssLogId = Guid.Parse("22222222-2222-2222-2222-222222222223"),
                     Operator = "Nguyễn Văn A",
                     Requester = "Phòng Kinh doanh, Phạm Thị D",
-                    DepartmentId = 4,  // Kinh doanh
+                    DptId = 4,  // Kinh doanh
                     AreaId = 2,        // Tầng 2
                     IssueId = 10,      // Quên mật khẩu
                     IssueDescription = "Nhân viên quên mật khẩu đăng nhập Windows",
@@ -93,7 +93,7 @@ namespace ItSupportServer.Data.Seeds
                     IssLogId = Guid.Parse("22222222-2222-2222-2222-222222222224"),
                     Operator = "Nguyễn Văn A",
                     Requester = "Phòng CNTT, Hoàng Văn E",
-                    DepartmentId = 1,  // CNTT
+                    DptId = 1,  // CNTT
                     AreaId = 3,        // Tầng 3
                     IssueId = 13,      // Máy chạy chậm
                     IssueDescription = "Laptop chạy rất chậm khi mở nhiều ứng dụng",
