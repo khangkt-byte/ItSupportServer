@@ -1,5 +1,4 @@
-﻿using ItSupportServer.Data;
-using ItSupportServer.Data.Models;
+﻿using ItSupportServer.Data.Models;
 using ItSupportServer.src.Shared.Base;
 using Microsoft.EntityFrameworkCore;
 

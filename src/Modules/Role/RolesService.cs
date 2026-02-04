@@ -1,8 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using ItSupportServer.Data;
 using ItSupportServer.src.Shared.Base;
-using ItSupportServer.src.Shared.Helpers;
-using System.Linq;
 using ItSupportServer.Data.Models;
 
 namespace ItSupportServer.src.Modules.Role
@@ -82,7 +79,7 @@ namespace ItSupportServer.src.Modules.Role
                                            .FirstOrDefaultAsync();
                 if (existingRole is not null) return BaseResult<CreateRoleDto>.Fail("Vai trò đã tồn tại hoặc tên bị trùng", 400);
 
-                var role = await db.Roles.AddAsync(new Data.Roles()
+                var role = await db.Roles.AddAsync(new Roles()
                 {
                     Name = dto.Name,
                 });
