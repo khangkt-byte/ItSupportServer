@@ -21,6 +21,6 @@ namespace ItSupportServer.Data.Models
         public string? Description { get; set; }
 
         public ICollection<Employees> Employees { get; set; } = new List<Employees>();
-        public ICollection<IssueLogs> IssueLogs { get; set; } = new List<IssueLogs>();
+        //public ICollection<IssueLogs> IssueLogs { get; set; } = new List<IssueLogs>();
     }
 }

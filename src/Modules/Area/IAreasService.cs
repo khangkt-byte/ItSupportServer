@@ -5,10 +5,10 @@ namespace ItSupportServer.src.Modules.Area
 {
     public interface IAreasService
     {
-        Task<BaseResult<PaginatedResult<List<AreaDto>>>> GetAreasAsync(string? query, int page, int pageSize, SortOBJ? sort);
-        Task<BaseResult<AreaDto>> GetAreaByIdAsync(int areaId);
-        Task<BaseResult<CreateAreaDto>> CreateAreaAsync(CreateAreaDto dto);
-        Task<BaseResult<UpdateAreaDto>> UpdateAreaAsync(UpdateAreaDto dto);
-        Task<BaseResult<bool>> DeleteAreasAsync(List<int> areaId, bool softDelete = true);
+        Task<PaginatedResult<List<AreaDto>>> GetAreasAsync(string? query, int page, int pageSize, SortOBJ? sort);
+        Task<AreaDto> GetAreaByIdAsync(int areaId);
+        Task<AreaDto> CreateAreaAsync(CreateAreaDto dto);
+        Task<AreaDto> UpdateAreaAsync(UpdateAreaDto dto);
+        Task<bool> DeleteAreasAsync(List<int> areaIds, bool softDelete = true);
     }
 }

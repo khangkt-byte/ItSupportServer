@@ -14,7 +14,6 @@ namespace ItSupportServer.src.Modules.Authentication
             [FromServices] IValidator<LoginDto> validator)
         {
             var validationResult = await validator.ValidateAsync(dto);
-
             //if (!validationResult.IsValid)
             //{
             //    var errors = validationResult.Errors
@@ -24,7 +23,6 @@ namespace ItSupportServer.src.Modules.Authentication
             //    var errorResult = BaseResult<TokenResponseDto>.Fail(errorMessage, 400);
             //    return this.MyStatusCode(errorResult);
             //}
-
             if (!validationResult.IsValid)
                 return BadRequest(validationResult.Errors);
 
@@ -45,7 +43,6 @@ namespace ItSupportServer.src.Modules.Authentication
             [FromServices] IValidator<OtpDto> validator)
         {
             var validationResult = await validator.ValidateAsync(dto);
-
             if (!validationResult.IsValid)
                 return BadRequest(validationResult.Errors);
 

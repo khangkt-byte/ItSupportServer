@@ -1,5 +1,7 @@
 ﻿using ItSupportServer;
 using ItSupportServer.Data.Models;
+using ItSupportServer.src.Shared.Middleware;
+
 
 //using ItSupportServer.src.Shared.Attributes;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -119,22 +121,34 @@ builder.Services.AddOpenApi(options =>
     });
 });
 
+// Add global exception handler
+builder.Services.AddExceptionHandler<GlobalExceptionHandlerMiddleware>();
+builder.Services.AddProblemDetails();
+
+// Add logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+if (builder.Environment.IsProduction())
+{
+    // Add Application Insights or Serilog in production
+    // builder.Logging.AddApplicationInsights();
+}
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Use exception handler (MUST be before other middleware)
+app.UseExceptionHandler();
+
+// In development, include developer exception page for unhandled exceptions
 if (app.Environment.IsDevelopment())
 {
-    app.MapScalarApiReference();
-    app.MapOpenApi();
+    // The exception handler middleware will still catch exceptions
+    // but you can add dev-specific features here
 }
 
 app.UseHttpsRedirection();
-
-app.UseCors("CorPolicy");
-
-app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();

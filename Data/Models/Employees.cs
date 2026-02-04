@@ -66,8 +66,6 @@ namespace ItSupportServer.Data.Models
         //[Column("status")]
         //public bool? Status { get; set; }
 
-        public Accounts Account { get; set; }
-        public ICollection<IssueLogs> IssueLogsAsOperator { get; set; } = new List<IssueLogs>();
-        public ICollection<IssueLogs> IssueLogsAsRequester { get; set; } = new List<IssueLogs>();
+        public Accounts? Account { get; set; }
     }
 }

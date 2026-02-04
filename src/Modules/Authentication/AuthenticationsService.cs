@@ -23,7 +23,7 @@ namespace ItSupportServer.src.Modules.Authentication
             {
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.NameIdentifier, user.AccountId.ToString()),
-                new Claim(ClaimTypes.Role, userRoles.Position),
+                //new Claim(ClaimTypes.Role, userRoles.Position),
 
             };
 
@@ -228,14 +228,14 @@ namespace ItSupportServer.src.Modules.Authentication
 
 
         #endregion
-        public async Task<BaseResult<bool>> ForgotPassword(string EmailOrUserName)
+        public async Task<BaseResult<bool>> ForgotPassword(string emailOrUserName)
         {
             using var transaction = await db.Database.BeginTransactionAsync();
             try
             {
                 var IsUserExit = await db.Accounts
                     .Include(u => u.Employee)
-                    .FirstOrDefaultAsync(u => u.Employee.Email == EmailOrUserName || u.Username == EmailOrUserName);
+                    .FirstOrDefaultAsync(u => u.Employee.Email == emailOrUserName || u.Username == emailOrUserName);
                 if (IsUserExit is null) return BaseResult<bool>.Fail("Người dùng không tồn tại", 400, false);
 
                 var newPassword = RandomString.GenerateRandomString(8);

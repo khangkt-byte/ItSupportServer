@@ -6,8 +6,8 @@ namespace ItSupportServer.src.Modules.Issue
     {
         Task<BaseResult<PaginatedResult<List<IssueDto>>>> GetIssuesAsync(string? query, int page, int pageSize, SortOBJ? sort);
         Task<BaseResult<IssueDto>> GetIssueByIdAsync(long issueId);
-        Task<BaseResult<CreateIssueDto>> CreateIssueAsync(CreateIssueDto dto);
-        Task<BaseResult<UpdateIssueDto>> UpdateIssueAsync(UpdateIssueDto dto);
+        Task<BaseResult<IssueDto>> CreateIssueAsync(CreateIssueDto dto);
+        Task<BaseResult<IssueDto>> UpdateIssueAsync(UpdateIssueDto dto);
         Task<BaseResult<bool>> DeleteIssuesAsync(List<long> issueIds, bool softDelete = true);
     }
 }

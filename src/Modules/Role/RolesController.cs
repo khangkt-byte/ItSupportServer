@@ -2,6 +2,7 @@
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Attributes;
 using ItSupportServer.src.Modules.Authorization;
+using FluentValidation;
 
 namespace ItSupportServer.src.Modules.Role
 {
@@ -10,7 +11,7 @@ namespace ItSupportServer.src.Modules.Role
     public class RolesController(IRolesService service) : ControllerBase
     {
         [HttpGet]
-        [HasPermission(Permissions.Roles.View)]
+        [HasPermission(Permissions.RoleClaims.View)]
         public async Task<IActionResult> GetRolesAsync(
             [FromQuery] string? query,
             [FromQuery] int page = 1,
@@ -23,7 +24,7 @@ namespace ItSupportServer.src.Modules.Role
         }
 
         [HttpGet("{id}")]
-        [HasPermission(Permissions.Roles.View)]
+        [HasPermission(Permissions.RoleClaims.View)]
         public async Task<IActionResult> GetRoleAsync([FromRoute] int id)
         {
             var result = await service.GetRoleAsync(id);
@@ -31,27 +32,37 @@ namespace ItSupportServer.src.Modules.Role
         }
 
         [HttpPost]
-        [HasPermission(Permissions.Roles.Create)]
+        [HasPermission(Permissions.RoleClaims.Create)]
         public async Task<IActionResult> CreateRoleAsync(
-            [FromBody] CreateRoleDto dto)
+            [FromBody] CreateRoleDto dto,
+            [FromServices] IValidator<CreateRoleDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var result = await service.CreateRoleAsync(dto);
             return this.MyStatusCode(result);
         }
 
         [HttpPut("{id}")]
-        [HasPermission(Permissions.Roles.Edit)]
+        [HasPermission(Permissions.RoleClaims.Edit)]
         public async Task<IActionResult> UpdateRoleAsync(
             [FromRoute] int id,
-            [FromBody] UpdateRoleDto dto)
+            [FromBody] UpdateRoleDto dto,
+            [FromServices] IValidator<UpdateRoleDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             dto.RoleId = id;
             var result = await service.UpdateRoleAsync(dto);
             return this.MyStatusCode(result);
         }
 
         [HttpDelete("{id}")]
-        [HasPermission(Permissions.Roles.Delete)]
+        [HasPermission(Permissions.RoleClaims.Delete)]
         public async Task<IActionResult> DeleteRoleAsync([FromRoute] int id)
         {
             var result = await service.DeleteRoleAsync(id);
@@ -59,7 +70,7 @@ namespace ItSupportServer.src.Modules.Role
         }
 
         [HttpGet("claims")]
-        [HasPermission(Permissions.Roles.View)]
+        [HasPermission(Permissions.RoleClaims.View)]
         public async Task<IActionResult> GetAllClaimsAsync()
         {
             var result = await service.GetAllClaimsAsync();
@@ -67,10 +78,15 @@ namespace ItSupportServer.src.Modules.Role
         }
 
         [HttpPost("set-role")]
-        [HasPermission(Permissions.Roles.SetRole)]
+        [HasPermission(Permissions.RoleClaims.SetRole)]
         public async Task<IActionResult> SetRoleAsync(
-            [FromBody] AccountRoleDto dto)
+            [FromBody] AccountRoleDto dto,
+            [FromServices] IValidator<AccountRoleDto> validator)
         {
+            var validationResult = await validator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+                return BadRequest(validationResult.Errors);
+
             var result = await service.SetRoleAsync(dto);
             return this.MyStatusCode(result);
         }

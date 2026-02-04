@@ -11,7 +11,7 @@ namespace ItSupportServer.src.Modules.Issue
     public class IssuesController(IIssuesService service) : ControllerBase
     {
         [HttpGet]
-        [HasPermission(Permissions.Issues.View)]
+        [HasPermission(Permissions.IssueClaims.View)]
         public async Task<IActionResult> GetIssuesAsync(
             [FromQuery] string? query,
             [FromQuery] int page = 1,
@@ -23,7 +23,7 @@ namespace ItSupportServer.src.Modules.Issue
         }
 
         [HttpGet("{issueId}")]
-        [HasPermission(Permissions.Issues.View)]
+        [HasPermission(Permissions.IssueClaims.View)]
         public async Task<IActionResult> GetIssueByIdAsync([FromRoute] long issueId)
         {
             var result = await service.GetIssueByIdAsync(issueId);
@@ -31,13 +31,12 @@ namespace ItSupportServer.src.Modules.Issue
         }
 
         [HttpPost]
-        [HasPermission(Permissions.Issues.Create)]
+        [HasPermission(Permissions.IssueClaims.Create)]
         public async Task<IActionResult> CreateIssueAsync(
             [FromBody] CreateIssueDto dto,
             [FromServices] IValidator<CreateIssueDto> validator)
         {
             var validationResult = await validator.ValidateAsync(dto);
-
             if (!validationResult.IsValid)
                 return BadRequest(validationResult.Errors);
 
@@ -46,13 +45,12 @@ namespace ItSupportServer.src.Modules.Issue
         }
 
         [HttpPut]
-        [HasPermission(Permissions.Issues.Edit)]
+        [HasPermission(Permissions.IssueClaims.Edit)]
         public async Task<IActionResult> UpdateIssueAsync(
             [FromBody] UpdateIssueDto dto,
             [FromServices] IValidator<UpdateIssueDto> validator)
         {
             var validationResult = await validator.ValidateAsync(dto);
-
             if (!validationResult.IsValid)
                 return BadRequest(validationResult.Errors);
 
@@ -61,7 +59,7 @@ namespace ItSupportServer.src.Modules.Issue
         }
 
         [HttpDelete]
-        [HasPermission(Permissions.Issues.Delete)]
+        [HasPermission(Permissions.IssueClaims.Delete)]
         public async Task<IActionResult> DeleteIssueAsync([FromBody] List<long> issueIds)
         {
             var result = await service.DeleteIssuesAsync(issueIds);

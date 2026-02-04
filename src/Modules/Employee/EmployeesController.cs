@@ -16,7 +16,7 @@ namespace ItSupportServer.src.Modules.Employee
     public class EmployeesController(IEmployeesService service, IConfiguration configuration) : ControllerBase
     {
         [HttpGet]
-        [HasPermission(Permissions.Employees.View)]
+        [HasPermission(Permissions.EmployeeClaims.View)]
         public async Task<IActionResult> GetEmployeesAsync(
            [FromQuery] string? query,
            [FromQuery] int page = 1,
@@ -29,7 +29,7 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
         [HttpGet("{Id}")]
-        [HasPermission(Permissions.Employees.View)]
+        [HasPermission(Permissions.EmployeeClaims.View)]
         public async Task<IActionResult> GetEmployeeAsync([FromRoute] string Id)
         {
             var result = await service.GetEmployeeAsync(Id);
@@ -37,13 +37,12 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
         [HttpPost]
-        [HasPermission(Permissions.Employees.Create)]
+        [HasPermission(Permissions.EmployeeClaims.Create)]
         public async Task<IActionResult> CreateEmployeeAsync(
             [FromForm] CreateEmployeeDto dto,
             [FromServices] IValidator<CreateEmployeeDto> validator)
         {
             var validationResult = await validator.ValidateAsync(dto);
-
             if (!validationResult.IsValid)
                 return BadRequest(validationResult.Errors);
 
@@ -52,14 +51,13 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
         [HttpPut("{Id}")]
-        [HasPermission(Permissions.Employees.Edit)]
+        [HasPermission(Permissions.EmployeeClaims.Edit)]
         public async Task<IActionResult> UpdateEmployeeAsync(
             [FromRoute] string Id,
             [FromForm] UpdateEmployeeDto dto,
             [FromServices] IValidator<UpdateEmployeeDto> validator)
         {
             var validationResult = await validator.ValidateAsync(dto);
-
             if (!validationResult.IsValid)
                 return BadRequest(validationResult.Errors);
 
@@ -88,7 +86,7 @@ namespace ItSupportServer.src.Modules.Employee
 
         //[Authorize(Roles = $"{RoleUser.Super_Admin}")]
         [HttpPatch("role/{Id}")]
-        [HasPermission(Permissions.Employees.Edit)]
+        [HasPermission(Permissions.EmployeeClaims.Edit)]
         public async Task<IActionResult> ChangeRoleAsync([FromRoute] string Id, [FromBody] ROLE newRole)
         {
             var idUser = User.FindFirstValue(ClaimTypes.NameIdentifier);
