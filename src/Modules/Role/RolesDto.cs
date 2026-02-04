@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace ItSupportServer.src.Modules.Roles
+namespace ItSupportServer.src.Modules.Role
 {
     public class CreateRoleDto
     {

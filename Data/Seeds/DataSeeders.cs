@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-namespace ItSupportServer.EF_Core.Seeds
+namespace ItSupportServer.Data.Seeds
 {
     public static class DataSeeders
     {

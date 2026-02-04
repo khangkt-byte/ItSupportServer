@@ -1,6 +1,6 @@
-@ITSupportServer_HostAddress = http://localhost:5188
+@ItSupportServer_HostAddress = http://localhost:5188
 
-GET {{ITSupportServer_HostAddress}}/weatherforecast/
+GET {{ItSupportServer_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###

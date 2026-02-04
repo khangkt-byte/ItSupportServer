@@ -1,10 +1,11 @@
 ﻿using ItSupportServer.Data;
+using ItSupportServer.src.Shared.Base;
 
-namespace ItSupportServer.src.Modules.Areas
+namespace ItSupportServer.src.Modules.Area
 {
-    public class AreasServices(AppDbContext db) : IAreasServices
+    public class AreasService(AppDbContext db) : IAreasService
     {
-        public async Task<BaseResult<PaginationResult<List<Areas>>>> GetAreasAsynce(string? query, int page, int pageSize, SortOBJ sort)
+        public async Task<BaseResult<PaginatedResult<List<Areas>>>> GetAreasAsync(string? query, int page, int pageSize, SortOBJ? sort)
         {
             throw new NotImplementedException();
         }
@@ -20,6 +21,11 @@ namespace ItSupportServer.src.Modules.Areas
         }
 
         public async Task<BaseResult<AreaUpdateDto>> UpdateAreaAsync(AreaUpdateDto dto)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task<BaseResult<bool>> DeleteAreaAsync(string areaId)
         {
             throw new NotImplementedException();
         }

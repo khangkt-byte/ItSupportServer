@@ -2,7 +2,7 @@
 
 namespace ItSupportServer.src.Modules.Authentication
 {
-    public interface IAuthenticationService
+    public interface IAuthenticationsService
     {
         Task<BaseResult<TokenResponseDto>?> LoginAsync(LoginDto dto);
         Task<BaseResult<TokenResponseDto>?> RefreshTokenAsync(RefreshTokenRequestDto req);

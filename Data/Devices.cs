@@ -13,7 +13,7 @@ namespace ItSupportServer.Data
 
         [Column("device_type_id")]
         [Required]
-        public int DeviceTypeId { get; set; }
+        public string DeviceTypeId { get; set; }
 
         [ForeignKey(nameof(DeviceTypeId))]
         public DeviceTypes DeviceType { get; set; }

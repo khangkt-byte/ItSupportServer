@@ -1,4 +1,4 @@
-﻿using ItSupportServer.EF_Core.Data;
+﻿using ItSupportServer.Data;
 using ItSupportServer.src.Modules.User;
 using ItSupportServer.src.Shared.Base;
 using static ItSupportServer.src.Shared.Base.BaseEnum;

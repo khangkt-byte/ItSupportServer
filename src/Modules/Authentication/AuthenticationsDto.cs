@@ -20,7 +20,7 @@ namespace ItSupportServer.src.Modules.Authentication
     {
         public string AccessToken { get; set; }
         public string RefreshToken { get; set; }
-        public Guid? UserId { get; set; }
+        public string? AccountId { get; set; }
     }
 
     public class RefreshTokenRequestDto
@@ -51,6 +51,6 @@ namespace ItSupportServer.src.Modules.Authentication
         public string Otp { get; set; }
 
         [Required(ErrorMessage = "UserId là bắt buộc")]
-        public Guid UserId { get; set; }
+        public string AccountId { get; set; }
     }
 }

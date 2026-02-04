@@ -52,9 +52,9 @@ namespace ItSupportServer.Data
         //[Required]
         //public DateTime HireDate { get; set; }
 
-        //[Column("status")]
-        //[Required]
-        //public bool Status { get; set; }
+        [Column("status")]
+        [Required]
+        public bool Status { get; set; }
 
         [Column("created_at")]
         [Required]

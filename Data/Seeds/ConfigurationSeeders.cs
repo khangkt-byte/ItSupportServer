@@ -1,8 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using ItSupportServer.EF_Core.Data;
+using ItSupportServer.Data;
 using static ItSupportServer.src.Modules.Configurations.ModelNameEnum;
 
-namespace ItSupportServer.EF_Core.Seeds
+namespace ItSupportServer.Data.Seeds
 {
     public static class ConfigurationSeeders
     {

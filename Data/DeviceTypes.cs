@@ -9,7 +9,7 @@ namespace ItSupportServer.Data
         [Key]
         [Column("device_type_id")]
         [Required]
-        public int DeviceTypeId { get; set; }
+        public string DeviceTypeId { get; set; }
 
         [Column("name")]
         [Required]
