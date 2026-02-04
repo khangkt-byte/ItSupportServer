@@ -32,7 +32,7 @@ namespace ItSupportServer.src.Modules.Role
         /// <summary>
         /// Delete multiple roles
         /// </summary>
-        Task<bool> DeleteRolesAsync(List<int> roleIds, bool softDelete = true);
+        Task<BulkDeleteResultDto> DeleteRolesAsync(List<int> roleIds, bool softDelete = true);
 
         /// <summary>
         /// Get all available claims
