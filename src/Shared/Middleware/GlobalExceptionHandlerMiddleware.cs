@@ -9,11 +9,22 @@ namespace ItSupportServer.src.Shared.Middleware
     /// Global exception handler following RFC 7807 Problem Details standard
     /// Security: OWASP compliant, CWE-209 mitigation
     /// Pattern: Separate user-facing (Vietnamese) and developer (English) messages
+    /// 
+    /// Enhancements:
+    /// - Error codes (machine-readable)
+    /// - Error enrichment (metadata, categories)
+    /// - Retry-After header (RFC 7231)
+    /// - Batch error handling (207 Multi-Status)
+    /// 
     /// References:
+    /// - RFC 7807: Problem Details for HTTP APIs
+    /// - RFC 7231: Retry-After Header
     /// - OWASP Error Handling Cheat Sheet
     /// - CWE-209: Information Exposure Through Error Messages
     /// - Microsoft Security Development Lifecycle (SDL)
     /// - Google API Design Guide
+    /// - Stripe API Error Handling
+    /// - Auth0 Error Codes Catalog
     /// </summary>
     public class GlobalExceptionHandlerMiddleware : IExceptionHandler
     {
@@ -46,8 +57,19 @@ namespace ItSupportServer.src.Shared.Middleware
             // ✅ LOGS (English - for developers & security team)
             LogException(httpContext, exception, problemDetails.Status ?? 500);
 
+            // ✅ Set HTTP status code
             httpContext.Response.StatusCode = problemDetails.Status ?? (int)HttpStatusCode.InternalServerError;
             httpContext.Response.ContentType = "application/problem+json; charset=utf-8";
+
+            // ✅ ENHANCEMENT 1: Add Retry-After header for 429
+            if (exception is TooManyAttemptsException rateLimitEx && rateLimitEx.RetryAfterSeconds.HasValue)
+            {
+                httpContext.Response.Headers["Retry-After"] = rateLimitEx.RetryAfterSeconds.Value.ToString();
+            }
+
+            // ✅ ENHANCEMENT 2: Add custom headers for error tracking
+            httpContext.Response.Headers["X-Error-Code"] = GetErrorCode(exception);
+            httpContext.Response.Headers["X-Correlation-ID"] = httpContext.TraceIdentifier;
 
             await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
 
@@ -63,20 +85,72 @@ namespace ItSupportServer.src.Shared.Middleware
                         kvp.Value.Select(msg => $"{kvp.Key}: {msg}")));
                 
                 _logger.LogWarning(
-                    "Validation failed | TraceId: {TraceId} | Path: {Path} | Errors: {Errors}",
+                    "Validation failed | " +
+                    "TraceId: {TraceId} | " +
+                    "Path: {Path} | " +
+                    "Method: {Method} | " +  // ✅ ADD
+                    "User: {UserId} | " +  // ✅ ADD
+                    "Errors: {Errors} | " +
+                    "ErrorCount: {ErrorCount}",  // ✅ ADD
                     context.TraceIdentifier,
                     context.Request.Path,
-                    errorSummary);
+                    context.Request.Method,
+                    context.User.FindFirst("sub")?.Value ?? "anonymous",
+                    errorSummary,
+                    validationEx.Errors.Sum(e => e.Value.Length));
             }
             else if (exception is UnauthorizedException || exception is ForbiddenException)
             {
                 // ✅ Security logging (potential attack)
                 _logger.LogWarning(
-                    "Access denied | User: {UserId} | IP: {IP} | Path: {Path} | Method: {Method} | TraceId: {TraceId}",
+                    "Access denied | " +
+                    "User: {UserId} | " +
+                    "IP: {IP} | " +  // ✅ Consider sanitizing in production
+                    "Path: {Path} | " +
+                    "Method: {Method} | " +
+                    "UserAgent: {UserAgent} | " +  // ✅ ADD
+                    "TraceId: {TraceId} | " +
+                    "ExceptionType: {ExceptionType}",  // ✅ ADD
                     context.User.FindFirst("sub")?.Value ?? "anonymous",
                     context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     context.Request.Path,
                     context.Request.Method,
+                    context.Request.Headers["User-Agent"].ToString(),
+                    context.TraceIdentifier,
+                    exception.GetType().Name);
+            }
+            else if (exception is BatchOperationException batchEx)
+            {
+                // ✅ ENHANCEMENT: Batch operation logging
+                _logger.LogWarning(
+                    "Batch operation completed | " +
+                    "Total: {Total} | " +
+                    "Success: {Success} | " +
+                    "Failures: {Failures} | " +
+                    "SuccessRate: {SuccessRate:P} | " +  // ✅ ADD: Percentage
+                    "TraceId: {TraceId} | " +
+                    "Path: {Path} | " +
+                    "User: {UserId}",  // ✅ ADD
+                    batchEx.Results.Count,
+                    batchEx.Results.Count(r => r.Success),
+                    batchEx.Results.Count(r => !r.Success),
+                    (double)batchEx.Results.Count(r => r.Success) / batchEx.Results.Count,
+                    context.TraceIdentifier,
+                    context.Request.Path,
+                    context.User.FindFirst("sub")?.Value ?? "anonymous");
+            }
+            else if (exception is NotFoundException notFoundEx)
+            {
+                // ✅ ADD: Log not found (helps identify broken links)
+                _logger.LogInformation(
+                    "Resource not found | " +
+                    "Path: {Path} | " +
+                    "Method: {Method} | " +
+                    "Resource: {Resource} | " +
+                    "TraceId: {TraceId}",
+                    context.Request.Path,
+                    context.Request.Method,
+                    notFoundEx.Message,
                     context.TraceIdentifier);
             }
             else
@@ -84,11 +158,27 @@ namespace ItSupportServer.src.Shared.Middleware
                 var logLevel = statusCode >= 500 ? LogLevel.Error : LogLevel.Warning;
                 
                 _logger.Log(logLevel, exception,
-                    "Error occurred: {ErrorType} | StatusCode: {StatusCode} | TraceId: {TraceId} | Path: {Path}",
+                    "Error occurred | " +
+                    "ErrorType: {ErrorType} | " +
+                    "StatusCode: {StatusCode} | " +
+                    "TraceId: {TraceId} | " +
+                    "Path: {Path} | " +
+                    "Method: {Method} | " +  // ✅ ADD
+                    "QueryString: {QueryString} | " +  // ✅ ADD
+                    "User: {UserId} | " +  // ✅ ADD
+                    "IP: {IP} | " +  // ✅ ADD
+                    "ErrorCode: {ErrorCode} | " +
+                    "Category: {Category}",  // ✅ ADD
                     exception.GetType().Name,
                     statusCode,
                     context.TraceIdentifier,
-                    context.Request.Path);
+                    context.Request.Path,
+                    context.Request.Method,
+                    context.Request.QueryString.ToString(),
+                    context.User.FindFirst("sub")?.Value ?? "anonymous",
+                    context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    GetErrorCode(exception),
+                    GetErrorCategory(exception));
             }
         }
 
@@ -108,6 +198,12 @@ namespace ItSupportServer.src.Shared.Middleware
             // ✅ Add metadata (camelCase for JSON)
             problemDetails.Extensions["traceId"] = context.TraceIdentifier;
             problemDetails.Extensions["timestamp"] = DateTime.UtcNow;
+            
+            // ✅ ENHANCEMENT 1: Add machine-readable error code
+            problemDetails.Extensions["errorCode"] = GetErrorCode(exception);
+            
+            // ✅ ENHANCEMENT 2: Add error category
+            problemDetails.Extensions["errorCategory"] = GetErrorCategory(exception);
 
             // ✅ Add exception-specific extensions
             AddExceptionSpecificData(problemDetails, exception);
@@ -120,7 +216,8 @@ namespace ItSupportServer.src.Shared.Middleware
                     exceptionType = exception.GetType().Name,
                     stackTrace = exception.StackTrace,
                     innerException = exception.InnerException?.Message,
-                    source = exception.Source
+                    source = exception.Source,
+                    metadata = (exception as AppException)?.Metadata 
                 };
             }
 
@@ -138,8 +235,47 @@ namespace ItSupportServer.src.Shared.Middleware
             TooManyAttemptsException => StatusCodes.Status429TooManyRequests,
             ExternalServiceException => StatusCodes.Status502BadGateway,
             OtpRequiredException => StatusCodes.Status403Forbidden,
+            BatchOperationException => StatusCodes.Status207MultiStatus,  // ✅ ADD
             _ => StatusCodes.Status500InternalServerError
         };
+
+        /// <summary>
+        /// Get machine-readable error code
+        /// Pattern: Stripe API, Microsoft Graph
+        /// </summary>
+        private static string GetErrorCode(Exception exception)
+        {
+            return exception switch
+            {
+                AppException appEx => appEx.Code,
+                ArgumentNullException => "NULL_ARGUMENT",
+                ArgumentException => "INVALID_ARGUMENT",
+                InvalidOperationException => "INVALID_OPERATION",
+                TimeoutException => "TIMEOUT",
+                _ => "INTERNAL_ERROR"
+            };
+        }
+
+        /// <summary>
+        /// Get error category for classification
+        /// Pattern: Google API Design Guide
+        /// </summary>
+        private static string GetErrorCategory(Exception exception)
+        {
+            return exception switch
+            {
+                ValidationException => "VALIDATION",
+                UnauthorizedException or ForbiddenException or OtpRequiredException => "AUTHENTICATION",
+                NotFoundException => "RESOURCE",
+                ConflictException => "CONFLICT",
+                BusinessRuleException => "BUSINESS_LOGIC",
+                TooManyAttemptsException => "RATE_LIMIT",
+                ExternalServiceException => "EXTERNAL_SERVICE",
+                BatchOperationException => "BATCH_OPERATION",
+                _ when exception is AppException => "APPLICATION",
+                _ => "SYSTEM"
+            };
+        }
 
         private void AddExceptionSpecificData(ProblemDetails problemDetails, Exception exception)
         {
@@ -154,16 +290,71 @@ namespace ItSupportServer.src.Shared.Middleware
                 case BusinessRuleException businessEx:
                     // ✅ SAFE: Business rule code (sanitized)
                     problemDetails.Extensions["errorCode"] = businessEx.Code;
+                    
+                    // ✅ ENHANCEMENT: Add metadata if available
+                    if (businessEx.Metadata != null && businessEx.Metadata.Any())
+                    {
+                        problemDetails.Extensions["metadata"] = businessEx.Metadata;
+                    }
                     break;
 
                 case OtpRequiredException otpEx:
-                    // ✅ IMPROVED: Don't expose raw accountId
+                    // ✅ Client needs to know OTP is required
                     problemDetails.Extensions["requiresOtp"] = true;
-                    // ✅ Use session token instead (implement GenerateOtpSessionToken)
-                    // problemDetails.Extensions["sessionToken"] = GenerateOtpSessionToken(otpEx.AccountId);
+                    // ✅ Don't expose raw accountId (security)
+                    break;
+
+                case TooManyAttemptsException rateLimitEx:
+                    // ✅ ENHANCEMENT: Add retry information
+                    if (rateLimitEx.RetryAfterSeconds.HasValue)
+                    {
+                        problemDetails.Extensions["retryAfter"] = rateLimitEx.RetryAfterSeconds.Value;
+                        problemDetails.Extensions["retryAfterHuman"] = FormatRetryAfter(rateLimitEx.RetryAfterSeconds.Value);
+                    }
+                    break;
+
+                case BatchOperationException batchEx:
+                    // ✅ ENHANCEMENT: Batch error details
+                    problemDetails.Extensions["batchResults"] = batchEx.Results.Select(r => new
+                    {
+                        id = r.ItemId,
+                        success = r.Success,
+                        statusCode = r.StatusCode,
+                        error = r.Success ? null : new
+                        {
+                            code = r.ErrorCode,
+                            message = r.ErrorMessage
+                        }
+                    });
                     
-                    // ⚠️ If you must include accountId, hash it:
-                    // problemDetails.Extensions["accountReference"] = HashAccountId(otpEx.AccountId);
+                    problemDetails.Extensions["summary"] = new
+                    {
+                        total = batchEx.Results.Count,
+                        succeeded = batchEx.Results.Count(r => r.Success),
+                        failed = batchEx.Results.Count(r => !r.Success)
+                    };
+                    break;
+
+                case NotFoundException notFoundEx:
+                    // ✅ ENHANCEMENT: Add resource metadata
+                    if (notFoundEx.Metadata != null)
+                    {
+                        problemDetails.Extensions["resource"] = notFoundEx.Metadata;
+                    }
+                    break;
+
+                case ConflictException conflictEx:
+                    // ✅ ENHANCEMENT: Add conflict metadata
+                    if (conflictEx.Metadata != null)
+                    {
+                        problemDetails.Extensions["conflictInfo"] = conflictEx.Metadata;
+                    }
+                    break;
+
+                case ExternalServiceException extEx:
+                    // ✅ ENHANCEMENT: Add service info (generic)
+                    problemDetails.Extensions["serviceType"] = "external";
+                    problemDetails.Extensions["retryable"] = true;
                     break;
             }
         }
@@ -176,6 +367,13 @@ namespace ItSupportServer.src.Shared.Middleware
                 exception is ConflictException)
             {
                 return exception.Message; // Already sanitized in custom exceptions
+            }
+
+            // ✅ Batch operations (special handling)
+            if (exception is BatchOperationException batchEx)
+            {
+                var failCount = batchEx.Results.Count(r => !r.Success);
+                return $"Hoàn thành với {failCount} lỗi. Xem chi tiết trong 'batchResults'.";
             }
 
             // ✅ IMPROVED: NotFound with enumeration protection
@@ -202,8 +400,14 @@ namespace ItSupportServer.src.Shared.Middleware
                 return "Bạn không có quyền truy cập tài nguyên này. Vui lòng liên hệ quản trị viên.";
             }
 
-            if (exception is TooManyAttemptsException)
+            if (exception is TooManyAttemptsException rateLimitEx)
             {
+                // ✅ ENHANCEMENT: Include retry info in message
+                if (rateLimitEx.RetryAfterSeconds.HasValue)
+                {
+                    var retryTime = FormatRetryAfter(rateLimitEx.RetryAfterSeconds.Value);
+                    return $"Bạn đã thử quá nhiều lần. Vui lòng đợi {retryTime} rồi thử lại.";
+                }
                 return "Bạn đã thử quá nhiều lần. Vui lòng đợi một lúc rồi thử lại.";
             }
 
@@ -212,7 +416,7 @@ namespace ItSupportServer.src.Shared.Middleware
                 return "Yêu cầu xác thực hai yếu tố. Vui lòng nhập mã OTP.";
             }
 
-            // ✅ IMPROVED: External service errors with categories
+            // ✅ External service errors
             if (exception is ExternalServiceException extEx)
             {
                 return extEx.Message; // Should be generic like "Dịch vụ tạm thời không khả dụng"
@@ -241,6 +445,7 @@ namespace ItSupportServer.src.Shared.Middleware
             TooManyAttemptsException => "Quá nhiều yêu cầu",
             ExternalServiceException => "Lỗi dịch vụ bên ngoài",
             OtpRequiredException => "Yêu cầu xác thực OTP",
+            BatchOperationException => "Kết quả xử lý hàng loạt",
             _ => "Lỗi hệ thống"
         };
 
@@ -257,6 +462,22 @@ namespace ItSupportServer.src.Shared.Middleware
             503 => "Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.",
             _ => "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại sau hoặc liên hệ bộ phận hỗ trợ."
         };
+
+        /// <summary>
+        /// Format retry-after seconds to human-readable format
+        /// </summary>
+        private static string FormatRetryAfter(int seconds)
+        {
+            if (seconds < 60)
+                return $"{seconds} giây";
+            
+            var minutes = seconds / 60;
+            if (minutes < 60)
+                return $"{minutes} phút";
+            
+            var hours = minutes / 60;
+            return $"{hours} giờ";
+        }
 
         // ✅ Helper methods for security checks
         private static bool IsProtectedResource(HttpContext context)
