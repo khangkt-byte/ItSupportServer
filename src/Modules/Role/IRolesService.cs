@@ -9,7 +9,7 @@ namespace ItSupportServer.src.Modules.Role
 
         Task<BaseResult<CreateRoleDto>> CreateRoleAsync(CreateRoleDto dto);
         Task<BaseResult<UpdateRoleDto>> UpdateRoleAsync(UpdateRoleDto dto);
-        Task<BaseResult<bool>> DeleteRoleAsync(int roleId);
+        Task<BaseResult<bool>> DeleteRoleAsync(int roleId, bool softDelete = true);
         Task<BaseResult<List<ClaimDto>>> GetAllClaimsAsync();
         Task<BaseResult<AccountRoleResponseDto>> SetRoleAsync(AccountRoleDto dto);
     }

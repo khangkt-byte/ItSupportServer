@@ -11,7 +11,7 @@ namespace ItSupportServer.src.Modules.Issue
     {
         [HttpGet]
         [HasPermission(Permissions.Issues.View)]
-        public async Task<IActionResult> GetIssues(
+        public async Task<IActionResult> GetIssuesAsync(
             [FromQuery] string? query,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
@@ -23,7 +23,7 @@ namespace ItSupportServer.src.Modules.Issue
 
         [HttpGet("{issueId}")]
         [HasPermission(Permissions.Issues.View)]
-        public async Task<IActionResult> GetIssueById([FromRoute] long issueId)
+        public async Task<IActionResult> GetIssueByIdAsync([FromRoute] long issueId)
         {
             var result = await service.GetIssueByIdAsync(issueId);
             return this.MyStatusCode(result);
@@ -31,7 +31,7 @@ namespace ItSupportServer.src.Modules.Issue
 
         [HttpPost]
         [HasPermission(Permissions.Issues.Create)]
-        public async Task<IActionResult> CreateIssue([FromBody] IssueCreateDto dto)
+        public async Task<IActionResult> CreateIssueAsync([FromBody] IssueCreateDto dto)
         {
             var result = await service.CreateIssueAsync(dto);
             return this.MyStatusCode(result);
@@ -39,7 +39,7 @@ namespace ItSupportServer.src.Modules.Issue
 
         [HttpPut]
         [HasPermission(Permissions.Issues.Edit)]
-        public async Task<IActionResult> UpdateIssue([FromBody] IssueUpdateDto dto)
+        public async Task<IActionResult> UpdateIssueAsync([FromBody] IssueUpdateDto dto)
         {
             var result = await service.UpdateIssueAsync(dto);
             return this.MyStatusCode(result);
@@ -47,7 +47,7 @@ namespace ItSupportServer.src.Modules.Issue
 
         [HttpDelete]
         [HasPermission(Permissions.Issues.Delete)]
-        public async Task<IActionResult> DeleteIssue([FromBody] List<long> issueIds)
+        public async Task<IActionResult> DeleteIssueAsync([FromBody] List<long> issueIds)
         {
             var result = await service.DeleteIssuesAsync(issueIds);
             return this.MyStatusCode(result);
