@@ -8,7 +8,6 @@ namespace ItSupportServer.Data.Seeds
         {
             UserSeeders.SeedUsers(modelBuilder);
             PermissionSeeders.SeedPermissions(modelBuilder);
-            ConfigurationSeeders.SeedConfigurations(modelBuilder);
         }
     }
 }

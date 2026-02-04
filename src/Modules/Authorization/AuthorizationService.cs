@@ -2,15 +2,16 @@
 using ItSupportServer.Data;
 using ItSupportServer.src.Shared.Base;
 
-namespace ItSupportServer.src.Shared.Helper
+namespace ItSupportServer.src.Modules.Authorization
 {
     public class AuthorizationService(AppDbContext db)
     {
         public async Task<BaseResult<bool>> RoleHasClaimAsync(string EmployeeId, string claimType)
         {
+            var AccountId = Guid.Parse(EmployeeId);
             var hasPermission = await db.Accounts
                 .AsNoTracking()
-                .Where(a => a.AccountId == EmployeeId)
+                .Where(a => a.AccountId == AccountId)
                 .AnyAsync(a =>
                     a.AccountClaims.Any(ac =>
                         ac.Claim.Claim == claimType || ac.Claim.Claim == "Admin") ||
@@ -26,9 +27,10 @@ namespace ItSupportServer.src.Shared.Helper
 
         public async Task<BaseResult<bool>> RoleHasListClaimAsync(string EmployeeId, string[] claimTypes)
         {
+            var AccountId = Guid.Parse(EmployeeId);
             var hasPermission = await db.Accounts
                 .AsNoTracking()
-                .Where(a => a.AccountId == EmployeeId)
+                .Where(a => a.AccountId == AccountId)
                 .AnyAsync(a =>
                     a.AccountClaims.Any(ac =>
                         claimTypes.Contains(ac.Claim.Claim) || ac.Claim.Claim == "Admin") ||

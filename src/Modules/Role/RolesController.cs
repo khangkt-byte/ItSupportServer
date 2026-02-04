@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Attributes;
 
 namespace ItSupportServer.src.Modules.Role
 {
@@ -8,6 +9,7 @@ namespace ItSupportServer.src.Modules.Role
     public class RolesController(IRolesService service) : ControllerBase
     {
         [HttpGet]
+        [HasPermission(Permissions.Roles.View)]
         public async Task<IActionResult> GetRolesAsync(
             [FromQuery] string? query,
             [FromQuery] int page = 1,
@@ -20,13 +22,15 @@ namespace ItSupportServer.src.Modules.Role
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetRoleAsync([FromRoute] string id)
+        [HasPermission(Permissions.Roles.View)]
+        public async Task<IActionResult> GetRoleAsync([FromRoute] int id)
         {
             var result = await service.GetRoleAsync(id);
             return this.MyStatusCode(result);
         }
 
         [HttpPost]
+        [HasPermission(Permissions.Roles.Create)]
         public async Task<IActionResult> CreateRoleAsync([FromBody] CreateRoleDto dto)
         {
             var result = await service.CreateRoleAsync(dto);
@@ -34,7 +38,8 @@ namespace ItSupportServer.src.Modules.Role
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateRoleAsync([FromRoute] string id, [FromBody] UpdateRoleDto dto)
+        [HasPermission(Permissions.Roles.Edit)]
+        public async Task<IActionResult> UpdateRoleAsync([FromRoute] int id, [FromBody] UpdateRoleDto dto)
         {
             dto.RoleId = id;
             var result = await service.UpdateRoleAsync(dto);
@@ -42,13 +47,15 @@ namespace ItSupportServer.src.Modules.Role
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteRoleAsync([FromRoute] string id)
+        [HasPermission(Permissions.Roles.Delete)]
+        public async Task<IActionResult> DeleteRoleAsync([FromRoute] int id)
         {
             var result = await service.DeleteRoleAsync(id);
             return this.MyStatusCode(result);
         }
 
         [HttpGet("claims")]
+        [HasPermission(Permissions.Roles.View)]
         public async Task<IActionResult> GetAllClaimsAsync()
         {
             var result = await service.GetAllClaimsAsync();
@@ -56,6 +63,7 @@ namespace ItSupportServer.src.Modules.Role
         }
 
         [HttpPost("set-role")]
+        [HasPermission(Permissions.Roles.SetRole)]
         public async Task<IActionResult> SetRoleAsync([FromBody] AccountRoleDto dto)
         {
             var result = await service.SetRoleAsync(dto);

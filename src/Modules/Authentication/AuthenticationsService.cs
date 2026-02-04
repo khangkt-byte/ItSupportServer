@@ -23,7 +23,7 @@ namespace ItSupportServer.src.Modules.Authentication
             {
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.NameIdentifier, user.AccountId.ToString()),
-                //new Claim(ClaimTypes.Role, userRoles.Position),
+                new Claim(ClaimTypes.Role, userRoles.Position),
 
             };
 
@@ -64,7 +64,7 @@ namespace ItSupportServer.src.Modules.Authentication
         }
 
         //tạo vào lưu token mới
-        private async Task<string> GenerateAndSaveRefreshToken(string accountId)
+        private async Task<string> GenerateAndSaveRefreshToken(Guid accountId)
         {
             var token = await db.AccountTokens.AddAsync(new AccountTokens
             {

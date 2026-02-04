@@ -9,17 +9,17 @@ namespace ItSupportServer.Data
     [Index(nameof(EmpCode), IsUnique = true)]
     [Index(nameof(Email), IsUnique = true)]
     [Index(nameof(PhoneNumber), IsUnique = true)]
-    public class Employees : BaseEntity<string>
+    public class Employees : BaseEntity<Guid>
     {
         [Key]
         [Column("emp_id")]
         [Required]
-        required public string EmpId { get; set; }
-        public override string Id => EmpId;
+        required public Guid EmpId { get; set; }
+        public override Guid Id => EmpId;
 
         [Column("emp_code")]
-        [Required, MaxLength(20)]
-        required public string EmpCode { get; set; }
+        [MaxLength(20)]
+        public string? EmpCode { get; set; }
 
         [Column("full_name")]
         [Required, MaxLength(150)]

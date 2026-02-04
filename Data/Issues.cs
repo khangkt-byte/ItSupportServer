@@ -20,6 +20,6 @@ namespace ItSupportServer.Data
         [Column("description")]
         public string? Description { get; set; }
 
-        public ICollection<Reasons> Reasons { get; set; } = new List<Reasons>();
+        public ICollection<Causes> Causes { get; set; } = new List<Causes>();
     }
 }
