@@ -7,6 +7,7 @@ using ItSupportServer.src.Shared.Extensions;
 using ItSupportServer.src.Shared.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using static ItSupportServer.src.Shared.Base.BaseEnum;
 
 namespace ItSupportServer.src.Modules.Account
 {
@@ -223,56 +224,207 @@ namespace ItSupportServer.src.Modules.Account
             return await GetAccountByIdAsync(accountId);
         }
 
-        public async Task<bool> DeleteAccountsAsync(List<Guid> accountIds)
+        public async Task DeleteAccountAsync(Guid accountId, bool softDelete = true)
         {
-            _logger.LogInformation("Deleting {Count} accounts", accountIds?.Count ?? 0);
+            _logger.LogInformation("Deleting account {AccountId} | SoftDelete: {SoftDelete}", 
+                accountId, softDelete);
 
+            // ✅ Only include what we need
+            var account = await _db.Accounts
+                .Include(a => a.Employee)  // For Super_Admin check
+                .FirstOrDefaultAsync(a => a.AccountId == accountId && a.DeletedAt == null);
+
+            if (account is null)
+            {
+                _logger.LogWarning("Account {AccountId} not found", accountId);
+                throw new NotFoundException("Tài khoản", accountId);
+            }
+
+            // ✅ Business rules validation
+            if (account.Employee?.Position == "Super_Admin")
+            {
+                _logger.LogWarning("Attempt to delete Super Admin account {AccountId}:{Username}", 
+                    accountId, account.Username);
+                throw new BusinessRuleException(
+                    "Không thể xóa tài khoản Super Admin",
+                    "CANNOT_DELETE_SUPER_ADMIN");  // ✅ Added error code
+            }
+
+            // TODO: Check if account has critical dependencies
+            // var hasTickets = await _db.Tickets
+            //     .AnyAsync(t => t.CreatedById == accountId || t.AssignedToId == accountId);
+            // if (hasTickets)
+            // {
+            //     _logger.LogWarning("Account {AccountId} has {Count} related tickets", 
+            //         accountId, ticketCount);
+            //     throw new BusinessRuleException(
+            //         "Không thể xóa tài khoản đang có ticket liên quan",
+            //         "ACCOUNT_HAS_DEPENDENCIES");
+            // }
+
+            // ✅ Perform delete
+            if (softDelete)
+            {
+                // Soft delete - no transaction needed (single operation)
+                account.DeletedAt = DateTime.UtcNow;
+                _db.Accounts.Update(account);
+                
+                await _db.SaveChangesAsync();
+                
+                _logger.LogInformation("Soft deleted account {AccountId}:{Username}", 
+                    accountId, account.Username);
+            }
+            else
+            {
+                // Hard delete - use transaction for multiple operations
+                using var transaction = await _db.Database.BeginTransactionAsync();
+                
+                try
+                {
+                    // ✅ Option 1: Rely on DB cascade delete (if configured)
+                    // Just remove the account, FK constraints handle the rest
+                    _db.Accounts.Remove(account);
+                    
+                    // ✅ Option 2: Manual cascade (if not using DB cascade)
+                    // Use ExecuteDelete for better performance
+                    // await _db.AccountRoles
+                    //     .Where(ar => ar.AccountId == accountId)
+                    //     .ExecuteDeleteAsync();
+                    // await _db.AccountClaims
+                    //     .Where(ac => ac.AccountId == accountId)
+                    //     .ExecuteDeleteAsync();
+                    // _db.Accounts.Remove(account);
+                    
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    
+                    _logger.LogInformation("Hard deleted account {AccountId}:{Username}", 
+                        accountId, account.Username);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+        }
+
+        public async Task<BulkDeleteResultDto> DeleteAccountsAsync(List<Guid> accountIds, bool softDelete = true)
+        {
+            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}", 
+                accountIds?.Count ?? 0, softDelete);
+
+            // ✅ Step 0: Input validation
             ArgumentNullException.ThrowIfNull(accountIds);
 
             if (accountIds.Count == 0)
             {
                 throw new Shared.Exceptions.ValidationException("accountIds",
-                    "Vui lòng chọn tài khoản để xóa");
+                    "Vui lòng chọn ít nhất một tài khoản để xóa");
             }
+
+            // Remove duplicates
+            var uniqueIds = accountIds.Distinct().ToList();
 
             using var transaction = await _db.Database.BeginTransactionAsync();
 
             try
             {
-                var existing = await _db.Accounts
+                // ✅ Step 1: Validate ALL items BEFORE any deletion
+                var accounts = await _db.Accounts
                     .Include(a => a.Employee)
-                    .Where(a => accountIds.Contains(a.AccountId) && a.DeletedAt == null)
+                    .Include(a => a.AccountRoles)
+                    .Where(a => uniqueIds.Contains(a.AccountId) && a.DeletedAt == null)
                     .ToListAsync();
 
-                if (existing.Count == 0)
+                if (accounts.Count == 0)
                 {
-                    throw new NotFoundException("Không tìm thấy tài khoản để xóa");
+                    throw new NotFoundException("Không tìm thấy tài khoản nào để xóa");
                 }
 
-                var systemAccounts = existing.Where(a =>
-                    a.Employee?.Position == "Super_Admin").ToList();
+                // Check if ALL requested IDs exist (strict validation)
+                var foundIds = accounts.Select(a => a.AccountId).ToList();
+                var missingIds = uniqueIds.Except(foundIds).ToList();
+                
+                if (missingIds.Any())
+                {
+                    _logger.LogWarning("Accounts not found: {Ids}", string.Join(", ", missingIds));
+                    throw new NotFoundException(
+                        $"Không tìm thấy {missingIds.Count} tài khoản: {string.Join(", ", missingIds)}");
+                }
+
+                // ✅ Step 2: Check business rules for ALL items
+                var systemAccounts = accounts
+                    .Where(a => a.Employee?.Position == "Super_Admin")
+                    .ToList();
 
                 if (systemAccounts.Any())
                 {
-                    throw new BusinessRuleException("Không thể xóa tài khoản Super Admin");
+                    var systemUsernames = string.Join(", ", systemAccounts.Select(a => a.Username));
+                    _logger.LogWarning("System accounts detected: {Usernames}", systemUsernames);
+                    throw new BusinessRuleException(
+                        $"Không thể xóa tài khoản Super Admin: {systemUsernames}",
+                        "CANNOT_DELETE_SUPER_ADMIN");  // ✅ Added error code
                 }
 
-                foreach (var account in existing)
+                // TODO: Add check to prevent self-deletion
+                // if (uniqueIds.Contains(currentUserId))
+                // {
+                //     throw new BusinessRuleException(
+                //         "Không thể tự xóa tài khoản của chính mình",
+                //         "CANNOT_DELETE_SELF");
+                // }
+
+                // ✅ Step 3: All checks passed → Delete ALL
+                var deletedAt = DateTime.UtcNow;
+                foreach (var account in accounts)
                 {
-                    account.DeletedAt = DateTime.UtcNow;
+                    if (softDelete)
+                    {
+                        account.DeletedAt = deletedAt;
+                    }
+                    else
+                    {
+                        // Hard delete - cascade manually if needed
+                        var accountRoles = await _db.AccountRoles
+                            .Where(ar => ar.AccountId == account.AccountId)
+                            .ToListAsync();
+                        var accountClaims = await _db.AccountClaims
+                            .Where(ac => ac.AccountId == account.AccountId)
+                            .ToListAsync();
+                        
+                        _db.AccountRoles.RemoveRange(accountRoles);
+                        _db.AccountClaims.RemoveRange(accountClaims);
+                        _db.Accounts.Remove(account);
+                    }
+                    
+                    // ✅ Added detailed logging for audit trail
+                    _logger.LogInformation("Deleted account {AccountId}:{Username} | SoftDelete: {SoftDelete}", 
+                        account.AccountId, account.Username, softDelete);
                 }
 
-                _db.Accounts.UpdateRange(existing);
+                if (softDelete)
+                {
+                    _db.Accounts.UpdateRange(accounts);
+                }
+                
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("Successfully deleted {Count} accounts", existing.Count);
+                _logger.LogInformation("Batch delete SUCCESS | Count: {Count}/{Total}", 
+                    accounts.Count, uniqueIds.Count);
 
-                return true;
+                return new BulkDeleteResultDto
+                {
+                    Success = true,
+                    DeletedCount = accounts.Count,
+                    TotalRequested = uniqueIds.Count,
+                    Message = $"Đã xóa {accounts.Count} tài khoản thành công"
+                };
             }
             catch
             {
-                await transaction.RollbackAsync();
+                await transaction.RollbackAsync();  // ✅ Rollback on ANY error
                 throw;
             }
         }

@@ -25,9 +25,14 @@ namespace ItSupportServer.src.Modules.Account
         Task<AccountDto> UpdateAccountAsync(Guid accountId, UpdateAccountDto dto);
 
         /// <summary>
-        /// Delete accounts (soft delete)
+        /// Delete single account (soft delete)
         /// </summary>
-        Task<bool> DeleteAccountsAsync(List<Guid> accountIds);
+        Task DeleteAccountAsync(Guid accountId, bool softDelete = true);
+
+        /// <summary>
+        /// Delete multiple accounts (soft delete)
+        /// </summary>
+        Task<BulkDeleteResultDto> DeleteAccountsAsync(List<Guid> accountIds, bool softDelete = true);
 
         /// <summary>
         /// Admin reset password for user
