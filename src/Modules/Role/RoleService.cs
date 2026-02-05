@@ -259,7 +259,7 @@ namespace ItSupportServer.src.Modules.Role
             {
                 // UpdatedAt set automatically by interceptor
                 await _db.SaveChangesAsync();
-                
+
                 // ✅ Invalidate permission cache for all affected accounts
                 if (affectedAccountIds.Any())
                 {
@@ -268,7 +268,7 @@ namespace ItSupportServer.src.Modules.Role
                         "Invalidated permission cache for {Count} accounts affected by role {RoleId} update",
                         affectedAccountIds.Count, roleId);
                 }
-                
+
                 _logger.LogInformation("Successfully updated role {RoleId}", roleId);
             }
             else
@@ -309,26 +309,26 @@ namespace ItSupportServer.src.Modules.Role
             {
                 role.DeletedAt = DateTime.UtcNow;
                 _db.Roles.Update(role);
-                
+
                 await _db.SaveChangesAsync();
-                
-                _logger.LogInformation("Soft deleted role {RoleId}:{Name}", 
+
+                _logger.LogInformation("Soft deleted role {RoleId}:{Name}",
                     role.RoleId, role.Name);
             }
             else
             {
                 // Hard delete with transaction
                 using var transaction = await _db.Database.BeginTransactionAsync();
-                
+
                 try
                 {
                     // Rely on DB cascade or manual cascade
                     _db.Roles.Remove(role);
-                    
+
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
-                    
-                    _logger.LogInformation("Hard deleted role {RoleId}:{Name}", 
+
+                    _logger.LogInformation("Hard deleted role {RoleId}:{Name}",
                         role.RoleId, role.Name);
                 }
                 catch
@@ -342,12 +342,12 @@ namespace ItSupportServer.src.Modules.Role
 
         public async Task<BulkDeleteResultDto> DeleteRolesAsync(List<int> roleIds, bool softDelete = true)
         {
-            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}", 
+            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}",
         roleIds?.Count ?? 0, softDelete);
 
             // ✅ Add input validation
             ArgumentNullException.ThrowIfNull(roleIds);
-            
+
             if (roleIds.Count == 0)
             {
                 throw new Shared.Exceptions.ValidationException("roleIds", "Vui lòng chọn ít nhất một vai trò để xóa");
@@ -357,7 +357,7 @@ namespace ItSupportServer.src.Modules.Role
             var uniqueIds = roleIds.Distinct().ToList();
 
             using var transaction = await _db.Database.BeginTransactionAsync();
-            
+
             try
             {
                 // ✅ Step 1: Validate ALL items BEFORE any deletion
@@ -377,7 +377,7 @@ namespace ItSupportServer.src.Modules.Role
                 var rolesInUse = existing.Where(r => r.AccountRoles.Any()).ToList();
                 if (rolesInUse.Any())
                 {
-                    _logger.LogWarning("Roles in use: {Roles}", 
+                    _logger.LogWarning("Roles in use: {Roles}",
                         string.Join(", ", rolesInUse.Select(r => $"{r.RoleId}:{r.Name}")));
                     throw new BusinessRuleException(
                         $"Không thể xóa vai trò {string.Join(", ", rolesInUse.Select(r => r.Name))} vì đang được sử dụng",
@@ -391,7 +391,7 @@ namespace ItSupportServer.src.Modules.Role
                         role.DeletedAt = DateTime.UtcNow;
                     else
                         _db.Roles.Remove(role);
-                        
+
                     _logger.LogInformation("Deleted role {RoleId}:{Name}", role.RoleId, role.Name);
                 }
 
