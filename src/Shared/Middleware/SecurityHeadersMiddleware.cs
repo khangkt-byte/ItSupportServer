@@ -43,7 +43,7 @@ namespace ItSupportServer.src.Shared.Middleware
 
             // ✅ CRITICAL: Permissions-Policy
             // Controls browser features
-            context.Response.Headers["Permissions-Policy"] =
+            context.Response.Headers["Permissions-Policy"] = 
                 "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=()";
 
             // ✅ ENHANCED: Content Security Policy with nonce
@@ -53,7 +53,7 @@ namespace ItSupportServer.src.Shared.Middleware
             // ✅ CRITICAL: Strict-Transport-Security (HSTS)
             if (context.Request.IsHttps)
             {
-                context.Response.Headers["Strict-Transport-Security"] =
+                context.Response.Headers["Strict-Transport-Security"] = 
                     "max-age=31536000; includeSubDomains; preload";
             }
 
@@ -84,6 +84,7 @@ namespace ItSupportServer.src.Shared.Middleware
         /// </summary>
         private static string BuildCspPolicyWithNonce(IHostEnvironment env, string nonce)
         {
+            // ✅ STRICT CSP for production
             if (!env.IsDevelopment())
             {
                 // ✅ PRODUCTION: Strict CSP with nonce
