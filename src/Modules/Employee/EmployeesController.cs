@@ -10,6 +10,8 @@ namespace ItSupportServer.src.Modules.Employee
 {
     /// <summary>
     /// API quản lý nhân viên
+    /// Pattern: RESTful API
+    /// Reference: Microsoft REST API Guidelines
     /// </summary>
     [ApiController]
     [Route("api/employees")]
@@ -95,7 +97,6 @@ namespace ItSupportServer.src.Modules.Employee
             [FromRoute] Guid id,
             [FromBody] UpdateEmployeeDto dto)
         {
-            // Prevent self-edit through admin endpoint
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (currentUserId != null && Guid.Parse(currentUserId) == id)
             {
@@ -108,18 +109,73 @@ namespace ItSupportServer.src.Modules.Employee
         }
 
         /// <summary>
+        /// [ADMIN] Xóa nhân viên
+        /// </summary>
+        /// <param name="id">Employee ID</param>
+        /// <returns>No content (204)</returns>
+        /// <remarks>
+        /// **Pattern:** RESTful single resource delete
+        /// **Reference:** Microsoft REST API Guidelines
+        /// 
+        /// **Business rules:**
+        /// - Không thể xóa Super_Admin (422)
+        /// - Không thể xóa nếu nhân viên có nhật ký sự cố (422)
+        /// - Cascade delete tài khoản liên kết
+        /// </remarks>
+        [HttpDelete("{id}")]
+        [HasPermission(Permissions.EmployeeClaims.Delete)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DeleteEmployee([FromRoute] Guid id)
+        {
+            await _service.DeleteEmployeeAsync(id);
+            return NoContent();
+        }
+
+        /// <summary>
         /// [ADMIN] Xóa nhiều nhân viên
         /// </summary>
+        /// <param name="empIds">Danh sách employee IDs cần xóa</param>
+        /// <param name="softDelete">Soft delete (mặc định: true)</param>
+        /// <returns>Kết quả xóa hàng loạt</returns>
+        /// <remarks>
+        /// **Strategy:** All-or-nothing (transaction-based)
+        /// - Nếu TẤT CẢ thành công → 200 OK với summary
+        /// - Nếu BẤT KỲ lỗi nào → Rollback, throw error (4xx/5xx)
+        /// 
+        /// **Pattern:** Microsoft Dynamics 365 standard tables
+        /// **Reference:** https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// 
+        /// **Business rules:**
+        /// - Không thể xóa Super_Admin (422)
+        /// - Không thể xóa nếu nhân viên có nhật ký sự cố (422)
+        /// - Transaction rollback nếu ANY item fails
+        /// - Cascade delete tài khoản liên kết
+        /// 
+        /// **Response:**
+        /// ```json
+        /// {
+        ///   "success": true,
+        ///   "deletedCount": 3,
+        ///   "totalRequested": 3,
+        ///   "message": "Đã xóa 3 nhân viên thành công"
+        /// }
+        /// ```
+        /// </remarks>
         [HttpDelete]
         [HasPermission(Permissions.EmployeeClaims.Delete)]
-        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(BulkDeleteResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<bool>> DeleteEmployees(
+        public async Task<ActionResult<BulkDeleteResultDto>> DeleteEmployees(
             [FromBody] List<Guid> empIds,
             [FromQuery] bool softDelete = true)
         {
@@ -146,7 +202,6 @@ namespace ItSupportServer.src.Modules.Employee
             [FromRoute] Guid id,
             [FromBody] List<int> roleIds)
         {
-            // Prevent self-role-change
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (currentUserId != null && Guid.Parse(currentUserId) == id)
             {

@@ -281,88 +281,237 @@ namespace ItSupportServer.src.Modules.Employee
             return _mapper.MapToEmployeeDto(employee);
         }
 
-        public async Task<bool> DeleteEmployeesAsync(List<Guid> empIds, bool softDelete = true)
+        /// <summary>
+        /// Delete single employee
+        /// Pattern: RESTful single resource delete (returns void, throws on error)
+        /// Reference: Microsoft REST API Guidelines - DELETE returns 204 No Content
+        /// Business Rules: 
+        /// - Cannot delete Super_Admin
+        /// - Cannot delete if employee has IssueLogs
+        /// - Cascade delete associated Account
+        /// </summary>
+        public async Task DeleteEmployeeAsync(Guid empId, bool softDelete = true)
         {
-            _logger.LogInformation("Deleting {Count} employees (soft: {SoftDelete})",
+            _logger.LogInformation("Deleting employee {EmpId} | SoftDelete: {SoftDelete}",
+                empId, softDelete);
+
+            var employee = await _db.Employees
+                .Include(e => e.Account)
+                .FirstOrDefaultAsync(e => e.EmpId == empId && e.DeletedAt == null);
+
+            if (employee == null)
+            {
+                _logger.LogWarning("Employee {EmpId} not found", empId);
+                throw new NotFoundException("Nhân viên", empId);
+            }
+
+            // ✅ Business rule 1: Protect Super_Admin
+            if (employee.Position == "Super_Admin")
+            {
+                _logger.LogWarning("Attempted to delete Super_Admin {EmpId}:{FullName}",
+                    employee.EmpId, employee.FullName);
+                throw new BusinessRuleException(
+                    "Không thể xóa tài khoản Super Admin",
+                    "SUPER_ADMIN_PROTECTED");
+            }
+
+            // ✅ Business rule 2: Check IssueLogs references
+            var hasIssueLogs = await _db.IssueLogs
+                .Where(il => il.DeletedAt == null && 
+                           il.Operator.Contains(empId.ToString()))
+                .AnyAsync();
+
+            if (hasIssueLogs)
+            {
+                var issueLogCount = await _db.IssueLogs
+                    .CountAsync(il => il.DeletedAt == null && 
+                                    il.Operator.Contains(empId.ToString()));
+
+                _logger.LogWarning("Employee {EmpId}:{FullName} has {Count} issue logs",
+                    employee.EmpId, employee.FullName, issueLogCount);
+
+                throw new BusinessRuleException(
+                    $"Không thể xóa nhân viên '{employee.FullName}' vì có {issueLogCount} nhật ký sự cố liên quan",
+                    "EMPLOYEE_HAS_ISSUE_LOGS");
+            }
+
+            // ✅ Perform delete with account cascade
+            if (softDelete)
+            {
+                employee.DeletedAt = DateTime.UtcNow;
+
+                // Cascade soft delete associated account
+                if (employee.Account != null)
+                {
+                    employee.Account.DeletedAt = DateTime.UtcNow;
+                }
+
+                _db.Employees.Update(employee);
+                await _db.SaveChangesAsync();
+
+                _logger.LogInformation("Soft deleted employee {EmpId}:{FullName}",
+                    employee.EmpId, employee.FullName);
+            }
+            else
+            {
+                // Hard delete with transaction
+                using var transaction = await _db.Database.BeginTransactionAsync();
+
+                try
+                {
+                    // Delete account first (FK constraint)
+                    if (employee.Account != null)
+                    {
+                        _db.Accounts.Remove(employee.Account);
+                    }
+
+                    _db.Employees.Remove(employee);
+
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    _logger.LogInformation("Hard deleted employee {EmpId}:{FullName}",
+                        employee.EmpId, employee.FullName);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Delete multiple employees with all-or-nothing transaction
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Strategy: Validate ALL → Delete ALL → Return summary
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
+        public async Task<BulkDeleteResultDto> DeleteEmployeesAsync(List<Guid> empIds, bool softDelete = true)
+        {
+            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}",
                 empIds?.Count ?? 0, softDelete);
 
+            // ✅ Input validation
             ArgumentNullException.ThrowIfNull(empIds);
 
             if (empIds.Count == 0)
             {
                 throw new Shared.Exceptions.ValidationException("empIds",
-                    "Vui lòng chọn nhân viên để xóa");
+                    "Vui lòng chọn ít nhất một nhân viên để xóa");
             }
+
+            // ✅ Remove duplicates
+            var uniqueIds = empIds.Distinct().ToList();
 
             using var transaction = await _db.Database.BeginTransactionAsync();
 
             try
             {
+                // ✅ Step 1: Validate ALL items BEFORE any deletion
                 var existing = await _db.Employees
                     .Include(e => e.Account)
-                    .Where(e => empIds.Contains(e.EmpId) && e.DeletedAt == null)
+                    .Where(e => uniqueIds.Contains(e.EmpId) && e.DeletedAt == null)
                     .ToListAsync();
 
-                if (existing.Count == 0)
+                var notFoundIds = uniqueIds.Except(existing.Select(e => e.EmpId)).ToList();
+                if (notFoundIds.Any())
                 {
-                    throw new NotFoundException("Không tìm thấy nhân viên để xóa");
+                    _logger.LogWarning("Employees not found: {Ids}", 
+                        string.Join(", ", notFoundIds));
+                    throw new NotFoundException(
+                        $"Nhân viên không tồn tại: {string.Join(", ", notFoundIds)}");
                 }
 
-                // Check for Super_Admin protection
-                var hasSuperAdmin = existing.Any(e => e.Position == "Super_Admin");
-                if (hasSuperAdmin)
-                {
-                    throw new BusinessRuleException("Không thể xóa tài khoản Super Admin");
-                }
+                // ✅ Step 2: Check business rules for ALL items
 
-                // Check if employee has related data
-                var hasIssueLogs = await _db.IssueLogs
-                    .Where(il => il.DeletedAt == null &&
-                           empIds.Any(id => il.Operator.Contains(id.ToString())))
-                    .AnyAsync();
-
-                if (hasIssueLogs)
+                // Rule 1: Check for Super_Admin
+                var superAdmins = existing.Where(e => e.Position == "Super_Admin").ToList();
+                if (superAdmins.Any())
                 {
+                    var adminNames = string.Join(", ", superAdmins.Select(e => e.FullName));
+                    _logger.LogWarning("Attempted to delete Super_Admin: {Admins}", adminNames);
                     throw new BusinessRuleException(
-                        "Không thể xóa nhân viên đang có liên kết với nhật ký sự cố");
+                        "Không thể xóa tài khoản Super Admin",
+                        "SUPER_ADMIN_PROTECTED");
+                }
+
+                // Rule 2: Check for IssueLogs references
+                var employeeIdsInLogs = await _db.IssueLogs
+                    .Where(il => il.DeletedAt == null &&
+                           uniqueIds.Any(id => il.Operator.Contains(id.ToString())))
+                    .Select(il => il.Operator)
+                    .Distinct()
+                    .ToListAsync();
+
+                if (employeeIdsInLogs.Any())
+                {
+                    var employeesWithLogs = existing
+                        .Where(e => employeeIdsInLogs.Any(log => log.Contains(e.EmpId.ToString())))
+                        .ToList();
+
+                    var errorDetails = new List<string>();
+                    foreach (var emp in employeesWithLogs)
+                    {
+                        var count = await _db.IssueLogs
+                            .CountAsync(il => il.DeletedAt == null && 
+                                            il.Operator.Contains(emp.EmpId.ToString()));
+                        errorDetails.Add($"{emp.FullName} ({count} nhật ký)");
+                    }
+
+                    _logger.LogWarning("Employees with issue logs: {Employees}",
+                        string.Join(", ", employeesWithLogs.Select(e => $"{e.EmpId}:{e.FullName}")));
+
+                    throw new BusinessRuleException(
+                        $"Không thể xóa nhân viên {string.Join(", ", errorDetails)} vì có nhật ký sự cố liên quan",
+                        "EMPLOYEE_HAS_ISSUE_LOGS");
+                }
+
+                // ✅ Step 3: All checks passed → Delete ALL
+                foreach (var employee in existing)
+                {
+                    if (softDelete)
+                    {
+                        employee.DeletedAt = DateTime.UtcNow;
+
+                        // Cascade soft delete account
+                        if (employee.Account != null)
+                        {
+                            employee.Account.DeletedAt = DateTime.UtcNow;
+                        }
+                    }
+                    else
+                    {
+                        // Hard delete account first
+                        if (employee.Account != null)
+                        {
+                            _db.Accounts.Remove(employee.Account);
+                        }
+
+                        _db.Employees.Remove(employee);
+                    }
+
+                    _logger.LogInformation("Deleted employee {EmpId}:{FullName}", 
+                        employee.EmpId, employee.FullName);
                 }
 
                 if (softDelete)
                 {
-                    foreach (var item in existing)
-                    {
-                        item.DeletedAt = DateTime.UtcNow;
-
-                        // Also soft delete associated account
-                        if (item.Account != null)
-                        {
-                            item.Account.DeletedAt = DateTime.UtcNow;
-                        }
-                    }
                     _db.Employees.UpdateRange(existing);
-                }
-                else
-                {
-                    // Hard delete accounts first (FK constraint)
-                    var accountsToDelete = existing
-                        .Where(e => e.Account != null)
-                        .Select(e => e.Account!)
-                        .ToList();
-
-                    if (accountsToDelete.Any())
-                    {
-                        _db.Accounts.RemoveRange(accountsToDelete);
-                    }
-
-                    _db.Employees.RemoveRange(existing);
                 }
 
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("Successfully deleted {Count} employees", existing.Count);
+                _logger.LogInformation("Batch delete SUCCESS | Count: {Count}", existing.Count);
 
-                return true;
+                return new BulkDeleteResultDto
+                {
+                    Success = true,
+                    DeletedCount = existing.Count,
+                    TotalRequested = empIds.Count,
+                    Message = $"Đã xóa {existing.Count} nhân viên thành công"
+                };
             }
             catch
             {
