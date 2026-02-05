@@ -1,5 +1,6 @@
 ﻿using ItSupportServer.Data.Models;
 using ItSupportServer.Data.Models.Entities;
+using ItSupportServer.src.Shared.Dto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -151,9 +152,9 @@ namespace ItSupportServer.src.Shared.Middleware
                 {
                     SessionId = sessionId,
                     AccountId = accountId,
-                    InitialIp = session.IpAddress ?? "",
-                    InitialUserAgent = session.UserAgent ?? "",
-                    InitialFingerprint = session.DeviceInfo ?? "",
+                    InitialIp = session.IpAddress ?? string.Empty,
+                    InitialUserAgent = session.UserAgent ?? string.Empty,
+                    InitialFingerprint = session.DeviceInfo ?? string.Empty,
                     CreatedAt = session.CreatedAt
                 };
             });
@@ -256,35 +257,6 @@ namespace ItSupportServer.src.Shared.Middleware
             var hash = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(combined));
             return Convert.ToBase64String(hash);
         }
-    }
-
-    public class SessionValidationResult
-    {
-        public bool IsValid { get; set; }
-        public string Reason { get; set; } = "";
-        public int SuspicionScore { get; set; }
-
-        public static SessionValidationResult Valid(int score = 0) => 
-            new() { IsValid = true, SuspicionScore = score };
-        
-        public static SessionValidationResult Invalid(string reason) => 
-            new() { IsValid = false, Reason = reason };
-    }
-
-    public class SessionRiskProfile
-    {
-        public string SessionId { get; set; } = "";
-        public string AccountId { get; set; } = "";
-        public string InitialIp { get; set; } = "";
-        public string InitialUserAgent { get; set; } = "";
-        public string InitialFingerprint { get; set; } = "";
-        public DateTime CreatedAt { get; set; }
-    }
-
-    public class SessionRequestPattern
-    {
-        public int RequestCount { get; set; }
-        public DateTime LastRequestTime { get; set; }
     }
 
     public static class UnifiedSessionMiddlewareExtensions

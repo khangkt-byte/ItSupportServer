@@ -16,6 +16,7 @@ using Serilog;
 using Serilog.Events;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using System.Reflection;
 
 // ✅ STEP 1: Configure Serilog BEFORE building WebApplication
 Log.Logger = new LoggerConfiguration()
@@ -363,6 +364,13 @@ try
             };
 
             options.AddSchemaTransformer<ExampleSchemaTransformer>();
+
+            // ✅ ADD: Include XML comments
+            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
+            // Note: Scalar automatically reads XML comments
+            // No additional configuration needed
 
             return Task.CompletedTask;
         });
