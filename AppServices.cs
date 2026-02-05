@@ -10,6 +10,7 @@ using FluentValidation;
 using ItSupportServer.src.Modules.Cause;
 using Microsoft.AspNetCore.Authorization;
 using ItSupportServer.src.Shared.Services;
+using ItSupportServer.src.Modules.Department;
 
 namespace ItSupportServer
 {
@@ -47,6 +48,7 @@ namespace ItSupportServer
             services.AddScoped<IAuthenticationService, AuthenticationService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IAreaService, AreaService>();
+            services.AddScoped<IDepartmentService, DepartmentService>();
             services.AddScoped<IEmployeeService, EmployeeService>();
             services.AddScoped<IIssueService, IssueService>();
             services.AddScoped<IIssueLogService, IssueLogService>();
