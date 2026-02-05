@@ -5,22 +5,18 @@ namespace ItSupportServer.Data.Models.Entities
     public class AccountTokens : ICreatableEntity
     {
         public Guid AccountTokenId { get; set; }
-
-        public required Guid AccountId { get; set; }
+        public Guid AccountId { get; set; }
+        public Accounts Account { get; set; } = null!;
 
         public DateTime ExpiryTime { get; set; }
-
-        /// <summary>
-        /// Timestamp when token was revoked (for logout/security)
-        /// </summary>
         public DateTime? RevokedAt { get; set; }
-
-        /// <summary>
-        /// Timestamp when token was created
-        /// </summary>
         public DateTime CreatedAt { get; set; }
 
-        // Navigation property
-        public Accounts Account { get; set; } = null!;
+        // ✅ SESSION MANAGEMENT FIELDS
+        public string? IpAddress { get; set; }
+        public string? UserAgent { get; set; }
+        public string? DeviceInfo { get; set; }
+        public DateTime? LastAccessedAt { get; set; }
+        public string? SessionId { get; set; } // For tracking unique sessions
     }
 }
