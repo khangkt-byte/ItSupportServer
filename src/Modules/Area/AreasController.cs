@@ -7,6 +7,8 @@ namespace ItSupportServer.src.Modules.Area
 {
     /// <summary>
     /// API quản lý khu vực
+    /// Pattern: RESTful API
+    /// Reference: Microsoft REST API Guidelines
     /// </summary>
     [ApiController]
     [Route("api/areas")]
@@ -67,7 +69,6 @@ namespace ItSupportServer.src.Modules.Area
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<AreaDto>> CreateArea([FromBody] CreateAreaDto dto)
@@ -100,21 +101,69 @@ namespace ItSupportServer.src.Modules.Area
         }
 
         /// <summary>
+        /// Xóa khu vực
+        /// </summary>
+        /// <param name="id">Area ID</param>
+        /// <returns>No content (204)</returns>
+        /// <remarks>
+        /// **Pattern:** RESTful single resource delete
+        /// **Reference:** Microsoft REST API Guidelines
+        /// 
+        /// **Business rules:**
+        /// - Không thể xóa nếu khu vực đang được sử dụng bởi nhân viên (422)
+        /// </remarks>
+        [HttpDelete("{id}")]
+        [HasPermission(Permissions.AreaClaims.Delete)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DeleteArea([FromRoute] int id)
+        {
+            await _service.DeleteAreaAsync(id);
+            return NoContent();
+        }
+
+        /// <summary>
         /// Xóa nhiều khu vực
         /// </summary>
-        /// <param name="areaIds">List of area IDs to delete</param>
-        /// <param name="softDelete">Soft delete (default: true)</param>
-        /// <returns>Success status</returns>
+        /// <param name="areaIds">Danh sách area IDs cần xóa</param>
+        /// <param name="softDelete">Soft delete (mặc định: true)</param>
+        /// <returns>Kết quả xóa hàng loạt</returns>
+        /// <remarks>
+        /// **Strategy:** All-or-nothing (transaction-based)
+        /// - Nếu TẤT CẢ thành công → 200 OK với summary
+        /// - Nếu BẤT KỲ lỗi nào → Rollback, throw error (4xx/5xx)
+        /// 
+        /// **Pattern:** Microsoft Dynamics 365 standard tables
+        /// **Reference:** https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// 
+        /// **Business rules:**
+        /// - Không thể xóa khu vực đang được sử dụng bởi nhân viên (422)
+        /// - Transaction rollback nếu ANY item fails
+        /// 
+        /// **Response:**
+        /// ```json
+        /// {
+        ///   "success": true,
+        ///   "deletedCount": 3,
+        ///   "totalRequested": 3,
+        ///   "message": "Đã xóa 3 khu vực thành công"
+        /// }
+        /// ```
+        /// </remarks>
         [HttpDelete]
         [HasPermission(Permissions.AreaClaims.Delete)]
-        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(BulkDeleteResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<bool>> DeleteAreas(
+        public async Task<ActionResult<BulkDeleteResultDto>> DeleteAreas(
             [FromBody] List<int> areaIds,
             [FromQuery] bool softDelete = true)
         {
