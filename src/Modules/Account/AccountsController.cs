@@ -1,6 +1,7 @@
 ﻿using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Attributes;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;

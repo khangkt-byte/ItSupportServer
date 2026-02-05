@@ -2,6 +2,7 @@
 using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Attributes;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ItSupportServer.src.Modules.Issue

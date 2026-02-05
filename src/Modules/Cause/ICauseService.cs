@@ -1,4 +1,5 @@
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 
 namespace ItSupportServer.src.Modules.Cause
 {

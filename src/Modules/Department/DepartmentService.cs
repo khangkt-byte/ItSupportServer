@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using ItSupportServer.Data.Models;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 using ItSupportServer.src.Shared.Exceptions;
 using ItSupportServer.src.Shared.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -239,71 +240,119 @@ namespace ItSupportServer.src.Modules.Department
             return await GetDepartmentByIdAsync(dptId);
         }
 
-        public async Task<bool> DeleteDepartmentAsync(int dptId, bool softDelete = true)
+        /// <summary>
+        /// Delete single department
+        /// Pattern: RESTful single resource delete (returns void, throws on error)
+        /// Reference: Microsoft REST API Guidelines - DELETE returns 204 No Content
+        /// Business Rules: 
+        /// - Cannot delete if department has Employees (DEPARTMENT_HAS_EMPLOYEES)
+        /// - Cannot delete if department has IssueLogs (DEPARTMENT_IN_USE)
+        /// </summary>
+        public async Task DeleteDepartmentAsync(int dptId, bool softDelete = true)
         {
             _logger.LogInformation("Deleting department {DptId} | SoftDelete: {SoftDelete}",
                 dptId, softDelete);
 
-            var department = await _db.Departments
-                .Include(d => d.Employees)
-                .Include(d => d.IssueLogs)
-                .FirstOrDefaultAsync(d => d.DptId == dptId && d.DeletedAt == null);
+            // ✅ FIX 1: Use transaction for BOTH soft and hard delete
+            // Reference: Microsoft Entity Framework Best Practices
+            using var transaction = await _db.Database.BeginTransactionAsync();
 
-            if (department == null)
+            try
             {
-                _logger.LogWarning("Department {DptId} not found", dptId);
-                throw new NotFoundException("Phòng ban", dptId);
+                var department = await _db.Departments
+                    .FirstOrDefaultAsync(d => d.DptId == dptId && d.DeletedAt == null);
+
+                if (department == null)
+                {
+                    _logger.LogWarning("Department {DptId} not found", dptId);
+                    throw new NotFoundException("Phòng ban", dptId);
+                }
+
+                // ✅ Business rule 1: Check for Employees
+                // Pattern: Referential integrity check
+                // Reference: Database Design Best Practices
+                var hasEmployees = await _db.Employees
+                    .AnyAsync(e => e.DptId == dptId && e.DeletedAt == null);
+
+                if (hasEmployees)
+                {
+                    var employeeCount = await _db.Employees
+                        .CountAsync(e => e.DptId == dptId && e.DeletedAt == null);
+
+                    _logger.LogWarning("Department {DptId}:{Name} has {Count} employees",
+                        department.DptId, department.Name, employeeCount);
+
+                    throw new BusinessRuleException(
+                        $"Không thể xóa phòng ban '{department.Name}' vì có {employeeCount} nhân viên",
+                        "DEPARTMENT_HAS_EMPLOYEES");
+                }
+
+                // ✅ Business rule 2: Check for IssueLogs
+                var hasIssueLogs = await _db.IssueLogs
+                    .AnyAsync(il => il.DptId == dptId && il.DeletedAt == null);
+
+                if (hasIssueLogs)
+                {
+                    var issueLogCount = await _db.IssueLogs
+                        .CountAsync(il => il.DptId == dptId && il.DeletedAt == null);
+
+                    _logger.LogWarning("Department {DptId}:{Name} has {Count} issue logs",
+                        department.DptId, department.Name, issueLogCount);
+
+                    throw new BusinessRuleException(
+                        $"Không thể xóa phòng ban '{department.Name}' vì có {issueLogCount} nhật ký sự cố",
+                        "DEPARTMENT_IN_USE");
+                }
+
+                // ✅ Perform delete
+                if (softDelete)
+                {
+                    department.DeletedAt = DateTime.UtcNow;
+                    _db.Departments.Update(department);
+                    
+                    _logger.LogInformation("Soft deleted department {DptId}:{Name}",
+                        department.DptId, department.Name);
+                }
+                else
+                {
+                    _db.Departments.Remove(department);
+                    
+                    _logger.LogInformation("Hard deleted department {DptId}:{Name}",
+                        department.DptId, department.Name);
+                }
+
+                await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
             }
-
-            // ✅ Check business rules - department in use
-            var hasEmployees = await _db.Employees
-                .AnyAsync(e => e.DptId == dptId && e.DeletedAt == null);
-
-            var hasIssueLogs = await _db.IssueLogs
-                .AnyAsync(il => il.DptId == dptId && il.DeletedAt == null);
-
-            if (hasEmployees || hasIssueLogs)
+            catch
             {
-                _logger.LogWarning("Department {DptId}:{Name} in use - Employees: {EmpCount}, IssueLogs: {LogCount}",
-                    department.DptId, department.Name, 
-                    department.Employees.Count, department.IssueLogs.Count);
-                
-                throw new BusinessRuleException(
-                    $"Không thể xóa phòng ban '{department.Name}' vì đang được sử dụng",
-                    "DEPARTMENT_IN_USE");
+                await transaction.RollbackAsync();
+                throw;
             }
-
-            // Delete
-            if (softDelete)
-            {
-                department.DeletedAt = DateTime.UtcNow;
-                _db.Departments.Update(department);
-            }
-            else
-            {
-                _db.Departments.Remove(department);
-            }
-
-            await _db.SaveChangesAsync();
-
-            _logger.LogInformation("Deleted department {DptId}:{Name} successfully",
-                department.DptId, department.Name);
-
-            return true;
         }
 
+        /// <summary>
+        /// Delete multiple departments with all-or-nothing transaction
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Strategy: Validate ALL → Delete ALL → Return summary
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
         public async Task<BulkDeleteResultDto> DeleteDepartmentsAsync(List<int> dptIds, bool softDelete = true)
         {
             _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}", 
                 dptIds?.Count ?? 0, softDelete);
 
+            // ✅ Input validation
             ArgumentNullException.ThrowIfNull(dptIds);
 
             if (dptIds.Count == 0)
             {
                 throw new Shared.Exceptions.ValidationException("dptIds",
-                    "Vui lòng chọn phòng ban để xóa");
+                    "Vui lòng chọn ít nhất một phòng ban để xóa");
             }
+
+            // ✅ Remove duplicates
+            var uniqueIds = dptIds.Distinct().ToList();
 
             using var transaction = await _db.Database.BeginTransactionAsync();
 
@@ -311,10 +360,10 @@ namespace ItSupportServer.src.Modules.Department
             {
                 // ✅ Step 1: Validate ALL items BEFORE any deletion
                 var existing = await _db.Departments
-                    .Where(d => dptIds.Contains(d.DptId) && d.DeletedAt == null)
+                    .Where(d => uniqueIds.Contains(d.DptId) && d.DeletedAt == null)
                     .ToListAsync();
 
-                var notFoundIds = dptIds.Except(existing.Select(d => d.DptId)).ToList();
+                var notFoundIds = uniqueIds.Except(existing.Select(d => d.DptId)).ToList();
                 if (notFoundIds.Any())
                 {
                     _logger.LogWarning("Departments not found: {Ids}", string.Join(", ", notFoundIds));
@@ -322,46 +371,86 @@ namespace ItSupportServer.src.Modules.Department
                 }
 
                 // ✅ Step 2: Check business rules for ALL items
-                var dptIdsToCheck = existing.Select(d => d.DptId).ToList();
 
+                // Rule 1: Check for Employees
                 var deptsWithEmployees = await _db.Employees
-                    .Where(e => dptIdsToCheck.Contains(e.DptId) && e.DeletedAt == null)
+                    .Where(e => uniqueIds.Contains(e.DptId) && e.DeletedAt == null)
                     .Select(e => e.DptId)
                     .Distinct()
                     .ToListAsync();
 
+                if (deptsWithEmployees.Any())
+                {
+                    var usedDepts = existing
+                        .Where(d => deptsWithEmployees.Contains(d.DptId))
+                        .ToList();
+
+                    var errorDetails = new List<string>();
+                    foreach (var dept in usedDepts)
+                    {
+                        var count = await _db.Employees
+                            .CountAsync(e => e.DptId == dept.DptId && e.DeletedAt == null);
+                        errorDetails.Add($"{dept.Name} ({count} nhân viên)");
+                    }
+
+                    _logger.LogWarning("Departments with employees: {Depts}",
+                        string.Join(", ", usedDepts.Select(d => $"{d.DptId}:{d.Name}")));
+
+                    throw new BusinessRuleException(
+                        $"Không thể xóa phòng ban {string.Join(", ", errorDetails)} vì có nhân viên",
+                        "DEPARTMENT_HAS_EMPLOYEES");
+                }
+
+                // Rule 2: Check for IssueLogs
                 var deptsWithIssueLogs = await _db.IssueLogs
-                    .Where(il => dptIdsToCheck.Contains(il.DptId) && il.DeletedAt == null)
+                    .Where(il => uniqueIds.Contains(il.DptId) && il.DeletedAt == null)
                     .Select(il => il.DptId)
                     .Distinct()
                     .ToListAsync();
 
-                var deptsInUse = deptsWithEmployees.Union(deptsWithIssueLogs).Distinct().ToList();
-
-                if (deptsInUse.Any())
+                if (deptsWithIssueLogs.Any())
                 {
-                    var usedDeptNames = existing
-                        .Where(d => deptsInUse.Contains(d.DptId))
-                        .Select(d => d.Name)
+                    var usedDepts = existing
+                        .Where(d => deptsWithIssueLogs.Contains(d.DptId))
                         .ToList();
 
-                    _logger.LogWarning("Departments in use: {Depts}",
-                        string.Join(", ", usedDeptNames));
+                    var errorDetails = new List<string>();
+                    foreach (var dept in usedDepts)
+                    {
+                        var count = await _db.IssueLogs
+                            .CountAsync(il => il.DptId == dept.DptId && il.DeletedAt == null);
+                        errorDetails.Add($"{dept.Name} ({count} nhật ký)");
+                    }
+
+                    _logger.LogWarning("Departments with issue logs: {Depts}",
+                        string.Join(", ", usedDepts.Select(d => $"{d.DptId}:{d.Name}")));
 
                     throw new BusinessRuleException(
-                        $"Không thể xóa phòng ban {string.Join(", ", usedDeptNames)} vì đang được sử dụng",
+                        $"Không thể xóa phòng ban {string.Join(", ", errorDetails)} vì có nhật ký sự cố",
                         "DEPARTMENT_IN_USE");
                 }
 
                 // ✅ Step 3: All checks passed → Delete ALL
-                foreach (var dept in existing)
+                if (softDelete)
                 {
-                    if (softDelete)
-                        dept.DeletedAt = DateTime.UtcNow;
-                    else
+                    // ✅ FIX 2: Optimize soft delete with UpdateRange
+                    // Pattern: Batch update for performance
+                    // Reference: Microsoft EF Core - Efficient Updating
+                    var now = DateTime.UtcNow;
+                    foreach (var dept in existing)
+                    {
+                        dept.DeletedAt = now;
+                        _logger.LogInformation("Deleted department {DptId}:{Name}", dept.DptId, dept.Name);
+                    }
+                    _db.Departments.UpdateRange(existing);
+                }
+                else
+                {
+                    foreach (var dept in existing)
+                    {
                         _db.Departments.Remove(dept);
-
-                    _logger.LogInformation("Deleted department {DptId}:{Name}", dept.DptId, dept.Name);
+                        _logger.LogInformation("Deleted department {DptId}:{Name}", dept.DptId, dept.Name);
+                    }
                 }
 
                 await _db.SaveChangesAsync();
