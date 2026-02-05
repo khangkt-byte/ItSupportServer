@@ -35,9 +35,17 @@ namespace ItSupportServer.src.Modules.IssueLog
         Task<IssueLogDto> UpdateIssueLogAsync(Guid issLogId, UpdateIssueLogDto dto);
 
         /// <summary>
-        /// Delete issue logs (soft delete by default)
-        /// Pattern: ServiceNow soft delete (deleted_at field)
+        /// Delete single issue log (soft delete by default)
+        /// Pattern: RESTful single resource delete
+        /// Reference: Microsoft REST API Guidelines
         /// </summary>
-        Task<bool> DeleteIssueLogsAsync(List<Guid> issLogIds, bool softDelete = true);
+        Task DeleteIssueLogAsync(Guid issLogId, bool softDelete = true);
+
+        /// <summary>
+        /// Delete multiple issue logs (all-or-nothing transaction)
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
+        Task<BulkDeleteResultDto> DeleteIssueLogsAsync(List<Guid> issLogIds, bool softDelete = true);
     }
 }

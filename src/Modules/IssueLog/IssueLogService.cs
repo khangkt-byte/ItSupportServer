@@ -399,51 +399,136 @@ namespace ItSupportServer.src.Modules.IssueLog
             return await GetIssueLogByIdAsync(issLogId);
         }
 
-        public async Task<bool> DeleteIssueLogsAsync(List<Guid> issLogIds, bool softDelete = true)
+        /// <summary>
+        /// Delete single issue log
+        /// Pattern: RESTful single resource delete (returns void, throws on error)
+        /// Reference: Microsoft REST API Guidelines - DELETE returns 204 No Content
+        /// Business Rules: No specific constraints for IssueLogs (data records only)
+        /// </summary>
+        public async Task DeleteIssueLogAsync(Guid issLogId, bool softDelete = true)
         {
-            _logger.LogInformation("Deleting {Count} issue logs (soft: {SoftDelete})",
+            _logger.LogInformation("Deleting issue log {IssLogId} | SoftDelete: {SoftDelete}",
+                issLogId, softDelete);
+
+            var issueLog = await _db.IssueLogs
+                .FirstOrDefaultAsync(il => il.IssLogId == issLogId && il.DeletedAt == null);
+
+            if (issueLog == null)
+            {
+                _logger.LogWarning("Issue log {IssLogId} not found", issLogId);
+                throw new NotFoundException("Nhật ký sự cố", issLogId);
+            }
+
+            // ✅ No business rules for IssueLogs (it's just data records)
+            // IssueLogs can be safely deleted
+
+            // ✅ Perform delete
+            if (softDelete)
+            {
+                issueLog.DeletedAt = DateTime.UtcNow;
+                _db.IssueLogs.Update(issueLog);
+
+                await _db.SaveChangesAsync();
+
+                _logger.LogInformation("Soft deleted issue log {IssLogId}",
+                    issueLog.IssLogId);
+            }
+            else
+            {
+                // Hard delete with transaction
+                using var transaction = await _db.Database.BeginTransactionAsync();
+
+                try
+                {
+                    _db.IssueLogs.Remove(issueLog);
+
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    _logger.LogInformation("Hard deleted issue log {IssLogId}",
+                        issueLog.IssLogId);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Delete multiple issue logs with all-or-nothing transaction
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Strategy: Validate ALL → Delete ALL → Return summary
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
+        public async Task<BulkDeleteResultDto> DeleteIssueLogsAsync(List<Guid> issLogIds, bool softDelete = true)
+        {
+            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}",
                 issLogIds?.Count ?? 0, softDelete);
 
+            // ✅ Input validation
             ArgumentNullException.ThrowIfNull(issLogIds);
 
             if (issLogIds.Count == 0)
             {
                 throw new Shared.Exceptions.ValidationException("issLogIds",
-                    "Vui lòng chọn nhật ký sự cố để xóa");
+                    "Vui lòng chọn ít nhất một nhật ký sự cố để xóa");
             }
+
+            // ✅ Remove duplicates
+            var uniqueIds = issLogIds.Distinct().ToList();
 
             using var transaction = await _db.Database.BeginTransactionAsync();
 
             try
             {
+                // ✅ Step 1: Validate ALL items BEFORE any deletion
                 var existing = await _db.IssueLogs
-                    .Where(il => issLogIds.Contains(il.IssLogId) && il.DeletedAt == null)
+                    .Where(il => uniqueIds.Contains(il.IssLogId) && il.DeletedAt == null)
                     .ToListAsync();
 
-                if (existing.Count == 0)
+                var notFoundIds = uniqueIds.Except(existing.Select(il => il.IssLogId)).ToList();
+                if (notFoundIds.Any())
                 {
-                    throw new NotFoundException("Không tìm thấy nhật ký sự cố để xóa");
+                    _logger.LogWarning("Issue logs not found: {Ids}", 
+                        string.Join(", ", notFoundIds));
+                    throw new NotFoundException(
+                        $"Nhật ký sự cố không tồn tại: {string.Join(", ", notFoundIds)}");
+                }
+
+                // ✅ Step 2: No business rules for IssueLogs
+                // Unlike Roles or Employees, IssueLogs are just data records
+                // They don't have child dependencies or protection rules
+
+                // ✅ Step 3: All checks passed → Delete ALL
+                foreach (var issueLog in existing)
+                {
+                    if (softDelete)
+                        issueLog.DeletedAt = DateTime.UtcNow;
+                    else
+                        _db.IssueLogs.Remove(issueLog);
+
+                    _logger.LogInformation("Deleted issue log {IssLogId}", issueLog.IssLogId);
                 }
 
                 if (softDelete)
                 {
-                    foreach (var item in existing)
-                    {
-                        item.DeletedAt = DateTime.UtcNow;
-                    }
                     _db.IssueLogs.UpdateRange(existing);
-                }
-                else
-                {
-                    _db.IssueLogs.RemoveRange(existing);
                 }
 
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("Successfully deleted {Count} issue logs", existing.Count);
+                _logger.LogInformation("Batch delete SUCCESS | Count: {Count}", existing.Count);
 
-                return true;
+                return new BulkDeleteResultDto
+                {
+                    Success = true,
+                    DeletedCount = existing.Count,
+                    TotalRequested = issLogIds.Count,
+                    Message = $"Đã xóa {existing.Count} nhật ký sự cố thành công"
+                };
             }
             catch
             {
