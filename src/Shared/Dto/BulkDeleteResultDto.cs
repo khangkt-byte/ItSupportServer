@@ -1,4 +1,4 @@
-namespace ItSupportServer.src.Shared.Base
+namespace ItSupportServer.src.Shared.Dto
 {
     /// <summary>
     /// Bulk delete operation result
