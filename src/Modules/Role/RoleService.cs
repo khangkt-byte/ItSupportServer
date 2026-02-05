@@ -279,7 +279,7 @@ namespace ItSupportServer.src.Modules.Role
             return await GetRoleByIdAsync(roleId);
         }
 
-        public async Task<bool> DeleteRoleAsync(int roleId, bool softDelete = true)
+        public async Task DeleteRoleAsync(int roleId, bool softDelete = true)  // ✅ Changed to Task (void)
         {
             _logger.LogInformation("Deleting role {RoleId} | SoftDelete: {SoftDelete}",
                 roleId, softDelete);
@@ -294,43 +294,67 @@ namespace ItSupportServer.src.Modules.Role
                 throw new NotFoundException("Vai trò", roleId);
             }
 
-            // Check business rules
+            // ✅ Check business rules
             if (role.AccountRoles.Any())
             {
                 _logger.LogWarning("Role {RoleId}:{Name} in use by {Count} accounts",
                     role.RoleId, role.Name, role.AccountRoles.Count);
                 throw new BusinessRuleException(
-                    $"Không thể xóa vai trò {role.Name} vì đang được sử dụng",
+                    $"Không thể xóa vai trò {role.Name} vì đang được sử dụng bởi {role.AccountRoles.Count} tài khoản",
                     "ROLE_IN_USE");
             }
 
-            // Delete
+            // ✅ Perform delete
             if (softDelete)
             {
                 role.DeletedAt = DateTime.UtcNow;
                 _db.Roles.Update(role);
+                
+                await _db.SaveChangesAsync();
+                
+                _logger.LogInformation("Soft deleted role {RoleId}:{Name}", 
+                    role.RoleId, role.Name);
             }
             else
             {
-                // Hard delete - remove claims first
-                var roleClaims = await _db.RoleClaims
-                    .Where(rc => rc.RoleId == roleId)
-                    .ToListAsync();
-                _db.RoleClaims.RemoveRange(roleClaims);
-                _db.Roles.Remove(role);
+                // Hard delete with transaction
+                using var transaction = await _db.Database.BeginTransactionAsync();
+                
+                try
+                {
+                    // Rely on DB cascade or manual cascade
+                    _db.Roles.Remove(role);
+                    
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    
+                    _logger.LogInformation("Hard deleted role {RoleId}:{Name}", 
+                        role.RoleId, role.Name);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
             }
-
-            await _db.SaveChangesAsync();
-
-            _logger.LogInformation("Deleted role {RoleId}:{Name} successfully",
-                role.RoleId, role.Name);
-
-            return true;  // Or void/Task
+            // ✅ No return - throw exception on error
         }
 
         public async Task<BulkDeleteResultDto> DeleteRolesAsync(List<int> roleIds, bool softDelete = true)
         {
-            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}", roleIds.Count, softDelete);
+            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}", 
+        roleIds?.Count ?? 0, softDelete);
+
+            // ✅ Add input validation
+            ArgumentNullException.ThrowIfNull(roleIds);
+            
+            if (roleIds.Count == 0)
+            {
+                throw new Shared.Exceptions.ValidationException("roleIds", "Vui lòng chọn ít nhất một vai trò để xóa");
+            }
+
+            // ✅ Remove duplicates
+            var uniqueIds = roleIds.Distinct().ToList();
 
             using var transaction = await _db.Database.BeginTransactionAsync();
             
@@ -338,7 +362,7 @@ namespace ItSupportServer.src.Modules.Role
             {
                 // ✅ Step 1: Validate ALL items BEFORE any deletion
                 var existing = await _db.Roles
-                    .Where(r => roleIds.Contains(r.RoleId) && r.DeletedAt == null)
+                    .Where(r => uniqueIds.Contains(r.RoleId) && r.DeletedAt == null)
                     .Include(r => r.AccountRoles)
                     .ToListAsync();
 
