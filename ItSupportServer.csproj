@@ -4,6 +4,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ItSupportServer</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ItSupportServer</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

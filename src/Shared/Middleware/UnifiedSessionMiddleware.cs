@@ -192,7 +192,11 @@ namespace ItSupportServer.src.Shared.Middleware
             return SessionValidationResult.Valid(suspicionScore);
         }
 
-        private async Task TrackRequestPatternAsync(string sessionId, ref int score)
+        /// <summary>
+        /// Track request pattern and update suspicion score
+        /// Pattern: Anomaly detection for rapid requests
+        /// </summary>
+        private Task TrackRequestPatternAsync(string sessionId, ref int score)
         {
             var patternKey = $"SessionPattern:{sessionId}";
             var pattern = _cache.GetOrCreate(patternKey, entry =>
@@ -209,13 +213,15 @@ namespace ItSupportServer.src.Shared.Middleware
             var timeSinceLastRequest = DateTime.UtcNow - pattern.LastRequestTime;
             pattern.LastRequestTime = DateTime.UtcNow;
 
+            // ✅ Detect rapid fire requests (potential bot/attack)
             if (pattern.RequestCount > 100 && timeSinceLastRequest.TotalSeconds < 1)
             {
                 score += 30;
             }
 
             _cache.Set(patternKey, pattern);
-            await Task.CompletedTask;
+            
+            return Task.CompletedTask;
         }
 
         private bool ShouldRenewSession(AccountTokens session)
