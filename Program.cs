@@ -231,32 +231,43 @@ try
     {
         options.AddPolicy("CorPolicy", policy =>
         {
-            policy.SetIsOriginAllowed(origin =>
-            {
-                // Chỉ cho phép nếu origin là null (Figma) hoặc domain của bạn
-                return origin == null || origin == "http://localhost:3000";
-            })
-            //policy.WithOrigins("http://localhost:3000")  // ✅ Specify allowed origins
-                  .AllowAnyMethod()
-                  .AllowAnyHeader()
-                  .AllowCredentials();
+            // ✅ FIX: Explicit whitelist origins
+            policy.WithOrigins(
+                    "http://localhost:3000",  // Development
+                    "http://localhost:5173"  // Vite
+                    //"https://yourdomain.com"   // Production
+                )
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials()
+                // ✅ ADD: Expose custom headers
+                .WithExposedHeaders("Token-Expired", "X-CSRF-Token");
         });
     });
 
     // ✅ CRITICAL: Add Rate Limiting
     builder.Services.AddRateLimiter(options =>
     {
-        // ✅ 1. Global rate limiter by IP address
+        // ✅ 1. IP-based global limiter (catches bots)
         options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
-            RateLimitPartition.GetFixedWindowLimiter(
-                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        {
+            var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var userAgent = httpContext.Request.Headers["User-Agent"].ToString().ToLower();
+
+            // ✅ ENHANCED: Detect bot signatures
+            var isSuspiciousBot = new[] { "bot", "crawler", "spider", "scraper", "headless" }
+                .Any(sig => userAgent.Contains(sig));
+
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: ip,
                 factory: _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = 100, // 100 requests
-                    Window = TimeSpan.FromMinutes(1), // per minute
+                    PermitLimit = isSuspiciousBot ? 10 : 100, // ✅ Stricter for bots
+                    Window = TimeSpan.FromMinutes(1),
                     QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                    QueueLimit = 0 // No queueing
-                }));
+                    QueueLimit = 0
+                });
+        });
 
         // ✅ 2. Strict rate limiter for authentication endpoints
         options.AddFixedWindowLimiter("auth", opt =>
@@ -363,10 +374,20 @@ try
 
     var app = builder.Build();
 
-    // ✅ MIDDLEWARE PIPELINE (CORRECT ORDER)
+    // Scalar UI (instead of Swagger)
+    app.MapOpenApi();
+    app.MapScalarApiReference(options =>
+    {
+        options
+            .WithTitle("IT Support API Documentation")
+            .WithTheme(ScalarTheme.DeepSpace)
+            .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+    });
+
+    // ✅ OPTIMIZED MIDDLEWARE PIPELINE (5 middleware instead of 11)
     app.UseExceptionHandler();
 
-    // ✅ 1. Security headers FIRST
+    // ✅ 1. Security headers (CSP, HSTS, X-Frame-Options)
     app.UseSecurityHeaders();
 
     // ✅ 2. HTTPS Redirection & HSTS
@@ -396,36 +417,26 @@ try
         };
     });
 
-    // Scalar UI (instead of Swagger)
-    app.MapOpenApi();
-    app.MapScalarApiReference(options =>
-    {
-        options
-            .WithTitle("IT Support API Documentation")
-            .WithTheme(ScalarTheme.DeepSpace)
-            .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
-    });
-
     // ✅ 4. Routing
     app.UseRouting();
 
-    // ✅ 5. CORS (after routing, before auth)
+    // ✅ 5. CORS
     app.UseCors("CorPolicy");
 
-    // ✅ 6. Rate Limiting (after routing, before auth)
+    // ✅ 6. Rate Limiting (includes bot protection)
     app.UseRateLimiter();
 
     // ✅ 7. Authentication & Authorization
     app.UseAuthentication();
     app.UseAuthorization();
 
-    // ✅ 8. CSRF Validation (after auth)
-    app.UseCsrfValidation();
+    // ✅ 8. CONSOLIDATED: 3-layer CSRF protection
+    app.UseEnhancedCsrfProtection(); // ✅ NEW (replaces 3 middleware)
 
-    // ✅ 9. Session Tracking (after auth)
-    app.UseSessionTracking();
+    // ✅ 9. CONSOLIDATED: Session tracking + hijacking detection
+    app.UseUnifiedSessionTracking(); // ✅ NEW (replaces 2 middleware)
 
-    // ✅ 10. Health Checks Endpoint
+    // ✅ 10. Health Checks & Endpoints
     app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         ResponseWriter = async (context, report) =>
@@ -450,7 +461,6 @@ try
     app.MapHealthChecks("/health/ready").RequireHost("*:5001");
     app.MapHealthChecks("/health/live").RequireHost("*:5001");
 
-    // ✅ 11. Map Controllers
     app.MapControllers();
 
     Log.Information("IT Support Server started successfully");

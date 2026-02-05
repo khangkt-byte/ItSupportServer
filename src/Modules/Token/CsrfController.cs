@@ -17,12 +17,13 @@ namespace ItSupportServer.src.Modules.Token
         {
             var token = CsrfValidationMiddleware.GenerateCsrfToken();
 
-            // ✅ Set CSRF cookie
+            // ✅ FIX: Use SameSite=Lax for better compatibility
             Response.Cookies.Append("XSRF-TOKEN", token, new CookieOptions
             {
-                HttpOnly = false, // ⚠️ Must be accessible to JavaScript
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
+                HttpOnly = false, // ✅ Required for JavaScript access
+                Secure = true,     // ✅ HTTPS only
+                SameSite = SameSiteMode.Lax, // ✅ FIXED: Allow safe cross-site GET
+                Path = "/",        // ✅ Add: Explicit path
                 Expires = DateTimeOffset.UtcNow.AddHours(1)
             });
 
