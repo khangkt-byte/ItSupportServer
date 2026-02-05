@@ -87,27 +87,6 @@ namespace ItSupportServer.src.Modules.Cause
         /// <summary>
         /// [ADMIN] Tạo nguyên nhân mới
         /// </summary>
-        /// <remarks>
-        /// **Validation (400):**
-        /// - IssId: required, must > 0
-        /// - Name: required, max 255 chars, allowed characters
-        /// - Description: max 1000 chars
-        /// 
-        /// **Not Found (404):**
-        /// - Issue ID không tồn tại
-        /// 
-        /// **Conflict (409):**
-        /// - Tên nguyên nhân đã tồn tại cho issue này
-        /// 
-        /// **Example:**
-        /// ```json
-        /// {
-        ///   "issId": 5,
-        ///   "name": "Nguồn điện hỏng",
-        ///   "description": "Tụ điện phồng, cần thay nguồn"
-        /// }
-        /// ```
-        /// </remarks>
         [HttpPost]
         [HasPermission(Permissions.CauseClaims.Create)]
         [ProducesResponseType(typeof(CauseDto), StatusCodes.Status201Created)]
@@ -126,19 +105,6 @@ namespace ItSupportServer.src.Modules.Cause
         /// <summary>
         /// [ADMIN] Cập nhật nguyên nhân
         /// </summary>
-        /// <remarks>
-        /// **Partial update:** Chỉ fields có giá trị được update
-        /// 
-        /// **Validation (400):**
-        /// - Name/Description format (nếu cung cấp)
-        /// - Phải có ít nhất 1 field để update
-        /// 
-        /// **Not Found (404):**
-        /// - Cause ID không tồn tại
-        /// 
-        /// **Conflict (409):**
-        /// - Tên mới trùng với cause khác của cùng issue
-        /// </remarks>
         [HttpPut("{causeId}")]
         [HasPermission(Permissions.CauseClaims.Edit)]
         [ProducesResponseType(typeof(CauseDto), StatusCodes.Status200OK)]
@@ -157,33 +123,69 @@ namespace ItSupportServer.src.Modules.Cause
         }
 
         /// <summary>
+        /// [ADMIN] Xóa nguyên nhân
+        /// </summary>
+        /// <param name="causeId">Cause ID</param>
+        /// <returns>No content (204)</returns>
+        /// <remarks>
+        /// **Pattern:** RESTful single resource delete
+        /// **Reference:** Microsoft REST API Guidelines
+        /// 
+        /// **Business rules:**
+        /// - Không thể xóa nếu nguyên nhân đang được tham chiếu trong IssueLog (422)
+        /// </remarks>
+        [HttpDelete("{causeId}")]
+        [HasPermission(Permissions.CauseClaims.Delete)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DeleteCause([FromRoute] long causeId)
+        {
+            await _service.DeleteCauseAsync(causeId);
+            return NoContent();
+        }
+
+        /// <summary>
         /// [ADMIN] Xóa nhiều nguyên nhân
         /// </summary>
         /// <param name="causeIds">Danh sách cause IDs cần xóa</param>
         /// <param name="softDelete">Soft delete (mặc định: true)</param>
-        /// <returns>Success status</returns>
+        /// <returns>Kết quả xóa hàng loạt</returns>
         /// <remarks>
-        /// **Business Rules (422):**
-        /// - Không thể xóa cause đang được tham chiếu bởi IssueLog (nếu hard delete)
+        /// **Strategy:** All-or-nothing (transaction-based)
+        /// - Nếu TẤT CẢ thành công → 200 OK với summary
+        /// - Nếu BẤT KỲ lỗi nào → Rollback, throw error (4xx/5xx)
         /// 
-        /// **Not Found (404):**
-        /// - Nếu ANY cause ID không tồn tại
+        /// **Pattern:** Microsoft Dynamics 365 standard tables
+        /// **Reference:** https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
         /// 
-        /// **Example:**
+        /// **Business rules:**
+        /// - Không thể xóa nguyên nhân đang được tham chiếu trong IssueLog (422)
+        /// - Transaction rollback nếu ANY item fails
+        /// 
+        /// **Response:**
         /// ```json
-        /// [1, 2, 3]
+        /// {
+        ///   "success": true,
+        ///   "deletedCount": 3,
+        ///   "totalRequested": 3,
+        ///   "message": "Đã xóa 3 nguyên nhân thành công"
+        /// }
         /// ```
         /// </remarks>
         [HttpDelete]
         [HasPermission(Permissions.CauseClaims.Delete)]
-        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(BulkDeleteResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<bool>> DeleteCauses(
+        public async Task<ActionResult<BulkDeleteResultDto>> DeleteCauses(
             [FromBody] List<long> causeIds,
             [FromQuery] bool softDelete = true)
         {
