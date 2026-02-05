@@ -12,6 +12,7 @@ namespace ItSupportServer.Data.Seeds
     public static class DemoDataSeeders
     {
         private static readonly DateTime SeedDate = new(2025, 10, 30, 9, 38, 50, DateTimeKind.Utc);
+        private static readonly DateOnly SeedDateOnly = new(2025, 10, 30);
 
         public static void SeedDemoData(ModelBuilder modelBuilder)
         {
@@ -42,7 +43,7 @@ namespace ItSupportServer.Data.Seeds
                     Resolution = "Thay dây mạng Cat6 mới, test kết nối OK",
                     PermanentFix = "Dùng ống luồn dây để bảo vệ cáp mạng",
                     Notes = "Đã cảnh báo user không kéo lê dây mạng",
-                    DateReported = SeedDate.AddDays(-5),
+                    DateReported = SeedDateOnly.AddDays(-5),
                     Status = "Resolved",
                     CreatedAt = SeedDate.AddDays(-5)
                 },
@@ -62,7 +63,7 @@ namespace ItSupportServer.Data.Seeds
                     Resolution = "Lấy giấy kẹt ra, thay giấy mới khô ráo",
                     PermanentFix = "Di chuyển máy in ra xa cửa sổ, bảo quản giấy trong tủ kín",
                     Notes = "Đã hướng dẫn user cách xử lý kẹt giấy cơ bản",
-                    DateReported = SeedDate.AddDays(-3),
+                    DateReported = SeedDateOnly.AddDays(-3),
                     Status = "Resolved",
                     CreatedAt = SeedDate.AddDays(-3)
                 },
@@ -82,7 +83,7 @@ namespace ItSupportServer.Data.Seeds
                     Resolution = "Reset mật khẩu Windows qua Active Directory",
                     PermanentFix = "Hướng dẫn user sử dụng password manager",
                     Notes = "Đã gửi email hướng dẫn sử dụng LastPass cho toàn công ty",
-                    DateReported = SeedDate.AddDays(-1),
+                    DateReported = SeedDateOnly.AddDays(-1),
                     Status = "Resolved",
                     CreatedAt = SeedDate.AddDays(-1)
                 },
@@ -102,7 +103,7 @@ namespace ItSupportServer.Data.Seeds
                     Resolution = "Nâng cấp RAM từ 4GB lên 16GB",
                     PermanentFix = "Khuyến nghị tối thiểu 16GB RAM cho dev machine",
                     Notes = "Đã đề xuất mua thêm RAM cho 5 máy dev khác",
-                    DateReported = SeedDate,
+                    DateReported = SeedDateOnly,
                     Status = "In Progress",
                     CreatedAt = SeedDate
                 }

@@ -57,10 +57,11 @@ namespace ItSupportServer.src.Modules.IssueLog
 
             var departments = _importMapper.BuildDepartmentLookup(departmentList);
 
-            // ✅ Load recent logs using mapper
+            // ✅ Load recent logs using mapper - FIX: Convert DateTime to DateOnly
+            var cutoffDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-90));
             var recentLogs = await _importMapper
                 .ProjectToRecentIssueLogDto(_db.IssueLogs
-                    .Where(il => il.DateReported >= DateTime.UtcNow.AddDays(-90) && il.DeletedAt == null))
+                    .Where(il => il.DateReported >= cutoffDate && il.DeletedAt == null))
                 .ToListAsync();
 
             foreach (var row in rows.Take(100)) // Preview first 100 rows
@@ -204,7 +205,10 @@ namespace ItSupportServer.src.Modules.IssueLog
                         var cause = ExcelHelper.GetCellString(row, 7);
                         var resolution = ExcelHelper.GetCellString(row, 8);
                         var permanentFix = ExcelHelper.GetCellString(row, 9);
-                        var dateReported = ExcelHelper.TryGetDateTime(row.Cell(10));
+                        var dateReportedDateTime = ExcelHelper.TryGetDateTime(row.Cell(10));
+                        var dateReported = dateReportedDateTime.HasValue 
+                            ? DateOnly.FromDateTime(dateReportedDateTime.Value) 
+                            : (DateOnly?)null;
                         var status = ExcelHelper.GetCellString(row, 11);
 
                         // Validate required
@@ -405,7 +409,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                 worksheet.Cell(currentRow, 7).Value = log.Cause ?? "";
                 worksheet.Cell(currentRow, 8).Value = log.Resolution ?? "";
                 worksheet.Cell(currentRow, 9).Value = log.PermanentFix ?? "";
-                worksheet.Cell(currentRow, 10).Value = log.DateReported;
+                worksheet.Cell(currentRow, 10).Value = log.DateReported.ToDateTime(TimeOnly.MinValue);
                 worksheet.Cell(currentRow, 11).Value = log.Status ?? "";
 
                 currentRow++;
@@ -424,8 +428,13 @@ namespace ItSupportServer.src.Modules.IssueLog
         // ===== PRIVATE HELPER METHODS =====
 
         private static (string operatorText, string requesterText, string departmentText, 
-            bool isCongTy, bool isChiNhanh, string issueDesc, DateTime? dateReported) ParseExcelRow(IXLRow row)
+            bool isCongTy, bool isChiNhanh, string issueDesc, DateOnly? dateReported) ParseExcelRow(IXLRow row)
         {
+            var dateTimeValue = ExcelHelper.TryGetDateTime(row.Cell(10));
+            var dateOnlyValue = dateTimeValue.HasValue 
+                ? DateOnly.FromDateTime(dateTimeValue.Value) 
+                : (DateOnly?)null;
+
             return (
                 ExcelHelper.GetCellString(row, 1),
                 ExcelHelper.GetCellString(row, 2),
@@ -433,7 +442,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                 ExcelHelper.GetCellString(row, 4).Equals("X", StringComparison.OrdinalIgnoreCase),
                 ExcelHelper.GetCellString(row, 5).Equals("X", StringComparison.OrdinalIgnoreCase),
                 ExcelHelper.GetCellString(row, 6),
-                ExcelHelper.TryGetDateTime(row.Cell(10))
+                dateOnlyValue
             );
         }
 
@@ -442,7 +451,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             string operatorText,
             string departmentText,
             string issueDesc,
-            DateTime? dateReported)
+            DateOnly? dateReported)
         {
             if (string.IsNullOrWhiteSpace(operatorText))
                 validation = validation.AddError("Operator", "Thiếu người thực hiện");
@@ -589,7 +598,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         private (DuplicateMatch? duplicate, List<DuplicateMatch> all) DetectDuplicates(
             string issueDescription,
             int departmentId,
-            DateTime dateReported,
+            DateOnly dateReported,
             List<RecentIssueLogDto> recentLogs)
         {
             var duplicates = new List<DuplicateMatch>();
@@ -598,7 +607,7 @@ namespace ItSupportServer.src.Modules.IssueLog
             var exactMatches = recentLogs
                 .Where(log =>
                     log.DptId == departmentId &&
-                    log.DateReported.Date == dateReported.Date &&
+                    log.DateReported == dateReported &&
                     log.IssueDescription.Equals(issueDescription, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
@@ -620,7 +629,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                 var fuzzyMatches = recentLogs
                     .Where(log =>
                         log.DptId == departmentId &&
-                        Math.Abs((log.DateReported.Date - dateReported.Date).TotalDays) <= 3)
+                        Math.Abs(log.DateReported.DayNumber - dateReported.DayNumber) <= 3)
                     .Select(log => _importMapper.CreateFuzzyMatchResult(
                         log,
                         FuzzySharp.Fuzz.Ratio(
@@ -682,7 +691,7 @@ namespace ItSupportServer.src.Modules.IssueLog
         private async Task<IssueLogs?> FindDuplicateInDbAsync(
             string issueDescription,
             int departmentId,
-            DateTime dateReported,
+            DateOnly dateReported,
             string operatorText)
         {
             // Exact match
@@ -690,7 +699,7 @@ namespace ItSupportServer.src.Modules.IssueLog
                 .Where(il =>
                     il.IssueDescription == issueDescription &&
                     il.DptId == departmentId &&
-                    il.DateReported.Date == dateReported.Date &&
+                    il.DateReported == dateReported &&
                     il.DeletedAt == null)
                 .FirstOrDefaultAsync();
 
@@ -700,14 +709,17 @@ namespace ItSupportServer.src.Modules.IssueLog
                 return exactMatch;
             }
 
-            // Near match (within 7 days)
+            // Near match (within 7 days) - FIX: Use DateOnly arithmetic
+            var startDate = dateReported.AddDays(-7);
+            var endDate = dateReported.AddDays(7);
+            
             var nearMatch = await _db.IssueLogs
                 .Where(il =>
                     il.IssueDescription == issueDescription &&
                     il.DptId == departmentId &&
                     il.Operator == operatorText &&
-                    il.DateReported >= dateReported.AddDays(-7) &&
-                    il.DateReported <= dateReported.AddDays(7) &&
+                    il.DateReported >= startDate &&
+                    il.DateReported <= endDate &&
                     il.DeletedAt == null)
                 .FirstOrDefaultAsync();
 
