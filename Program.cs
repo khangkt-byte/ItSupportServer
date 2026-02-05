@@ -396,7 +396,10 @@ try
     app.UseExceptionHandler();
 
     // ✅ 1. Security headers (CSP, HSTS, X-Frame-Options)
-    app.UseSecurityHeaders();
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseSecurityHeaders(); // Only in Production
+    }
 
     // ✅ 2. HTTPS Redirection & HSTS
     if (!app.Environment.IsDevelopment())
