@@ -1,4 +1,5 @@
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 
 namespace ItSupportServer.src.Modules.Cause
 {
@@ -30,9 +31,18 @@ namespace ItSupportServer.src.Modules.Cause
         Task<CauseDto> UpdateCauseAsync(long causeId, UpdateCauseDto dto);
 
         /// <summary>
-        /// Delete causes
+        /// Delete single cause (soft delete by default)
+        /// Pattern: RESTful single resource delete
+        /// Reference: Microsoft REST API Guidelines
         /// </summary>
-        Task<bool> DeleteCausesAsync(List<long> causeIds, bool softDelete = true);
+        Task DeleteCauseAsync(long causeId, bool softDelete = true);
+
+        /// <summary>
+        /// Delete multiple causes (all-or-nothing transaction)
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
+        Task<BulkDeleteResultDto> DeleteCausesAsync(List<long> causeIds, bool softDelete = true);
 
         /// <summary>
         /// Get cause suggestions for autocomplete (used by IssueLog)

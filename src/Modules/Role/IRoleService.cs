@@ -1,4 +1,5 @@
 ﻿using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 
 namespace ItSupportServer.src.Modules.Role
 {
@@ -27,7 +28,7 @@ namespace ItSupportServer.src.Modules.Role
         /// <summary>
         /// Delete role (soft delete by default)
         /// </summary>
-        Task<bool> DeleteRoleAsync(int roleId, bool softDelete = true);
+        Task DeleteRoleAsync(int roleId, bool softDelete = true);
 
         /// <summary>
         /// Delete multiple roles

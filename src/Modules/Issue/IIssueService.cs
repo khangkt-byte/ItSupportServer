@@ -1,4 +1,5 @@
 ﻿using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 
 namespace ItSupportServer.src.Modules.Issue
 {
@@ -25,9 +26,19 @@ namespace ItSupportServer.src.Modules.Issue
         Task<IssueDto> UpdateIssueAsync(long issId, UpdateIssueDto dto);
 
         /// <summary>
-        /// Delete issues
+        /// Delete single issue (soft delete by default)
+        /// Pattern: RESTful single resource delete
+        /// Reference: Microsoft REST API Guidelines
+        /// Business Rules: Cannot delete if has Causes or IssueLogs
         /// </summary>
-        Task<bool> DeleteIssuesAsync(List<long> issIds, bool softDelete = true);
+        Task DeleteIssueAsync(long issId, bool softDelete = true);
+
+        /// <summary>
+        /// Delete multiple issues (all-or-nothing transaction)
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
+        Task<BulkDeleteResultDto> DeleteIssuesAsync(List<long> issIds, bool softDelete = true);
 
         /// <summary>
         /// Get issue suggestions for autocomplete (used by IssueLog)

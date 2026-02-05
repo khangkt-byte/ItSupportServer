@@ -9,7 +9,8 @@ using ItSupportServer.src.Modules.Account;
 using FluentValidation;
 using ItSupportServer.src.Modules.Cause;
 using Microsoft.AspNetCore.Authorization;
-using ItSupportServer.src.Shared.Services;
+using ItSupportServer.src.Modules.Department;
+using ItSupportServer.src.Modules.Token;
 
 namespace ItSupportServer
 {
@@ -41,12 +42,15 @@ namespace ItSupportServer
             // ✅ REQUIRED: Enable ASP.NET Core authorization
             services.AddAuthorization();
 
+            services.AddSingleton<ICsrfTokenService, CsrfTokenService>();
+
             // ===== BUSINESS SERVICES (Scoped - per request) =====
-            
+
             services.AddScoped<IAccountService, AccountService>();
             services.AddScoped<IAuthenticationService, AuthenticationService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IAreaService, AreaService>();
+            services.AddScoped<IDepartmentService, DepartmentService>();
             services.AddScoped<IEmployeeService, EmployeeService>();
             services.AddScoped<IIssueService, IssueService>();
             services.AddScoped<IIssueLogService, IssueLogService>();
@@ -54,7 +58,7 @@ namespace ItSupportServer
             services.AddScoped<ICauseService, CauseService>();
 
             // ===== VALIDATION (FluentValidation) =====
-            
+
             // ✅ Auto-discover all validators in assembly
             services.AddValidatorsFromAssemblyContaining<CreateAreaValidator>();
             // Automatically registers:
@@ -70,6 +74,7 @@ namespace ItSupportServer
             services.AddSingleton<RoleMapper>();
             services.AddSingleton<EmployeeMapper>();
             services.AddSingleton<AreaMapper>();
+            services.AddSingleton<DepartmentMapper>();
             services.AddSingleton<IssueMapper>();
             services.AddSingleton<IssueLogMapper>();
             services.AddSingleton<IssueLogImportMapper>();

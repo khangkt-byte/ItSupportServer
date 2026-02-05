@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using ItSupportServer.Data.Models;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 using ItSupportServer.src.Shared.Exceptions;
 using ItSupportServer.src.Shared.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -64,13 +65,11 @@ namespace ItSupportServer.src.Modules.Cause
                 .Select(g => new { CauseId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.CauseId, x => x.Count);
 
-            // ✅ FIX: Create new instance (PaginatedResult is class, not record)
             var itemsWithUsage = result.Items.Select(c => c with
             {
                 UsageCount = usageCounts.GetValueOrDefault(c.CauseId, 0)
             }).ToList();
 
-            // ✅ FIX: Create new PaginatedResult instead of using 'with'
             return result with { Items = itemsWithUsage };
         }
 
@@ -90,7 +89,6 @@ namespace ItSupportServer.src.Modules.Cause
                 throw new NotFoundException("Nguyên nhân", causeId);
             }
 
-            // ✅ Calculate usage count (single query)
             var usageCount = await _db.IssueLogs
                 .CountAsync(il => il.CauseId == causeId && il.DeletedAt == null);
 
@@ -101,7 +99,6 @@ namespace ItSupportServer.src.Modules.Cause
         {
             _logger.LogInformation("Fetching causes for issue {IssId}", issId);
 
-            // Verify issue exists
             var issueExists = await _db.Issues
                 .AnyAsync(i => i.IssId == issId && i.DeletedAt == null);
 
@@ -116,7 +113,6 @@ namespace ItSupportServer.src.Modules.Cause
                 .AsNoTracking())
                 .ToListAsync();
 
-            // ✅ Batch calculate usage counts
             var causeIds = causes.Select(c => c.CauseId).ToList();
 
             var usageCounts = await _db.IssueLogs
@@ -140,7 +136,6 @@ namespace ItSupportServer.src.Modules.Cause
             var validationResult = await _createValidator.ValidateAsync(dto);
             validationResult.ThrowIfInvalid();
 
-            // Verify issue exists
             var issueExists = await _db.Issues
                 .AnyAsync(i => i.IssId == dto.IssId && i.DeletedAt == null);
 
@@ -149,7 +144,6 @@ namespace ItSupportServer.src.Modules.Cause
                 throw new NotFoundException("Vấn đề", dto.IssId);
             }
 
-            // Check duplicate name for same issue
             var nameExists = await _db.Causes
                 .Where(c => c.IssId == dto.IssId && c.Name == dto.Name && c.DeletedAt == null)
                 .AnyAsync();
@@ -162,8 +156,6 @@ namespace ItSupportServer.src.Modules.Cause
             }
 
             var newCause = _mapper.MapToCause(dto);
-            // CauseId auto-increment
-            // CreatedAt set by interceptor
 
             await _db.Causes.AddAsync(newCause);
             await _db.SaveChangesAsync();
@@ -192,10 +184,8 @@ namespace ItSupportServer.src.Modules.Cause
 
             bool hasChanges = false;
 
-            // Update Name
             if (dto.Name != null && cause.Name != dto.Name)
             {
-                // Check duplicate for same issue
                 var nameExists = await _db.Causes
                     .Where(c => c.IssId == cause.IssId && 
                                c.Name == dto.Name && 
@@ -212,7 +202,6 @@ namespace ItSupportServer.src.Modules.Cause
                 hasChanges = true;
             }
 
-            // Update Description
             if (dto.Description != null && cause.Description != dto.Description)
             {
                 cause.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description;
@@ -221,7 +210,6 @@ namespace ItSupportServer.src.Modules.Cause
 
             if (hasChanges)
             {
-                // UpdatedAt set by interceptor
                 await _db.SaveChangesAsync();
                 _logger.LogInformation("Successfully updated cause {CauseId}", causeId);
             }
@@ -233,73 +221,170 @@ namespace ItSupportServer.src.Modules.Cause
             return await GetCauseByIdAsync(causeId);
         }
 
-        public async Task<bool> DeleteCausesAsync(List<long> causeIds, bool softDelete = true)
+        /// <summary>
+        /// Delete single cause
+        /// Pattern: RESTful single resource delete (returns void, throws on error)
+        /// Reference: Microsoft REST API Guidelines - DELETE returns 204 No Content
+        /// Business Rules: Cannot delete if cause is referenced in IssueLogs
+        /// </summary>
+        public async Task DeleteCauseAsync(long causeId, bool softDelete = true)
         {
-            _logger.LogInformation("Deleting {Count} causes (soft: {SoftDelete})",
+            _logger.LogInformation("Deleting cause {CauseId} | SoftDelete: {SoftDelete}",
+                causeId, softDelete);
+
+            var cause = await _db.Causes
+                .Include(c => c.Issues)
+                .FirstOrDefaultAsync(c => c.CauseId == causeId && c.DeletedAt == null);
+
+            if (cause == null)
+            {
+                _logger.LogWarning("Cause {CauseId} not found", causeId);
+                throw new NotFoundException("Nguyên nhân", causeId);
+            }
+
+            // ✅ Business rule: Check if cause is referenced in issue logs
+            var isUsedInLogs = await _db.IssueLogs
+                .AnyAsync(il => il.CauseId == causeId && il.DeletedAt == null);
+
+            if (isUsedInLogs)
+            {
+                var usageCount = await _db.IssueLogs
+                    .CountAsync(il => il.CauseId == causeId && il.DeletedAt == null);
+
+                _logger.LogWarning("Cause {CauseId}:{Name} in use by {Count} issue logs",
+                    cause.CauseId, cause.Name, usageCount);
+
+                throw new BusinessRuleException(
+                    $"Không thể xóa nguyên nhân '{cause.Name}' vì đang được sử dụng trong {usageCount} nhật ký sự cố",
+                    "CAUSE_IN_USE");
+            }
+
+            // ✅ Perform delete
+            if (softDelete)
+            {
+                cause.DeletedAt = DateTime.UtcNow;
+                _db.Causes.Update(cause);
+
+                await _db.SaveChangesAsync();
+
+                _logger.LogInformation("Soft deleted cause {CauseId}:{Name}",
+                    cause.CauseId, cause.Name);
+            }
+            else
+            {
+                // Hard delete with transaction
+                using var transaction = await _db.Database.BeginTransactionAsync();
+
+                try
+                {
+                    _db.Causes.Remove(cause);
+
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    _logger.LogInformation("Hard deleted cause {CauseId}:{Name}",
+                        cause.CauseId, cause.Name);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Delete multiple causes with all-or-nothing transaction
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Strategy: Validate ALL → Delete ALL → Return summary
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
+        public async Task<BulkDeleteResultDto> DeleteCausesAsync(List<long> causeIds, bool softDelete = true)
+        {
+            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}",
                 causeIds?.Count ?? 0, softDelete);
 
+            // ✅ Input validation
             ArgumentNullException.ThrowIfNull(causeIds);
 
             if (causeIds.Count == 0)
             {
                 throw new Shared.Exceptions.ValidationException("causeIds",
-                    "Vui lòng chọn nguyên nhân để xóa");
+                    "Vui lòng chọn ít nhất một nguyên nhân để xóa");
             }
+
+            // ✅ Remove duplicates
+            var uniqueIds = causeIds.Distinct().ToList();
 
             using var transaction = await _db.Database.BeginTransactionAsync();
 
             try
             {
+                // ✅ Step 1: Validate ALL items BEFORE any deletion
                 var existing = await _db.Causes
                     .Include(c => c.Issues)
-                    .Where(c => causeIds.Contains(c.CauseId) && c.DeletedAt == null)
+                    .Where(c => uniqueIds.Contains(c.CauseId) && c.DeletedAt == null)
                     .ToListAsync();
 
-                if (existing.Count == 0)
+                var notFoundIds = uniqueIds.Except(existing.Select(c => c.CauseId)).ToList();
+                if (notFoundIds.Any())
                 {
-                    throw new NotFoundException("Không tìm thấy nguyên nhân để xóa");
+                    _logger.LogWarning("Causes not found: {Ids}", string.Join(", ", notFoundIds));
+                    throw new NotFoundException($"Nguyên nhân không tồn tại: {string.Join(", ", notFoundIds)}");
                 }
 
-                // Check if causes are referenced in issue logs
+                // ✅ Step 2: Check business rules for ALL items
                 var causesInLogs = await _db.IssueLogs
-                    .Where(il => causeIds.Contains(il.CauseId!.Value) && il.DeletedAt == null)
+                    .Where(il => uniqueIds.Contains(il.CauseId!.Value) && il.DeletedAt == null)
                     .Select(il => il.CauseId!.Value)
                     .Distinct()
                     .ToListAsync();
 
                 if (causesInLogs.Any())
                 {
-                    var usedCauseNames = existing
+                    var usedCauses = existing
                         .Where(c => causesInLogs.Contains(c.CauseId))
-                        .Select(c => c.Name)
                         .ToList();
 
-                    _logger.LogWarning("Cannot delete causes {Causes} - referenced in logs",
-                        string.Join(", ", usedCauseNames));
+                    var errorDetails = new List<string>();
+                    foreach (var cause in usedCauses)
+                    {
+                        var count = await _db.IssueLogs
+                            .CountAsync(il => il.CauseId == cause.CauseId && il.DeletedAt == null);
+                        errorDetails.Add($"{cause.Name} ({count} nhật ký)");
+                    }
+
+                    _logger.LogWarning("Causes in use: {Causes}",
+                        string.Join(", ", usedCauses.Select(c => $"{c.CauseId}:{c.Name}")));
 
                     throw new BusinessRuleException(
-                        $"Không thể xóa nguyên nhân {string.Join(", ", usedCauseNames)} vì đang được sử dụng trong nhật ký");
+                        $"Không thể xóa nguyên nhân {string.Join(", ", errorDetails)} vì đang được sử dụng trong nhật ký",
+                        "CAUSE_IN_USE");
                 }
 
-                if (softDelete)
+                // ✅ Step 3: All checks passed → Delete ALL
+                foreach (var cause in existing)
                 {
-                    foreach (var item in existing)
-                    {
-                        item.DeletedAt = DateTime.UtcNow;
-                    }
-                    _db.Causes.UpdateRange(existing);
-                }
-                else
-                {
-                    _db.Causes.RemoveRange(existing);
+                    if (softDelete)
+                        cause.DeletedAt = DateTime.UtcNow;
+                    else
+                        _db.Causes.Remove(cause);
+
+                    _logger.LogInformation("Deleted cause {CauseId}:{Name}", cause.CauseId, cause.Name);
                 }
 
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("Successfully deleted {Count} causes", existing.Count);
+                _logger.LogInformation("Batch delete SUCCESS | Count: {Count}", existing.Count);
 
-                return true;
+                return new BulkDeleteResultDto
+                {
+                    Success = true,
+                    DeletedCount = existing.Count,
+                    TotalRequested = causeIds.Count,
+                    Message = $"Đã xóa {existing.Count} nguyên nhân thành công"
+                };
             }
             catch
             {
@@ -322,11 +407,9 @@ namespace ItSupportServer.src.Modules.Cause
                 query = query.Where(c => c.Name.Contains(search));
             }
 
-            // ✅ FIX: Cannot use nested COUNT in OrderBy with EF Core
-            // Load data first, then calculate usage count
             var causes = await query
-                .OrderBy(c => c.Name)  // Sort by name first
-                .Take(20)  // Take more than needed for sorting
+                .OrderBy(c => c.Name)
+                .Take(20)
                 .Select(c => new
                 {
                     c.CauseId,
@@ -336,7 +419,6 @@ namespace ItSupportServer.src.Modules.Cause
                 })
                 .ToListAsync();
 
-            // ✅ Calculate usage counts in-memory
             var causeIds = causes.Select(c => c.CauseId).ToList();
             
             var usageCounts = await _db.IssueLogs
@@ -345,7 +427,6 @@ namespace ItSupportServer.src.Modules.Cause
                 .Select(g => new { CauseId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.CauseId, x => x.Count);
 
-            // ✅ Build suggestions with usage counts, then sort by usage
             var suggestions = causes
                 .Select(c => new CauseSuggestionDto
                 {
@@ -355,7 +436,7 @@ namespace ItSupportServer.src.Modules.Cause
                     Description = c.Description,
                     UsageCount = usageCounts.GetValueOrDefault(c.CauseId, 0)
                 })
-                .OrderByDescending(s => s.UsageCount)  // Most used first
+                .OrderByDescending(s => s.UsageCount)
                 .ThenBy(s => s.Name)
                 .Take(10)
                 .ToList();

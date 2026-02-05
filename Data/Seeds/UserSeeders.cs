@@ -41,7 +41,7 @@ namespace ItSupportServer.Data.Seeds
                     AccountId = AdminAccountId,
                     Username = "admin",  // ✅ Simple admin username
                     Password = "$2a$12$UuDUXpLPwXBUMRJ8Grpz6.e7dnHvCJQ/SxAXqN.RC4Y2i0GR2Il9W",
-                    // ⚠️ NOTE: This is BCrypt hash of "admin1234"
+                    // ⚠️ NOTE: This is BCrypt hash of "admin123"
                     // Change in production!
                     CreatedAt = SeedDate
                 });

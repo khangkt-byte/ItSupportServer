@@ -2,6 +2,7 @@
 using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Attributes;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ItSupportServer.src.Modules.IssueLog
@@ -174,34 +175,71 @@ namespace ItSupportServer.src.Modules.IssueLog
         }
 
         /// <summary>
+        /// [DELETE] Xóa nhật ký sự cố
+        /// </summary>
+        /// <param name="issLogId">Issue log ID</param>
+        /// <returns>No content (204)</returns>
+        /// <remarks>
+        /// **Pattern:** RESTful single resource delete
+        /// **Reference:** Microsoft REST API Guidelines
+        /// 
+        /// **Business rules:**
+        /// - No specific constraints (data records can be deleted freely)
+        /// - Soft delete by default (GDPR compliance, audit trail)
+        /// </remarks>
+        [HttpDelete("{issLogId}")]
+        [HasPermission(Permissions.IssueLogClaims.Delete)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DeleteIssueLog([FromRoute] Guid issLogId)
+        {
+            await _service.DeleteIssueLogAsync(issLogId);
+            return NoContent();
+        }
+
+        /// <summary>
         /// [DELETE] Xóa nhiều nhật ký sự cố
         /// </summary>
-        /// <param name="issLogIds">List of issue log IDs to delete</param>
-        /// <param name="softDelete">Soft delete (default: true) or hard delete</param>
-        /// <returns>Success status</returns>
+        /// <param name="issLogIds">Danh sách issue log IDs cần xóa</param>
+        /// <param name="softDelete">Soft delete (mặc định: true)</param>
+        /// <returns>Kết quả xóa hàng loạt</returns>
         /// <remarks>
-        /// **Security:** Soft delete by default (GDPR compliance)
+        /// **Strategy:** All-or-nothing (transaction-based)
+        /// - Nếu TẤT CẢ thành công → 200 OK với summary
+        /// - Nếu BẤT KỲ lỗi nào → Rollback, throw error (4xx/5xx)
         /// 
-        /// **Bulk delete behavior:**
-        /// - Transaction-based (all or nothing)
-        /// - Nếu ANY ID không tồn tại → 404
-        /// - Empty list → 400
+        /// **Pattern:** Microsoft Dynamics 365 standard tables
+        /// **Reference:** https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
         /// 
-        /// **Example:**
+        /// **Business rules:**
+        /// - No specific constraints for IssueLogs (data records only)
+        /// - Transaction rollback nếu ANY item fails
+        /// - GDPR compliance: Soft delete by default
+        /// 
+        /// **Response:**
         /// ```json
-        /// ["a1b2c3d4-e5f6-7890-abcd-ef1234567890", "b2c3d4e5-f6a7-8901-bcde-f12345678901"]
+        /// {
+        ///   "success": true,
+        ///   "deletedCount": 5,
+        ///   "totalRequested": 5,
+        ///   "message": "Đã xóa 5 nhật ký sự cố thành công"
+        /// }
         /// ```
         /// </remarks>
         [HttpDelete]
         [HasPermission(Permissions.IssueLogClaims.Delete)]
-        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(BulkDeleteResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<bool>> DeleteIssueLogs(
+        public async Task<ActionResult<BulkDeleteResultDto>> DeleteIssueLogs(
             [FromBody] List<Guid> issLogIds,
             [FromQuery] bool softDelete = true)
         {

@@ -1,21 +1,28 @@
 ﻿using ItSupportServer.src.Modules.Authorization;
+using ItSupportServer.src.Shared.Exceptions;
+using ItSupportServer.src.Shared.Configuration; // ✅ ADD THIS
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ItSupportServer.src.Modules.Authentication
 {
     /// <summary>
     /// Authentication API
     /// </summary>
-    [Route("api/auth")]
     [ApiController]
+    [Route("api/auth")]
     public class AuthenticationsController : ControllerBase
     {
-        private readonly IAuthenticationService _service;
+        private readonly IAuthenticationService _authService;
+        private readonly ILogger<AuthenticationsController> _logger;
 
-        public AuthenticationsController(IAuthenticationService service)
+        public AuthenticationsController(
+            IAuthenticationService authService,
+            ILogger<AuthenticationsController> logger)
         {
-            _service = service;
+            _authService = authService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -23,6 +30,7 @@ namespace ItSupportServer.src.Modules.Authentication
         /// </summary>
         [HttpPost("login")]
         [AllowAnonymous]
+        [EnableRateLimiting("auth")] // ✅ Apply strict rate limiting
         [ProducesResponseType(typeof(TokenResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -31,18 +39,25 @@ namespace ItSupportServer.src.Modules.Authentication
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<TokenResponseDto>> Login([FromBody] LoginDto dto)
         {
-            var result = await _service.LoginAsync(dto);
-
-            // ✅ Set refresh token in HTTP-Only cookie
-            Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
+            try
             {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTimeOffset.UtcNow.AddDays(7)
-            });
+                var result = await _authService.LoginAsync(dto);
 
-            return Ok(new { accessToken = result.AccessToken });
+                // ✅ USE FACTORY - Consistent cookie configuration
+                Response.Cookies.Append("refreshToken", result.RefreshToken,
+                    CookieOptionsFactory.CreateRefreshTokenCookieOptions());
+
+                return Ok(new { accessToken = result.AccessToken });
+            }
+            catch (UnauthorizedException ex)
+            {
+                _logger.LogWarning(
+                    "Failed login attempt for user: {Identifier} | IP: {IP}",
+                    dto.Identifier,
+                    HttpContext.Connection.RemoteIpAddress
+                );
+                throw;
+            }
         }
 
         /// <summary>
@@ -50,6 +65,7 @@ namespace ItSupportServer.src.Modules.Authentication
         /// </summary>
         [HttpPost("refresh-token")]
         [AllowAnonymous]
+        [EnableRateLimiting("api")] // ✅ Apply moderate rate limiting
         [ProducesResponseType(typeof(TokenResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
@@ -62,19 +78,14 @@ namespace ItSupportServer.src.Modules.Authentication
                 return Unauthorized(new { error = "Refresh token không tồn tại" });
             }
 
-            var result = await _service.RefreshTokenAsync(new RefreshTokenRequestDto
+            var result = await _authService.RefreshTokenAsync(new RefreshTokenRequestDto
             {
                 RefreshToken = refreshToken
             });
 
-            // Update cookie
-            Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTimeOffset.UtcNow.AddDays(7)
-            });
+            // ✅ USE FACTORY - Consistent cookie configuration
+            Response.Cookies.Append("refreshToken", result.RefreshToken,
+                CookieOptionsFactory.CreateRefreshTokenCookieOptions());
 
             return Ok(new { accessToken = result.AccessToken });
         }
@@ -84,16 +95,13 @@ namespace ItSupportServer.src.Modules.Authentication
         /// </summary>
         [HttpPost("logout")]
         [Authorize]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult> Logout()
+        public async Task<IActionResult> Logout()
         {
             var accountId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
 
             if (Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
             {
-                await _service.LogoutAsync(accountId, refreshToken);
+                await _authService.LogoutAsync(accountId, refreshToken);
             }
 
             // Clear cookie
@@ -115,16 +123,11 @@ namespace ItSupportServer.src.Modules.Authentication
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<OtpResponseDto>> ConfirmOtp([FromBody] OtpDto dto)
         {
-            var result = await _service.ConfirmOtpAsync(dto);
+            var result = await _authService.ConfirmOtpAsync(dto);
 
-            // Set refresh token cookie
-            Response.Cookies.Append("refreshToken", result.Token.RefreshToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTimeOffset.UtcNow.AddDays(7)
-            });
+            // ✅ USE FACTORY - Consistent cookie configuration
+            Response.Cookies.Append("refreshToken", result.Token.RefreshToken,
+                CookieOptionsFactory.CreateRefreshTokenCookieOptions());
 
             return Ok(new { accessToken = result.Token.AccessToken });
         }
@@ -143,7 +146,7 @@ namespace ItSupportServer.src.Modules.Authentication
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<OtpSentResponseDto>> ResendOtp([FromBody] string email)
         {
-            var result = await _service.RefreshOtpAsync(email);
+            var result = await _authService.RefreshOtpAsync(email);
             return Ok(result);
         }
 
@@ -159,7 +162,7 @@ namespace ItSupportServer.src.Modules.Authentication
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> ForgotPassword([FromBody] string emailOrUsername)
         {
-            await _service.ForgotPasswordAsync(emailOrUsername);
+            await _authService.ForgotPasswordAsync(emailOrUsername);
             return Ok(new { message = "Nếu email tồn tại, link đặt lại mật khẩu đã được gửi" });
         }
 
@@ -174,7 +177,7 @@ namespace ItSupportServer.src.Modules.Authentication
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
         {
-            await _service.ResetPasswordAsync(dto);
+            await _authService.ResetPasswordAsync(dto);
             return Ok(new { message = "Đặt lại mật khẩu thành công" });
         }
     }

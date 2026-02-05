@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using ItSupportServer.Data.Models;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 using ItSupportServer.src.Shared.Exceptions;
 using ItSupportServer.src.Shared.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,12 @@ using System.Diagnostics;
 
 namespace ItSupportServer.src.Modules.Issue
 {
+    /// <summary>
+    /// Issue service implementation
+    /// Pattern: Domain-Driven Design (DDD) service layer
+    /// Security: Input validation, referential integrity checks
+    /// Reference: ServiceNow Knowledge Base Management
+    /// </summary>
     public class IssueService : IIssueService
     {
         private readonly AppDbContext _db;
@@ -179,102 +186,216 @@ namespace ItSupportServer.src.Modules.Issue
             return await GetIssueByIdAsync(issId);
         }
 
-        public async Task<bool> DeleteIssuesAsync(List<long> issIds, bool softDelete = true)
+        /// <summary>
+        /// Delete single issue
+        /// Pattern: RESTful single resource delete (returns void, throws on error)
+        /// Reference: Microsoft REST API Guidelines - DELETE returns 204 No Content
+        /// Business Rules: 
+        /// - Cannot delete if issue has Causes
+        /// - Cannot delete if issue is referenced in IssueLogs
+        /// </summary>
+        public async Task DeleteIssueAsync(long issId, bool softDelete = true)
         {
-            _logger.LogInformation("Deleting {Count} issues (soft: {SoftDelete})",
+            _logger.LogInformation("Deleting issue {IssId} | SoftDelete: {SoftDelete}",
+                issId, softDelete);
+
+            var issue = await _db.Issues
+                .Include(i => i.Causes)
+                .FirstOrDefaultAsync(i => i.IssId == issId && i.DeletedAt == null);
+
+            if (issue == null)
+            {
+                _logger.LogWarning("Issue {IssId} not found", issId);
+                throw new NotFoundException("Vấn đề", issId);
+            }
+
+            // ✅ Business rule 1: Check for Causes
+            // Pattern: Prevent orphaned child records (referential integrity)
+            // Reference: Database Design Best Practices
+            if (issue.Causes != null && issue.Causes.Any(c => c.DeletedAt == null))
+            {
+                var activeCauseCount = issue.Causes.Count(c => c.DeletedAt == null);
+                _logger.LogWarning("Issue {IssId}:{Name} has {Count} causes",
+                    issue.IssId, issue.Name, activeCauseCount);
+
+                throw new BusinessRuleException(
+                    $"Không thể xóa vấn đề '{issue.Name}' vì có {activeCauseCount} nguyên nhân liên quan. " +
+                    $"Vui lòng xóa các nguyên nhân trước.",
+                    "ISSUE_HAS_CAUSES");
+            }
+
+            // ✅ Business rule 2: Check IssueLogs references
+            var hasIssueLogs = await _db.IssueLogs
+                .AnyAsync(il => il.IssueId == issId && il.DeletedAt == null);
+
+            if (hasIssueLogs)
+            {
+                var issueLogCount = await _db.IssueLogs
+                    .CountAsync(il => il.IssueId == issId && il.DeletedAt == null);
+
+                _logger.LogWarning("Issue {IssId}:{Name} referenced in {Count} logs",
+                    issue.IssId, issue.Name, issueLogCount);
+
+                throw new BusinessRuleException(
+                    $"Không thể xóa vấn đề '{issue.Name}' vì đang được sử dụng trong {issueLogCount} nhật ký",
+                    "ISSUE_IN_USE");
+            }
+
+            // ✅ Perform delete
+            if (softDelete)
+            {
+                issue.DeletedAt = DateTime.UtcNow;
+                _db.Issues.Update(issue);
+
+                await _db.SaveChangesAsync();
+
+                _logger.LogInformation("Soft deleted issue {IssId}:{Name}",
+                    issue.IssId, issue.Name);
+            }
+            else
+            {
+                // Hard delete with transaction
+                using var transaction = await _db.Database.BeginTransactionAsync();
+
+                try
+                {
+                    _db.Issues.Remove(issue);
+
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    _logger.LogInformation("Hard deleted issue {IssId}:{Name}",
+                        issue.IssId, issue.Name);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Delete multiple issues with all-or-nothing transaction
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Strategy: Validate ALL → Delete ALL → Return summary
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
+        public async Task<BulkDeleteResultDto> DeleteIssuesAsync(List<long> issIds, bool softDelete = true)
+        {
+            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}",
                 issIds?.Count ?? 0, softDelete);
 
+            // ✅ Input validation
             ArgumentNullException.ThrowIfNull(issIds);
 
             if (issIds.Count == 0)
             {
                 throw new Shared.Exceptions.ValidationException("issIds",
-                    "Vui lòng chọn vấn đề để xóa");
+                    "Vui lòng chọn ít nhất một vấn đề để xóa");
             }
+
+            // ✅ Remove duplicates
+            var uniqueIds = issIds.Distinct().ToList();
 
             using var transaction = await _db.Database.BeginTransactionAsync();
 
             try
             {
+                // ✅ Step 1: Validate ALL items BEFORE any deletion
                 var existing = await _db.Issues
-                    .Where(i => issIds.Contains(i.IssId) && i.DeletedAt == null)
+                    .Include(i => i.Causes)
+                    .Where(i => uniqueIds.Contains(i.IssId) && i.DeletedAt == null)
                     .ToListAsync();
 
-                if (existing.Count == 0)
+                var notFoundIds = uniqueIds.Except(existing.Select(i => i.IssId)).ToList();
+                if (notFoundIds.Any())
                 {
-                    throw new NotFoundException("Không tìm thấy vấn đề để xóa");
+                    _logger.LogWarning("Issues not found: {Ids}", string.Join(", ", notFoundIds));
+                    throw new NotFoundException($"Vấn đề không tồn tại: {string.Join(", ", notFoundIds)}");
                 }
 
-                // ✅ FIX: Referential Integrity Check 1 - Causes
-                // Pattern: Prevent orphaned child records
-                // Reference: Database Design Best Practices
-                // Handle nullable IssId in Causes entity
-                var issuesWithCauses = await _db.Causes
-                    .Where(c => 
-                        issIds.Contains(c.IssId) &&  // ✅ Use .Value after null check
-                        c.DeletedAt == null)
-                    .Select(c => c.IssId)  // ✅ Non-null assertion after HasValue check
-                    .Distinct()
-                    .ToListAsync();
+                // ✅ Step 2: Check business rules for ALL items
+
+                // Rule 1: Check for Causes (referential integrity)
+                var issuesWithCauses = existing
+                    .Where(i => i.Causes != null && i.Causes.Any(c => c.DeletedAt == null))
+                    .ToList();
 
                 if (issuesWithCauses.Any())
                 {
-                    var usedIssueNames = existing
-                        .Where(i => issuesWithCauses.Contains(i.IssId))
-                        .Select(i => i.Name)
+                    var errorDetails = issuesWithCauses
+                        .Select(i => $"{i.Name} ({i.Causes!.Count(c => c.DeletedAt == null)} nguyên nhân)")
                         .ToList();
 
-                    _logger.LogWarning("Cannot delete issues {Issues} - have causes",
-                        string.Join(", ", usedIssueNames));
+                    _logger.LogWarning("Issues with causes: {Issues}",
+                        string.Join(", ", issuesWithCauses.Select(i => $"{i.IssId}:{i.Name}")));
 
                     throw new BusinessRuleException(
-                        $"Không thể xóa vấn đề {string.Join(", ", usedIssueNames)} vì có nguyên nhân liên quan. " +
-                        $"Vui lòng xóa các nguyên nhân trước.");
+                        $"Không thể xóa vấn đề {string.Join(", ", errorDetails)} vì có nguyên nhân liên quan. " +
+                        $"Vui lòng xóa các nguyên nhân trước.",
+                        "ISSUE_HAS_CAUSES");
                 }
 
-                // ✅ Referential integrity - Issue Logs
+                // Rule 2: Check IssueLogs references
                 var issuesInLogs = await _db.IssueLogs
-                    .Where(il => 
-                        il.IssueId.HasValue &&
-                        issIds.Contains(il.IssueId.Value) &&
-                        il.DeletedAt == null)
+                    .Where(il => il.IssueId.HasValue &&
+                           uniqueIds.Contains(il.IssueId.Value) &&
+                           il.DeletedAt == null)
                     .Select(il => il.IssueId!.Value)
                     .Distinct()
                     .ToListAsync();
 
                 if (issuesInLogs.Any())
                 {
-                    var usedIssueNames = existing
+                    var usedIssues = existing
                         .Where(i => issuesInLogs.Contains(i.IssId))
-                        .Select(i => i.Name)
                         .ToList();
 
-                    _logger.LogWarning("Cannot delete issues {Issues} - referenced in logs",
-                        string.Join(", ", usedIssueNames));
+                    var errorDetails = new List<string>();
+                    foreach (var issue in usedIssues)
+                    {
+                        var count = await _db.IssueLogs
+                            .CountAsync(il => il.IssueId == issue.IssId && il.DeletedAt == null);
+                        errorDetails.Add($"{issue.Name} ({count} nhật ký)");
+                    }
+
+                    _logger.LogWarning("Issues referenced in logs: {Issues}",
+                        string.Join(", ", usedIssues.Select(i => $"{i.IssId}:{i.Name}")));
 
                     throw new BusinessRuleException(
-                        $"Không thể xóa vấn đề {string.Join(", ", usedIssueNames)} vì đang được sử dụng trong {issuesInLogs.Count} nhật ký");
+                        $"Không thể xóa vấn đề {string.Join(", ", errorDetails)} vì đang được sử dụng trong nhật ký",
+                        "ISSUE_IN_USE");
+                }
+
+                // ✅ Step 3: All checks passed → Delete ALL
+                foreach (var issue in existing)
+                {
+                    if (softDelete)
+                        issue.DeletedAt = DateTime.UtcNow;
+                    else
+                        _db.Issues.Remove(issue);
+
+                    _logger.LogInformation("Deleted issue {IssId}:{Name}", issue.IssId, issue.Name);
                 }
 
                 if (softDelete)
                 {
-                    foreach (var item in existing)
-                    {
-                        item.DeletedAt = DateTime.UtcNow;
-                    }
                     _db.Issues.UpdateRange(existing);
-                }
-                else
-                {
-                    _db.Issues.RemoveRange(existing);
                 }
 
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("Successfully deleted {Count} issues", existing.Count);
+                _logger.LogInformation("Batch delete SUCCESS | Count: {Count}", existing.Count);
 
-                return true;
+                return new BulkDeleteResultDto
+                {
+                    Success = true,
+                    DeletedCount = existing.Count,
+                    TotalRequested = issIds.Count,
+                    Message = $"Đã xóa {existing.Count} vấn đề thành công"
+                };
             }
             catch
             {

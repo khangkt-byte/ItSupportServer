@@ -2,12 +2,15 @@
 using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Attributes;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ItSupportServer.src.Modules.Issue
 {
     /// <summary>
     /// API quản lý vấn đề phổ biến (Knowledge Base)
+    /// Pattern: RESTful API, Knowledge Management
+    /// Reference: ServiceNow Knowledge Base API
     /// </summary>
     [ApiController]
     [Route("api/issues")]
@@ -62,7 +65,6 @@ namespace ItSupportServer.src.Modules.Issue
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IssueDto>> CreateIssue([FromBody] CreateIssueDto dto)
@@ -92,18 +94,71 @@ namespace ItSupportServer.src.Modules.Issue
         }
 
         /// <summary>
+        /// [ADMIN] Xóa issue
+        /// </summary>
+        /// <param name="issId">Issue ID</param>
+        /// <returns>No content (204)</returns>
+        /// <remarks>
+        /// **Pattern:** RESTful single resource delete
+        /// **Reference:** Microsoft REST API Guidelines
+        /// 
+        /// **Business rules:**
+        /// - Không thể xóa nếu issue có causes (422)
+        /// - Không thể xóa nếu issue được tham chiếu trong IssueLogs (422)
+        /// </remarks>
+        [HttpDelete("{issId}")]
+        [HasPermission(Permissions.IssueClaims.Delete)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DeleteIssue([FromRoute] long issId)
+        {
+            await _service.DeleteIssueAsync(issId);
+            return NoContent();
+        }
+
+        /// <summary>
         /// [ADMIN] Xóa nhiều issues
         /// </summary>
+        /// <param name="issIds">Danh sách issue IDs cần xóa</param>
+        /// <param name="softDelete">Soft delete (mặc định: true)</param>
+        /// <returns>Kết quả xóa hàng loạt</returns>
+        /// <remarks>
+        /// **Strategy:** All-or-nothing (transaction-based)
+        /// - Nếu TẤT CẢ thành công → 200 OK với summary
+        /// - Nếu BẤT KỲ lỗi nào → Rollback, throw error (4xx/5xx)
+        /// 
+        /// **Pattern:** Microsoft Dynamics 365 standard tables
+        /// **Reference:** https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// 
+        /// **Business rules:**
+        /// - Không thể xóa issue có causes (422)
+        /// - Không thể xóa issue được tham chiếu trong IssueLogs (422)
+        /// - Transaction rollback nếu ANY item fails
+        /// 
+        /// **Response:**
+        /// ```json
+        /// {
+        ///   "success": true,
+        ///   "deletedCount": 3,
+        ///   "totalRequested": 3,
+        ///   "message": "Đã xóa 3 vấn đề thành công"
+        /// }
+        /// ```
+        /// </remarks>
         [HttpDelete]
         [HasPermission(Permissions.IssueClaims.Delete)]
-        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(BulkDeleteResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<bool>> DeleteIssues(
+        public async Task<ActionResult<BulkDeleteResultDto>> DeleteIssues(
             [FromBody] List<long> issIds,
             [FromQuery] bool softDelete = true)
         {
@@ -112,16 +167,14 @@ namespace ItSupportServer.src.Modules.Issue
         }
 
         /// <summary>
-        /// [HELPER] Lấy gợi ý issues cho autocomplete (dùng bởi IssueLog form)
+        /// [HELPER] Lấy gợi ý issues cho autocomplete
         /// </summary>
-        /// <param name="search">Search term</param>
-        /// <returns>Top 10 most used issues matching search</returns>
-        /// <remarks>
-        /// Endpoint này được sử dụng bởi IssueLog form để hiển thị autocomplete suggestions
-        /// </remarks>
         [HttpGet("suggestions")]
         [HasPermission(Permissions.IssueClaims.View)]
         [ProducesResponseType(typeof(List<IssueSuggestionDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<List<IssueSuggestionDto>>> GetIssueSuggestions(
             [FromQuery] string? search = null)
         {

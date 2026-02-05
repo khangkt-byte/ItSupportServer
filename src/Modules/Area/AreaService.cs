@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using ItSupportServer.Data.Models;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 using ItSupportServer.src.Shared.Exceptions;
 using ItSupportServer.src.Shared.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -174,73 +175,154 @@ namespace ItSupportServer.src.Modules.Area
             return _mapper.MapToAreaDto(area);
         }
 
-        public async Task<bool> DeleteAreasAsync(List<int> areaIds, bool softDelete = true)
+        /// <summary>
+        /// Delete single area
+        /// Pattern: RESTful single resource delete (returns void, throws on error)
+        /// Reference: Microsoft REST API Guidelines - DELETE returns 204 No Content
+        /// Business Rules: Cannot delete if area is in use by employees
+        /// </summary>
+        public async Task DeleteAreaAsync(int areaId, bool softDelete = true)
         {
-            _logger.LogInformation("Deleting {Count} areas (soft: {SoftDelete})",
+            _logger.LogInformation("Deleting area {AreaId} | SoftDelete: {SoftDelete}",
+                areaId, softDelete);
+
+            var area = await _db.Areas
+                .Include(a => a.Employees) // Load relationship for dependency check
+                .FirstOrDefaultAsync(a => a.AreaId == areaId && a.DeletedAt == null);
+
+            if (area == null)
+            {
+                _logger.LogWarning("Area {AreaId} not found", areaId);
+                throw new NotFoundException("Khu vực", areaId);
+            }
+
+            // ✅ Business rule: Check if area is in use
+            if (area.Employees != null && area.Employees.Any(e => e.DeletedAt == null))
+            {
+                var activeEmployeeCount = area.Employees.Count(e => e.DeletedAt == null);
+                _logger.LogWarning("Area {AreaId}:{Name} in use by {Count} employees",
+                    area.AreaId, area.Name, activeEmployeeCount);
+                throw new BusinessRuleException(
+                    $"Không thể xóa khu vực {area.Name} vì đang được sử dụng bởi {activeEmployeeCount} nhân viên",
+                    "AREA_IN_USE");
+            }
+
+            // ✅ Perform delete
+            if (softDelete)
+            {
+                area.DeletedAt = DateTime.UtcNow;
+                _db.Areas.Update(area);
+                
+                await _db.SaveChangesAsync();
+                
+                _logger.LogInformation("Soft deleted area {AreaId}:{Name}", 
+                    area.AreaId, area.Name);
+            }
+            else
+            {
+                // Hard delete with transaction
+                using var transaction = await _db.Database.BeginTransactionAsync();
+                
+                try
+                {
+                    _db.Areas.Remove(area);
+                    
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    
+                    _logger.LogInformation("Hard deleted area {AreaId}:{Name}", 
+                        area.AreaId, area.Name);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Delete multiple areas with all-or-nothing transaction
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Strategy: Validate ALL → Delete ALL → Return summary
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
+        public async Task<BulkDeleteResultDto> DeleteAreasAsync(List<int> areaIds, bool softDelete = true)
+        {
+            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}",
                 areaIds?.Count ?? 0, softDelete);
 
+            // ✅ Input validation
             ArgumentNullException.ThrowIfNull(areaIds);
 
             if (areaIds.Count == 0)
             {
                 throw new Shared.Exceptions.ValidationException("areaIds",
-                    "Vui lòng chọn khu vực để xóa");
+                    "Vui lòng chọn ít nhất một khu vực để xóa");
             }
+
+            // ✅ Remove duplicates
+            var uniqueIds = areaIds.Distinct().ToList();
 
             using var transaction = await _db.Database.BeginTransactionAsync();
 
             try
             {
+                // ✅ Step 1: Validate ALL items BEFORE any deletion
                 var existing = await _db.Areas
-                    .Where(a => areaIds.Contains(a.AreaId) && a.DeletedAt == null)
+                    .Where(a => uniqueIds.Contains(a.AreaId) && a.DeletedAt == null)
+                    .Include(a => a.Employees)
                     .ToListAsync();
 
-                if (existing.Count == 0)
+                var notFoundIds = uniqueIds.Except(existing.Select(a => a.AreaId)).ToList();
+                if (notFoundIds.Any())
                 {
-                    throw new NotFoundException("Không tìm thấy khu vực nào để xóa");
+                    _logger.LogWarning("Areas not found: {Ids}", string.Join(", ", notFoundIds));
+                    throw new NotFoundException($"Khu vực không tồn tại: {string.Join(", ", notFoundIds)}");
                 }
 
-                // Check for dependencies
-                var usedAreaIds = await _db.Employees
-                    .Where(e => e.DeletedAt == null && areaIds.Contains(e.AreaId))
-                    .Select(e => e.AreaId)
-                    .Distinct()
-                    .ToListAsync();
+                // ✅ Step 2: Check business rules for ALL items
+                var areasInUse = existing
+                    .Where(a => a.Employees != null && a.Employees.Any(e => e.DeletedAt == null))
+                    .ToList();
 
-                if (usedAreaIds.Any())
+                if (areasInUse.Any())
                 {
-                    var usedAreaNames = existing
-                        .Where(a => usedAreaIds.Contains(a.AreaId))
-                        .Select(a => a.Name)
+                    var errorDetails = areasInUse
+                        .Select(a => $"{a.Name} ({a.Employees.Count(e => e.DeletedAt == null)} nhân viên)")
                         .ToList();
 
-                    _logger.LogWarning("Cannot delete areas {Areas} - in use",
-                        string.Join(", ", usedAreaNames));
+                    _logger.LogWarning("Areas in use: {Areas}",
+                        string.Join(", ", areasInUse.Select(a => $"{a.AreaId}:{a.Name}")));
 
                     throw new BusinessRuleException(
-                        $"Không thể xóa khu vực {string.Join(", ", usedAreaNames)} vì đang được sử dụng bởi nhân viên");
+                        $"Không thể xóa khu vực {string.Join(", ", errorDetails)} vì đang được sử dụng",
+                        "AREA_IN_USE");
                 }
 
-                // Perform deletion
-                if (softDelete)
+                // ✅ Step 3: All checks passed → Delete ALL
+                foreach (var area in existing)
                 {
-                    foreach (var item in existing)
-                    {
-                        item.DeletedAt = DateTime.UtcNow;
-                    }
-                    _db.Areas.UpdateRange(existing);
-                }
-                else
-                {
-                    _db.Areas.RemoveRange(existing);
+                    if (softDelete)
+                        area.DeletedAt = DateTime.UtcNow;
+                    else
+                        _db.Areas.Remove(area);
+
+                    _logger.LogInformation("Deleted area {AreaId}:{Name}", area.AreaId, area.Name);
                 }
 
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("Successfully deleted {Count} areas", existing.Count);
+                _logger.LogInformation("Batch delete SUCCESS | Count: {Count}", existing.Count);
 
-                return true;
+                return new BulkDeleteResultDto
+                {
+                    Success = true,
+                    DeletedCount = existing.Count,
+                    TotalRequested = areaIds.Count,
+                    Message = $"Đã xóa {existing.Count} khu vực thành công"
+                };
             }
             catch
             {

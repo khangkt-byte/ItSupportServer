@@ -1,4 +1,5 @@
 ﻿using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 
 namespace ItSupportServer.src.Modules.Employee
 {
@@ -25,9 +26,19 @@ namespace ItSupportServer.src.Modules.Employee
         Task<EmployeeDto> UpdateEmployeeAsync(Guid empId, UpdateEmployeeDto dto);
 
         /// <summary>
-        /// Delete employees (soft delete by default)
+        /// Delete single employee (soft delete by default)
+        /// Pattern: RESTful single resource delete
+        /// Reference: Microsoft REST API Guidelines
+        /// Business Rules: Cannot delete Super_Admin, cannot delete if has IssueLogs
         /// </summary>
-        Task<bool> DeleteEmployeesAsync(List<Guid> empIds, bool softDelete = true);
+        Task DeleteEmployeeAsync(Guid empId, bool softDelete = true);
+
+        /// <summary>
+        /// Delete multiple employees (all-or-nothing transaction)
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
+        Task<BulkDeleteResultDto> DeleteEmployeesAsync(List<Guid> empIds, bool softDelete = true);
 
         /// <summary>
         /// Get current user's profile

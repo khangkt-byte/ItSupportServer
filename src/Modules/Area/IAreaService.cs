@@ -1,4 +1,5 @@
 ﻿using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 
 namespace ItSupportServer.src.Modules.Area
 {
@@ -25,8 +26,17 @@ namespace ItSupportServer.src.Modules.Area
         Task<AreaDto> UpdateAreaAsync(int areaId, UpdateAreaDto dto);
 
         /// <summary>
-        /// Delete areas (soft delete by default)
+        /// Delete single area (soft delete by default)
+        /// Pattern: RESTful single resource delete
+        /// Reference: Microsoft REST API Guidelines
         /// </summary>
-        Task<bool> DeleteAreasAsync(List<int> areaIds, bool softDelete = true);
+        Task DeleteAreaAsync(int areaId, bool softDelete = true);
+
+        /// <summary>
+        /// Delete multiple areas (all-or-nothing transaction)
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
+        Task<BulkDeleteResultDto> DeleteAreasAsync(List<int> areaIds, bool softDelete = true);
     }
 }

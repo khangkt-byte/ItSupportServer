@@ -1,6 +1,7 @@
 ﻿using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Attributes;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -154,33 +155,92 @@ namespace ItSupportServer.src.Modules.Account
         }
 
         /// <summary>
-        /// [ADMIN] Xóa nhiều tài khoản (soft delete)
+        /// [ADMIN] Xóa tài khoản đơn lẻ (soft delete)
         /// </summary>
-        /// <param name="accountIds">List of account IDs to delete</param>
-        /// <returns>Success status</returns>
+        /// <param name="id">Account ID</param>
+        /// <returns>No content (204)</returns>
         /// <remarks>
+        /// **Pattern:** RESTful single resource delete
+        /// **Reference:** Microsoft REST API Guidelines
+        /// 
         /// **Business rules (422):**
         /// - Không thể xóa tài khoản Super Admin
         /// - Không thể tự xóa tài khoản của chính mình
+        /// - Không thể xóa tài khoản có dữ liệu quan trọng liên quan
         /// 
         /// **Not Found (404):**
-        /// - Nếu ANY account ID không tồn tại (transaction rollback)
+        /// - Account không tồn tại
+        /// 
+        /// **Example:**
+        /// ```
+        /// DELETE /api/accounts/guid-here
+        /// ```
+        /// 
+        /// **Response:** 204 No Content (theo chuẩn REST)
+        /// </remarks>
+        [HttpDelete("{id}")]
+        [HasPermission(Permissions.AccountClaims.Delete)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DeleteAccount([FromRoute] Guid id)
+        {
+            await _service.DeleteAccountAsync(id);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// [ADMIN] Xóa nhiều tài khoản (soft delete)
+        /// </summary>
+        /// <param name="accountIds">Danh sách account IDs cần xóa</param>
+        /// <returns>Kết quả xóa hàng loạt</returns>
+        /// <remarks>
+        /// **Strategy:** All-or-nothing (transaction-based)
+        /// - Nếu TẤT CẢ thành công → 200 OK với summary
+        /// - Nếu BẤT KỲ lỗi nào → Rollback, throw error (4xx/5xx)
+        /// 
+        /// **Pattern:** Microsoft Dynamics 365 bulk operations
+        /// **Reference:** 
+        /// - https://learn.microsoft.com/power-apps/developer/data-platform/delete-data-bulk
+        /// - https://learn.microsoft.com/azure/architecture/best-practices/api-design
+        /// 
+        /// **Business rules (422):**
+        /// - Không thể xóa tài khoản Super Admin
+        /// - Không thể tự xóa tài khoản của chính mình
+        /// - Transaction rollback nếu ANY account fails validation
+        /// 
+        /// **Not Found (404):**
+        /// - Nếu ANY account ID không tồn tại (strict validation)
         /// 
         /// **Example:**
         /// ```json
         /// ["guid-1", "guid-2", "guid-3"]
         /// ```
+        /// 
+        /// **Response:**
+        /// ```json
+        /// {
+        ///   "success": true,
+        ///   "deletedCount": 3,
+        ///   "totalRequested": 3,
+        ///   "message": "Đã xóa 3 tài khoản thành công"
+        /// }
+        /// ```
         /// </remarks>
         [HttpDelete]
         [HasPermission(Permissions.AccountClaims.Delete)]
-        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(BulkDeleteResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<bool>> DeleteAccounts([FromBody] List<Guid> accountIds)
+        public async Task<ActionResult<BulkDeleteResultDto>> DeleteAccounts(
+            [FromBody] List<Guid> accountIds)
         {
             var result = await _service.DeleteAccountsAsync(accountIds);
             return Ok(result);

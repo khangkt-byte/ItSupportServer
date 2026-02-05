@@ -3,6 +3,7 @@ using ItSupportServer.Data.Models;
 using ItSupportServer.Data.Models.Entities;
 using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 using ItSupportServer.src.Shared.Exceptions;
 using ItSupportServer.src.Shared.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -259,7 +260,7 @@ namespace ItSupportServer.src.Modules.Role
             {
                 // UpdatedAt set automatically by interceptor
                 await _db.SaveChangesAsync();
-                
+
                 // ✅ Invalidate permission cache for all affected accounts
                 if (affectedAccountIds.Any())
                 {
@@ -268,7 +269,7 @@ namespace ItSupportServer.src.Modules.Role
                         "Invalidated permission cache for {Count} accounts affected by role {RoleId} update",
                         affectedAccountIds.Count, roleId);
                 }
-                
+
                 _logger.LogInformation("Successfully updated role {RoleId}", roleId);
             }
             else
@@ -279,96 +280,226 @@ namespace ItSupportServer.src.Modules.Role
             return await GetRoleByIdAsync(roleId);
         }
 
-        public async Task<bool> DeleteRoleAsync(int roleId, bool softDelete = true)
+        /// <summary>
+        /// Delete single role
+        /// Pattern: RESTful single resource delete (returns void, throws on error)
+        /// Reference: Microsoft REST API Guidelines - DELETE returns 204 No Content
+        /// Business Rules: 
+        /// - Cannot delete if role is in use by accounts (ROLE_IN_USE)
+        /// - Cannot delete system/protected roles (PROTECTED_ROLE)
+        /// Cache: Invalidates permission cache for affected accounts
+        /// </summary>
+        public async Task DeleteRoleAsync(int roleId, bool softDelete = true)
         {
             _logger.LogInformation("Deleting role {RoleId} | SoftDelete: {SoftDelete}",
                 roleId, softDelete);
 
-            var role = await _db.Roles
-                .Include(r => r.AccountRoles)
-                .FirstOrDefaultAsync(r => r.RoleId == roleId && r.DeletedAt == null);
+            // ✅ FIX 1: Use transaction for BOTH soft and hard delete
+            // Reference: Microsoft Entity Framework Best Practices
+            using var transaction = await _db.Database.BeginTransactionAsync();
 
-            if (role == null)
+            try
             {
-                _logger.LogWarning("Role {RoleId} not found", roleId);
-                throw new NotFoundException("Vai trò", roleId);
-            }
+                var role = await _db.Roles
+                    .Include(r => r.AccountRoles)
+                    .FirstOrDefaultAsync(r => r.RoleId == roleId && r.DeletedAt == null);
 
-            // Check business rules
-            if (role.AccountRoles.Any())
-            {
-                _logger.LogWarning("Role {RoleId}:{Name} in use by {Count} accounts",
-                    role.RoleId, role.Name, role.AccountRoles.Count);
-                throw new BusinessRuleException(
-                    $"Không thể xóa vai trò {role.Name} vì đang được sử dụng",
-                    "ROLE_IN_USE");
-            }
+                if (role == null)
+                {
+                    _logger.LogWarning("Role {RoleId} not found", roleId);
+                    throw new NotFoundException("Vai trò", roleId);
+                }
 
-            // Delete
-            if (softDelete)
-            {
-                role.DeletedAt = DateTime.UtcNow;
-                _db.Roles.Update(role);
-            }
-            else
-            {
-                // Hard delete - remove claims first
-                var roleClaims = await _db.RoleClaims
-                    .Where(rc => rc.RoleId == roleId)
+                // ✅ FIX 2: Add system role protection
+                // Pattern: Auth0, Okta, Azure AD - cannot delete system roles
+                // Reference: https://auth0.com/docs/manage-users/user-roles/role-management
+                if (IsSystemRole(role.Name))
+                {
+                    _logger.LogWarning("Attempted to delete system role {RoleId}:{Name}",
+                        role.RoleId, role.Name);
+                    throw new BusinessRuleException(
+                        $"Không thể xóa vai trò hệ thống '{role.Name}'",
+                        "PROTECTED_ROLE");
+                }
+
+                // ✅ Check business rules
+                if (role.AccountRoles.Any())
+                {
+                    _logger.LogWarning("Role {RoleId}:{Name} in use by {Count} accounts",
+                        role.RoleId, role.Name, role.AccountRoles.Count);
+                    throw new BusinessRuleException(
+                        $"Không thể xóa vai trò {role.Name} vì đang được sử dụng bởi {role.AccountRoles.Count} tài khoản",
+                        "ROLE_IN_USE");
+                }
+
+                // ✅ FIX 3: Cache invalidation BEFORE delete
+                // Pattern: GitHub, Stripe - invalidate cache before mutation
+                // Reference: https://stripe.com/docs/api/caching
+                var affectedAccountIds = await _db.AccountRoles
+                    .Where(ar => ar.RoleId == roleId)
+                    .Select(ar => ar.AccountId)
                     .ToListAsync();
-                _db.RoleClaims.RemoveRange(roleClaims);
-                _db.Roles.Remove(role);
+
+                if (affectedAccountIds.Any())
+                {
+                    _authorizationService.InvalidatePermissionCache(affectedAccountIds);
+                    _logger.LogInformation(
+                        "Invalidated permission cache for {Count} accounts before deleting role {RoleId}",
+                        affectedAccountIds.Count, roleId);
+                }
+
+                // ✅ Perform delete
+                if (softDelete)
+                {
+                    role.DeletedAt = DateTime.UtcNow;
+                    _db.Roles.Update(role);
+                    
+                    _logger.LogInformation("Soft deleted role {RoleId}:{Name}",
+                        role.RoleId, role.Name);
+                }
+                else
+                {
+                    // ✅ FIX 4: Manual cascade delete RoleClaims
+                    // Pattern: Explicit cascade for safety
+                    // Reference: Microsoft EF Core - Manual Cascade Delete
+                    var roleClaims = await _db.RoleClaims
+                        .Where(rc => rc.RoleId == roleId)
+                        .ToListAsync();
+
+                    if (roleClaims.Any())
+                    {
+                        _db.RoleClaims.RemoveRange(roleClaims);
+                        _logger.LogInformation("Removed {Count} role claims for role {RoleId}",
+                            roleClaims.Count, roleId);
+                    }
+
+                    _db.Roles.Remove(role);
+                    
+                    _logger.LogInformation("Hard deleted role {RoleId}:{Name}",
+                        role.RoleId, role.Name);
+                }
+
+                await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
             }
-
-            await _db.SaveChangesAsync();
-
-            _logger.LogInformation("Deleted role {RoleId}:{Name} successfully",
-                role.RoleId, role.Name);
-
-            return true;  // Or void/Task
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
+        /// <summary>
+        /// Delete multiple roles with all-or-nothing transaction
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Strategy: Validate ALL → Delete ALL → Return summary
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// </summary>
         public async Task<BulkDeleteResultDto> DeleteRolesAsync(List<int> roleIds, bool softDelete = true)
         {
-            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}", roleIds.Count, softDelete);
+            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}",
+                roleIds?.Count ?? 0, softDelete);
+
+            // ✅ Input validation
+            ArgumentNullException.ThrowIfNull(roleIds);
+
+            if (roleIds.Count == 0)
+            {
+                throw new Shared.Exceptions.ValidationException("roleIds", 
+                    "Vui lòng chọn ít nhất một vai trò để xóa");
+            }
+
+            // ✅ Remove duplicates
+            var uniqueIds = roleIds.Distinct().ToList();
 
             using var transaction = await _db.Database.BeginTransactionAsync();
-            
+
             try
             {
                 // ✅ Step 1: Validate ALL items BEFORE any deletion
                 var existing = await _db.Roles
-                    .Where(r => roleIds.Contains(r.RoleId) && r.DeletedAt == null)
+                    .Where(r => uniqueIds.Contains(r.RoleId) && r.DeletedAt == null)
                     .Include(r => r.AccountRoles)
                     .ToListAsync();
 
-                var notFoundIds = roleIds.Except(existing.Select(r => r.RoleId)).ToList();
+                var notFoundIds = uniqueIds.Except(existing.Select(r => r.RoleId)).ToList();
                 if (notFoundIds.Any())
                 {
                     _logger.LogWarning("Roles not found: {Ids}", string.Join(", ", notFoundIds));
                     throw new NotFoundException($"Vai trò không tồn tại: {string.Join(", ", notFoundIds)}");
                 }
 
+                // ✅ FIX 5: Check for system roles
+                // Pattern: Batch validation for protected resources
+                var systemRoles = existing.Where(r => IsSystemRole(r.Name)).ToList();
+                if (systemRoles.Any())
+                {
+                    var systemRoleNames = string.Join(", ", systemRoles.Select(r => r.Name));
+                    _logger.LogWarning("Attempted to delete system roles: {SystemRoles}", systemRoleNames);
+                    throw new BusinessRuleException(
+                        $"Không thể xóa vai trò hệ thống: {systemRoleNames}",
+                        "PROTECTED_ROLE");
+                }
+
                 // ✅ Step 2: Check business rules for ALL items
                 var rolesInUse = existing.Where(r => r.AccountRoles.Any()).ToList();
                 if (rolesInUse.Any())
                 {
-                    _logger.LogWarning("Roles in use: {Roles}", 
+                    _logger.LogWarning("Roles in use: {Roles}",
                         string.Join(", ", rolesInUse.Select(r => $"{r.RoleId}:{r.Name}")));
                     throw new BusinessRuleException(
                         $"Không thể xóa vai trò {string.Join(", ", rolesInUse.Select(r => r.Name))} vì đang được sử dụng",
                         "ROLE_IN_USE");
                 }
 
-                // ✅ Step 3: All checks passed → Delete ALL
-                foreach (var role in existing)
+                // ✅ FIX 6: Batch cache invalidation
+                // Pattern: Minimize cache operations
+                var allAffectedAccountIds = await _db.AccountRoles
+                    .Where(ar => uniqueIds.Contains(ar.RoleId))
+                    .Select(ar => ar.AccountId)
+                    .Distinct()
+                    .ToListAsync();
+
+                if (allAffectedAccountIds.Any())
                 {
-                    if (softDelete)
-                        role.DeletedAt = DateTime.UtcNow;
-                    else
+                    _authorizationService.InvalidatePermissionCache(allAffectedAccountIds);
+                    _logger.LogInformation(
+                        "Invalidated permission cache for {Count} accounts before bulk delete",
+                        allAffectedAccountIds.Count);
+                }
+
+                // ✅ Step 3: All checks passed → Delete ALL
+                if (softDelete)
+                {
+                    // ✅ FIX 7: Optimize soft delete with UpdateRange
+                    // Pattern: Batch update for performance
+                    var now = DateTime.UtcNow;
+                    foreach (var role in existing)
+                    {
+                        role.DeletedAt = now;
+                        _logger.LogInformation("Deleted role {RoleId}:{Name}", role.RoleId, role.Name);
+                    }
+                    _db.Roles.UpdateRange(existing);
+                }
+                else
+                {
+                    // ✅ FIX 8: Cascade delete RoleClaims for hard delete
+                    var roleClaimsToDelete = await _db.RoleClaims
+                        .Where(rc => uniqueIds.Contains(rc.RoleId))
+                        .ToListAsync();
+
+                    if (roleClaimsToDelete.Any())
+                    {
+                        _db.RoleClaims.RemoveRange(roleClaimsToDelete);
+                        _logger.LogInformation("Removed {Count} role claims during bulk delete",
+                            roleClaimsToDelete.Count);
+                    }
+
+                    foreach (var role in existing)
+                    {
                         _db.Roles.Remove(role);
-                        
-                    _logger.LogInformation("Deleted role {RoleId}:{Name}", role.RoleId, role.Name);
+                        _logger.LogInformation("Deleted role {RoleId}:{Name}", role.RoleId, role.Name);
+                    }
                 }
 
                 await _db.SaveChangesAsync();
@@ -386,9 +517,27 @@ namespace ItSupportServer.src.Modules.Role
             }
             catch
             {
-                await transaction.RollbackAsync();  // ✅ Rollback on ANY error
+                await transaction.RollbackAsync();
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Check if role is a system/protected role
+        /// Pattern: Auth0, Okta - System role protection
+        /// Reference: https://auth0.com/docs/manage-users/user-roles
+        /// </summary>
+        private static bool IsSystemRole(string roleName)
+        {
+            // Define your system roles
+            var systemRoles = new[] 
+            { 
+                "Super_Admin",      // Highest privilege
+                "System",           // System internal
+                "Administrator"     // Default admin
+            };
+
+            return systemRoles.Contains(roleName, StringComparer.OrdinalIgnoreCase);
         }
 
         public async Task<List<ClaimDto>> GetAllClaimsAsync()
