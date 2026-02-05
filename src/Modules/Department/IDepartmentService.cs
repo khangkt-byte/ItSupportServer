@@ -1,4 +1,5 @@
 using ItSupportServer.src.Shared.Base;
+using ItSupportServer.src.Shared.Dto;
 
 namespace ItSupportServer.src.Modules.Department
 {
@@ -14,7 +15,7 @@ namespace ItSupportServer.src.Modules.Department
         Task<PaginatedResult<DepartmentDto>> GetDepartmentsAsync(QueryParameters parameters);
 
         /// <summary>
-        /// Get department by ID with counts
+        /// Get department by ID
         /// </summary>
         Task<DepartmentDto> GetDepartmentByIdAsync(int dptId);
 
@@ -29,29 +30,23 @@ namespace ItSupportServer.src.Modules.Department
         Task<DepartmentDto> CreateDepartmentAsync(CreateDepartmentDto dto);
 
         /// <summary>
-        /// Update existing department (partial update supported)
+        /// Update existing department
         /// </summary>
         Task<DepartmentDto> UpdateDepartmentAsync(int dptId, UpdateDepartmentDto dto);
 
         /// <summary>
-        /// Delete department (soft delete by default)
+        /// Delete single department (soft delete by default)
+        /// Pattern: RESTful single resource delete
+        /// Reference: Microsoft REST API Guidelines
+        /// Business Rules: Cannot delete if has Employees or IssueLogs
         /// </summary>
-        Task<bool> DeleteDepartmentAsync(int dptId, bool softDelete = true);
+        Task DeleteDepartmentAsync(int dptId, bool softDelete = true);
 
         /// <summary>
-        /// Delete multiple departments
+        /// Delete multiple departments (all-or-nothing transaction)
+        /// Pattern: Microsoft Dynamics 365 bulk operations
+        /// Reference: https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
         /// </summary>
         Task<BulkDeleteResultDto> DeleteDepartmentsAsync(List<int> dptIds, bool softDelete = true);
-    }
-
-    /// <summary>
-    /// Bulk delete result DTO
-    /// </summary>
-    public record BulkDeleteResultDto
-    {
-        public bool Success { get; init; }
-        public int DeletedCount { get; init; }
-        public int TotalRequested { get; init; }
-        public string Message { get; init; } = string.Empty;
     }
 }

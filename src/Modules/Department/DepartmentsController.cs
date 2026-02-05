@@ -2,6 +2,7 @@
 using ItSupportServer.src.Shared.Base;
 using Microsoft.AspNetCore.Mvc;
 using ItSupportServer.src.Shared.Attributes;
+using ItSupportServer.src.Shared.Dto;
 
 namespace ItSupportServer.src.Modules.Department
 {
@@ -108,16 +109,19 @@ namespace ItSupportServer.src.Modules.Department
         }
 
         /// <summary>
-        /// Xóa phòng ban
+        /// [ADMIN] Xóa phòng ban
         /// </summary>
-        /// <param name="id">Department ID</param>
+        /// <param name="dptId">Department ID</param>
         /// <returns>No content (204)</returns>
         /// <remarks>
+        /// **Pattern:** RESTful single resource delete
+        /// **Reference:** Microsoft REST API Guidelines
+        /// 
         /// **Business rules:**
         /// - Không thể xóa nếu phòng ban có nhân viên (422)
-        /// - Không thể xóa nếu phòng ban có issue logs (422)
+        /// - Không thể xóa nếu phòng ban có nhật ký sự cố (422)
         /// </remarks>
-        [HttpDelete("{id}")]
+        [HttpDelete("{dptId}")]
         [HasPermission(Permissions.DepartmentClaims.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -125,14 +129,14 @@ namespace ItSupportServer.src.Modules.Department
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> DeleteDepartment([FromRoute] int id)
+        public async Task<IActionResult> DeleteDepartment([FromRoute] int dptId)
         {
-            await _service.DeleteDepartmentAsync(id);
+            await _service.DeleteDepartmentAsync(dptId);
             return NoContent();
         }
 
         /// <summary>
-        /// Xóa nhiều phòng ban
+        /// [ADMIN] Xóa nhiều phòng ban
         /// </summary>
         /// <param name="dptIds">Danh sách department IDs cần xóa</param>
         /// <param name="softDelete">Soft delete (mặc định: true)</param>
@@ -142,10 +146,23 @@ namespace ItSupportServer.src.Modules.Department
         /// - Nếu TẤT CẢ thành công → 200 OK với summary
         /// - Nếu BẤT KỲ lỗi nào → Rollback, throw error (4xx/5xx)
         /// 
+        /// **Pattern:** Microsoft Dynamics 365 standard tables
+        /// **Reference:** https://learn.microsoft.com/en-us/power-apps/developer/data-platform/bulk-operations
+        /// 
         /// **Business rules:**
-        /// - Không thể xóa phòng ban đang có nhân viên (422)
-        /// - Không thể xóa phòng ban đang có issue logs (422)
+        /// - Không thể xóa phòng ban có nhân viên (422)
+        /// - Không thể xóa phòng ban có nhật ký sự cố (422)
         /// - Transaction rollback nếu ANY item fails
+        /// 
+        /// **Response:**
+        /// ```json
+        /// {
+        ///   "success": true,
+        ///   "deletedCount": 3,
+        ///   "totalRequested": 3,
+        ///   "message": "Đã xóa 3 phòng ban thành công"
+        /// }
+        /// ```
         /// </remarks>
         [HttpDelete]
         [HasPermission(Permissions.DepartmentClaims.Delete)]
