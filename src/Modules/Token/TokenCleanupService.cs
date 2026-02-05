@@ -1,9 +1,7 @@
 ﻿using ItSupportServer.Data.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
-namespace ItSupportServer.src.Shared.Services
+namespace ItSupportServer.src.Modules.Token
 {
     /// <summary>
     /// Background service to cleanup expired tokens

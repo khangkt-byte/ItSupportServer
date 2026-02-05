@@ -1,4 +1,6 @@
-﻿namespace ItSupportServer.src.Shared.Middleware
+﻿using ItSupportServer.src.Modules.Token;
+
+namespace ItSupportServer.src.Shared.Middleware
 {
     /// <summary>
     /// Multi-layer CSRF protection (OWASP Defense in Depth)
@@ -11,6 +13,7 @@
         private readonly RequestDelegate _next;
         private readonly IConfiguration _configuration;
         private readonly ILogger<EnhancedCsrfProtectionMiddleware> _logger;
+        private readonly ICsrfTokenService _csrfTokenService;
         private readonly HashSet<string> _allowedOrigins;
 
         private static readonly string[] SafeMethods = { "GET", "HEAD", "OPTIONS", "TRACE" };
@@ -19,11 +22,13 @@
         public EnhancedCsrfProtectionMiddleware(
             RequestDelegate next,
             IConfiguration configuration,
-            ILogger<EnhancedCsrfProtectionMiddleware> logger)
+            ILogger<EnhancedCsrfProtectionMiddleware> logger,
+            ICsrfTokenService csrfTokenService)
         {
             _next = next;
             _configuration = configuration;
             _logger = logger;
+            _csrfTokenService = csrfTokenService;
 
             _allowedOrigins = new HashSet<string>(
                 configuration.GetSection("Security:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>(),
@@ -106,8 +111,8 @@
                 return;
             }
 
-            // ✅ ENHANCED: HMAC signature validation
-            if (!VerifyHmacToken(csrfToken, csrfCookie))
+            // ✅ ENHANCED: HMAC signature validation using service
+            if (!_csrfTokenService.VerifyToken(csrfToken, csrfCookie))
             {
                 _logger.LogWarning("CSRF Blocked: Invalid token | IP: {IP}", 
                     context.Connection.RemoteIpAddress);
@@ -167,44 +172,6 @@
             return contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>
-        /// Layer 3: HMAC token validation
-        /// </summary>
-        private bool VerifyHmacToken(string headerToken, string cookieToken)
-        {
-            try
-            {
-                var parts = headerToken.Split('.');
-                if (parts.Length != 2) return false;
-
-                var token = parts[0];
-                var signature = parts[1];
-
-                // Verify token matches cookie
-                if (!headerToken.Equals(cookieToken, StringComparison.Ordinal))
-                    return false;
-
-                // Verify HMAC signature
-                var expectedSignature = ComputeHmac(token);
-                return signature.Equals(expectedSignature, StringComparison.Ordinal);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private string ComputeHmac(string data)
-        {
-            var secret = _configuration["AppSettings:CsrfSecret"] 
-                ?? throw new InvalidOperationException("CSRF secret not configured");
-
-            using var hmac = new System.Security.Cryptography.HMACSHA256(
-                System.Text.Encoding.UTF8.GetBytes(secret));
-            var hash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(data));
-            return Convert.ToBase64String(hash);
-        }
-
         private string? ExtractOriginFromReferer(string? referer)
         {
             if (string.IsNullOrEmpty(referer)) return null;
@@ -218,22 +185,6 @@
             {
                 return null;
             }
-        }
-
-        /// <summary>
-        /// Generate HMAC-signed CSRF token
-        /// </summary>
-        public string GenerateCsrfToken()
-        {
-            var randomBytes = new byte[32];
-            using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(randomBytes);
-            }
-            var randomToken = Convert.ToBase64String(randomBytes);
-            var signature = ComputeHmac(randomToken);
-
-            return $"{randomToken}.{signature}";
         }
     }
 
