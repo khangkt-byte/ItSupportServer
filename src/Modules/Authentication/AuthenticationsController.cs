@@ -1,5 +1,6 @@
 ﻿using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Exceptions;
+using ItSupportServer.src.Shared.Configuration; // ✅ ADD THIS
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -42,14 +43,9 @@ namespace ItSupportServer.src.Modules.Authentication
             {
                 var result = await _authService.LoginAsync(dto);
 
-                // ✅ Set refresh token in HTTP-Only cookie
-                Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Strict,
-                    Expires = DateTimeOffset.UtcNow.AddDays(7)
-                });
+                // ✅ USE FACTORY - Consistent cookie configuration
+                Response.Cookies.Append("refreshToken", result.RefreshToken,
+                    CookieOptionsFactory.CreateRefreshTokenCookieOptions());
 
                 return Ok(new { accessToken = result.AccessToken });
             }
@@ -87,14 +83,9 @@ namespace ItSupportServer.src.Modules.Authentication
                 RefreshToken = refreshToken
             });
 
-            // Update cookie
-            Response.Cookies.Append("refreshToken", result.RefreshToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTimeOffset.UtcNow.AddDays(7)
-            });
+            // ✅ USE FACTORY - Consistent cookie configuration
+            Response.Cookies.Append("refreshToken", result.RefreshToken,
+                CookieOptionsFactory.CreateRefreshTokenCookieOptions());
 
             return Ok(new { accessToken = result.AccessToken });
         }
@@ -134,14 +125,9 @@ namespace ItSupportServer.src.Modules.Authentication
         {
             var result = await _authService.ConfirmOtpAsync(dto);
 
-            // Set refresh token cookie
-            Response.Cookies.Append("refreshToken", result.Token.RefreshToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTimeOffset.UtcNow.AddDays(7)
-            });
+            // ✅ USE FACTORY - Consistent cookie configuration
+            Response.Cookies.Append("refreshToken", result.Token.RefreshToken,
+                CookieOptionsFactory.CreateRefreshTokenCookieOptions());
 
             return Ok(new { accessToken = result.Token.AccessToken });
         }
