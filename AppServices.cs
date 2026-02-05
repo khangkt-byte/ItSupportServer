@@ -74,6 +74,7 @@ namespace ItSupportServer
             services.AddSingleton<RoleMapper>();
             services.AddSingleton<EmployeeMapper>();
             services.AddSingleton<AreaMapper>();
+            services.AddSingleton<DepartmentMapper>();
             services.AddSingleton<IssueMapper>();
             services.AddSingleton<IssueLogMapper>();
             services.AddSingleton<IssueLogImportMapper>();
