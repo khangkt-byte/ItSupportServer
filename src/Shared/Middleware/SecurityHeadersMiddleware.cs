@@ -43,7 +43,7 @@ namespace ItSupportServer.src.Shared.Middleware
 
             // ✅ CRITICAL: Permissions-Policy
             // Controls browser features
-            context.Response.Headers["Permissions-Policy"] = 
+            context.Response.Headers["Permissions-Policy"] =
                 "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=()";
 
             // ✅ ENHANCED: Content Security Policy with nonce
