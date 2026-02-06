@@ -11,6 +11,7 @@ using Microsoft.Extensions.Caching.Memory;
 using ItSupportServer.src.Shared.Extensions;
 using ItSupportServer.src.Modules.Account;
 using ItSupportServer.Data.Models.Entities;
+using ItSupportServer.src.Shared.Services;
 
 namespace ItSupportServer.src.Modules.Authentication
 {
@@ -24,6 +25,7 @@ namespace ItSupportServer.src.Modules.Authentication
         private readonly IValidator<OtpDto> _otpValidator;
         private readonly IValidator<ResetPasswordDto> _resetPasswordValidator;
         private readonly IAccountService _accountService;
+        private readonly SessionManagementService _sessionManagement;
 
         public AuthenticationService(
             AppDbContext db,
@@ -33,7 +35,8 @@ namespace ItSupportServer.src.Modules.Authentication
             IValidator<LoginDto> loginValidator,
             IValidator<OtpDto> otpValidator,
             IValidator<ResetPasswordDto> resetPasswordValidator,
-            IAccountService accountService)
+            IAccountService accountService,
+            SessionManagementService sessionManagement)
         {
             _db = db;
             _configuration = configuration;
@@ -43,9 +46,10 @@ namespace ItSupportServer.src.Modules.Authentication
             _otpValidator = otpValidator;
             _resetPasswordValidator = resetPasswordValidator;
             _accountService = accountService;
+            _sessionManagement = sessionManagement;
         }
 
-        public async Task<TokenResponseDto> LoginAsync(LoginDto dto)
+        public async Task<TokenResponseDto> LoginAsync(LoginDto dto, HttpContext httpContext)  // ✅ ADD PARAMETER
         {
             _logger.LogInformation("Login attempt for: {Identifier}", dto.Identifier);
 
@@ -122,15 +126,12 @@ namespace ItSupportServer.src.Modules.Authentication
             // ✅ Record successful login
             await _accountService.RecordLoginAttemptAsync(user.AccountId, success: true);
 
-            // ✅ Revoke old refresh tokens (optional, for better security)
-            await RevokeOldRefreshTokensAsync(user.AccountId);
-
             _logger.LogInformation("Login successful for {AccountId}", user.AccountId);
 
-            return await CreateTokenResponseAsync(user);
+            return await CreateTokenResponseAsync(user, httpContext: httpContext);  // ✅ PASS HTTPCONTEXT
         }
 
-        public async Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto req)
+        public async Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto req, HttpContext httpContext)  // ✅ ADD PARAMETER
         {
             _logger.LogInformation("Refresh token attempt");
 
@@ -172,8 +173,12 @@ namespace ItSupportServer.src.Modules.Authentication
 
             _logger.LogInformation("Refresh token successful for {AccountId}", user.AccountId);
 
-            // ✅ Rotate refresh token (security best practice)
-            return await CreateTokenResponseAsync(user, shouldRotateRefreshToken: true, oldTokenId: tokenRecord.AccountTokenId);
+            // ✅ Rotate refresh token + create new session
+            return await CreateTokenResponseAsync(
+                user, 
+                shouldRotateRefreshToken: true, 
+                oldTokenId: tokenRecord.AccountTokenId,
+                httpContext: httpContext);  // ✅ PASS HTTPCONTEXT
         }
 
         public async Task<bool> LogoutAsync(Guid accountId, string refreshToken)
@@ -482,44 +487,44 @@ namespace ItSupportServer.src.Modules.Authentication
         private async Task<TokenResponseDto> CreateTokenResponseAsync(
             Accounts user,
             bool shouldRotateRefreshToken = false,
-            Guid? oldTokenId = null)
+            Guid? oldTokenId = null,
+            HttpContext? httpContext = null)  // ✅ ADD PARAMETER
         {
-            // Generate new access token
-            var accessToken = await CreateAccessTokenAsync(user);
+            // ✅ CREATE SESSION (generates SessionId + populates metadata)
+            var sessionResult = await _sessionManagement.CreateSessionAsync(
+                user.AccountId,
+                httpContext);
 
-            // Generate or reuse refresh token
-            string refreshToken;
+            // ✅ Generate access token with SessionId claim
+            var accessToken = await CreateAccessTokenAsync(user, sessionResult.SessionId);
 
+            // ✅ Revoke old token if rotating
             if (shouldRotateRefreshToken && oldTokenId.HasValue)
             {
-                // ✅ Rotate refresh token (revoke old, create new)
                 var oldToken = await _db.AccountTokens.FindAsync(oldTokenId.Value);
                 if (oldToken != null)
                 {
                     oldToken.RevokedAt = DateTime.UtcNow;
+                    await _db.SaveChangesAsync();
                 }
-                refreshToken = await GenerateAndSaveRefreshTokenAsync(user.AccountId);
-            }
-            else
-            {
-                refreshToken = await GenerateAndSaveRefreshTokenAsync(user.AccountId);
             }
 
             return new TokenResponseDto
             {
                 AccessToken = accessToken,
-                RefreshToken = refreshToken
+                RefreshToken = sessionResult.TokenId.ToString()  // ✅ Use TokenId from session
             };
         }
 
-        private async Task<string> CreateAccessTokenAsync(Accounts user)
+        private async Task<string> CreateAccessTokenAsync(Accounts user, string sessionId)  // ✅ ADD PARAMETER
         {
             var claims = new List<Claim>
             {
                 new(ClaimTypes.Name, user.Username),
                 new(ClaimTypes.NameIdentifier, user.AccountId.ToString()),
-                new(JwtRegisteredClaimNames.Jti, Guid.CreateVersion7().ToString()), // ✅ Unique token ID
-                new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()) // ✅ Issued at
+                new(JwtRegisteredClaimNames.Jti, Guid.CreateVersion7().ToString()),
+                new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()),
+                new("sid", sessionId)  // ✅ ADD SESSION ID CLAIM
             };
 
             // ✅ Add roles

@@ -11,6 +11,7 @@ using ItSupportServer.src.Modules.Cause;
 using Microsoft.AspNetCore.Authorization;
 using ItSupportServer.src.Modules.Department;
 using ItSupportServer.src.Modules.Token;
+using ItSupportServer.src.Shared.Services;
 
 namespace ItSupportServer
 {
@@ -56,6 +57,7 @@ namespace ItSupportServer
             services.AddScoped<IIssueLogService, IssueLogService>();
             services.AddScoped<IIssueLogImportService, IssueLogImportService>();
             services.AddScoped<ICauseService, CauseService>();
+            services.AddScoped<SessionManagementService>();
 
             // ===== VALIDATION (FluentValidation) =====
 

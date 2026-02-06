@@ -443,7 +443,7 @@ namespace ItSupportServer.src.Modules.Account
                 throw new NotFoundException("Tài khoản", accountId);
             }
 
-            var tempPassword = GenerateTemporaryPassword();
+            var tempPassword = RandomString.GenerateRandomString(10);
 
             account.Password = PasswordHelper.HashPassword(tempPassword);
             account.FailedLoginAttempts = 0;
@@ -594,31 +594,51 @@ namespace ItSupportServer.src.Modules.Account
         {
             var account = await _db.Accounts
                 .AsNoTracking()
-                .FirstOrDefaultAsync(a => a.AccountId == accountId && a.DeletedAt == null);
+                .FirstOrDefaultAsync(a => a.AccountId == accountId);
 
-            if (account is null) return true;
-
-            // Check if temporary lock has expired
-            if (account.IsLocked && account.LockedUntil.HasValue && account.LockedUntil.Value < DateTime.UtcNow)
+            if (account is null)
             {
-                // Auto-unlock if lock period expired
-                account.IsLocked = false;
-                account.LockedUntil = null;
-                account.FailedLoginAttempts = 0;
-                _db.Accounts.Update(account);
-                await _db.SaveChangesAsync();
                 return false;
             }
 
-            return account.IsLocked;
+            if (!account.IsLocked)
+            {
+                return false;
+            }
+
+            if (account.LockedUntil.HasValue && account.LockedUntil.Value < DateTime.UtcNow)
+            {
+                return false;
+            }
+
+            return true;
         }
 
-        private static string GenerateTemporaryPassword()
+        // ✅ ADD THIS METHOD
+        /// <summary>
+        /// Get all permissions for an account
+        /// Pattern: Flattened permission list for frontend consumption
+        /// Reference: Auth0 RBAC, Azure AD App Roles
+        /// </summary>
+        public async Task<List<string>> GetPermissionsAsync(Guid accountId)
         {
-            const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-            var random = new Random();
-            return new string(Enumerable.Repeat(chars, 8)
-                .Select(s => s[random.Next(s.Length)]).ToArray());
+            _logger.LogInformation("Fetching permissions for account {AccountId}", accountId);
+
+            var permissions = await _db.Accounts
+                .AsNoTracking()
+                .Where(a => a.AccountId == accountId && a.DeletedAt == null)
+                .SelectMany(a => a.AccountRoles
+                    .Where(ar => ar.Role.DeletedAt == null)  // ✅ Exclude deleted roles
+                    .SelectMany(ar => ar.Role.RoleClaims
+                        .Select(rc => rc.Claim.Claim)))
+                .Distinct()
+                .OrderBy(p => p)  // ✅ Sort alphabetically
+                .ToListAsync();
+
+            _logger.LogInformation("Retrieved {Count} permissions for account {AccountId}", 
+                permissions.Count, accountId);
+
+            return permissions;
         }
     }
 }

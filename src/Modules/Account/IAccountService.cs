@@ -69,5 +69,13 @@ namespace ItSupportServer.src.Modules.Account
         /// Check if account is locked
         /// </summary>
         Task<bool> IsAccountLockedAsync(Guid accountId);
+
+        /// <summary>
+        /// Get all permissions for an account
+        /// Used by frontend for permission-based UI rendering
+        /// </summary>
+        /// <param name="accountId">Account ID</param>
+        /// <returns>List of permission names (e.g., ["Admin", "Account.View", "Employee.Create"])</returns>
+        Task<List<string>> GetPermissionsAsync(Guid accountId);
     }
 }

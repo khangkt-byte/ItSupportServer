@@ -4,8 +4,8 @@ namespace ItSupportServer.src.Modules.Authentication
 {
     public interface IAuthenticationService
     {
-        Task<TokenResponseDto> LoginAsync(LoginDto dto);
-        Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto req);
+        Task<TokenResponseDto> LoginAsync(LoginDto dto, HttpContext httpContext);
+        Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto req, HttpContext httpContext);
         Task<bool> LogoutAsync(Guid accountId, string refreshToken);
         Task<OtpResponseDto> ConfirmOtpAsync(OtpDto dto);
         Task<OtpSentResponseDto> RefreshOtpAsync(string email);

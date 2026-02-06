@@ -353,6 +353,59 @@ namespace ItSupportServer.src.Modules.Account
 
         // ==================== SELF-SERVICE OPERATIONS ====================
 
+        // ✅ ADD THIS ENDPOINT - MUST BE BEFORE {id} ROUTE
+        /// <summary>
+        /// [SELF] Lấy danh sách permissions của mình
+        /// </summary>
+        /// <returns>List of permission names</returns>
+        /// <remarks>
+        /// **Purpose:** Frontend uses this for permission-based UI rendering
+        /// 
+        /// **Pattern:** Permission-based UI optimization
+        /// **Reference:** Auth0 RBAC, Azure AD App Roles
+        /// 
+        /// **Caching Strategy:**
+        /// - Backend: Permissions query is fast (indexed joins)
+        /// - Frontend: Should cache result for 5-10 minutes
+        /// - Invalidate cache on: Login, Logout, Role change
+        /// 
+        /// **Security:**
+        /// - Only returns permissions for authenticated user (cannot query others)
+        /// - Does NOT bypass authorization checks (backend still validates)
+        /// - Used for UX optimization (hiding unavailable features)
+        /// 
+        /// **Example Response:**
+        /// ```json
+        /// [
+        ///   "Admin",
+        ///   "Account.View",
+        ///   "Account.Create",
+        ///   "Account.Edit",
+        ///   "Employee.View",
+        ///   "IssueLog.View"
+        /// ]
+        /// ```
+        /// 
+        /// **Frontend Usage:**
+        /// ```typescript
+        /// const permissions = await authApi.getMyPermissions();
+        /// const canCreateAccount = permissions.includes('Account.Create');
+        /// 
+        /// {canCreateAccount && <CreateAccountButton />}
+        /// ```
+        /// </remarks>
+        [HttpGet("my-permissions")]
+        [Authorize]
+        [ProducesResponseType(typeof(List<string>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<List<string>>> GetMyPermissions()
+        {
+            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var permissions = await _service.GetPermissionsAsync(accountId);
+            return Ok(permissions);
+        }
+
         /// <summary>
         /// [SELF] Đổi mật khẩu của chính mình
         /// </summary>

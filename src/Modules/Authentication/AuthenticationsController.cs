@@ -41,9 +41,8 @@ namespace ItSupportServer.src.Modules.Authentication
         {
             try
             {
-                var result = await _authService.LoginAsync(dto);
+                var result = await _authService.LoginAsync(dto, HttpContext);  // ✅ PASS HTTPCONTEXT
 
-                // ✅ USE FACTORY - Consistent cookie configuration
                 Response.Cookies.Append("refreshToken", result.RefreshToken,
                     CookieOptionsFactory.CreateRefreshTokenCookieOptions());
 
@@ -81,7 +80,7 @@ namespace ItSupportServer.src.Modules.Authentication
             var result = await _authService.RefreshTokenAsync(new RefreshTokenRequestDto
             {
                 RefreshToken = refreshToken
-            });
+            }, HttpContext);  // ✅ ADD THIS PARAMETER
 
             // ✅ USE FACTORY - Consistent cookie configuration
             Response.Cookies.Append("refreshToken", result.RefreshToken,
