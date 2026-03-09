@@ -43,13 +43,38 @@ namespace ItSupportServer.src.Modules.IssueLog
             _logger.LogInformation("Fetching issue logs with search: {Search}, page: {Page}",
                 parameters.Search, parameters.Page);
 
-            var query = _mapper.ProjectToIssueLogDto(_db.IssueLogs
+            var issueLogQuery = _db.IssueLogs
                 .Include(il => il.Department)
                 .Include(il => il.Area)
                 .Include(il => il.Issue)
                 .Include(il => il.CauseRef)
                 .Where(il => il.DeletedAt == null)
-                .AsNoTracking());
+                .AsNoTracking();
+
+            if (parameters.DptId.HasValue)
+            {
+                issueLogQuery = issueLogQuery.Where(il => il.DptId == parameters.DptId.Value);
+            }
+
+            if (parameters.AreaId.HasValue)
+            {
+                issueLogQuery = issueLogQuery.Where(il => il.AreaId == parameters.AreaId.Value);
+            }
+
+            if (parameters.IssueId.HasValue)
+            {
+                issueLogQuery = issueLogQuery.Where(il => il.IssueId == parameters.IssueId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(parameters.Status))
+            {
+                var statusFilter = parameters.Status.Trim().ToLower().Replace("_", "-");
+                issueLogQuery = issueLogQuery.Where(il =>
+                    il.Status != null &&
+                    il.Status.ToLower().Replace(" ", "-").Replace("_", "-") == statusFilter);
+            }
+
+            var query = _mapper.ProjectToIssueLogDto(issueLogQuery);
 
             // Apply search filter
             if (!string.IsNullOrWhiteSpace(parameters.Search))

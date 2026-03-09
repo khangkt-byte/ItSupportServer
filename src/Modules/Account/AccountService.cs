@@ -57,6 +57,11 @@ namespace ItSupportServer.src.Modules.Account
                     (a.EmpCode != null && a.EmpCode.Contains(parameters.Search)));
             }
 
+            if (parameters.IsLocked.HasValue)
+            {
+                query = query.Where(a => a.IsLocked == parameters.IsLocked.Value);
+            }
+
             var result = await query.ToPaginatedResultAsync(parameters, defaultSortField: "CreatedAt");
 
             _logger.LogInformation("Retrieved {Count} accounts", result.TotalCount);
