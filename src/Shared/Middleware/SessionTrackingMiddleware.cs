@@ -4,9 +4,13 @@ using Microsoft.EntityFrameworkCore;
 namespace ItSupportServer.src.Shared.Middleware
 {
     /// <summary>
-    /// Middleware tracks session activity by updating LastAccessedAt timestamp
-    /// Reference: OWASP Session Management Cheat Sheet
+    /// [OBSOLETE] Legacy session tracking middleware — superseded by UnifiedSessionMiddleware.
+    /// DO NOT register this in Program.cs. Kept for reference only.
+    /// The old jti-based DB lookup (AccountTokenId == jti) is BROKEN because jti is a random
+    /// UUID never stored in AccountTokens. UnifiedSessionMiddleware correctly uses sid → SessionId.
     /// </summary>
+    [Obsolete("Use UnifiedSessionMiddleware (UseUnifiedSessionTracking()) instead. " +
+              "This middleware has a broken DB lookup and will be removed in a future version.")]
     public class SessionTrackingMiddleware
     {
         private readonly RequestDelegate _next;

@@ -434,8 +434,9 @@ try
     // ✅ 5. CORS
     app.UseCors("CorPolicy");
 
-    // ✅ 6. Rate Limiting (includes bot protection)
-    //app.UseRateLimiter();
+    // ✅ 6. Rate Limiting — MUST be after UseRouting when using [EnableRateLimiting] attribute
+    // Reference: https://learn.microsoft.com/aspnet/core/performance/rate-limit
+    app.UseRateLimiter();
 
     // ✅ 7. Authentication & Authorization
     app.UseAuthentication();

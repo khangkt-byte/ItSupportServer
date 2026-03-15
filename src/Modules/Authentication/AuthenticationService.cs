@@ -106,11 +106,10 @@ namespace ItSupportServer.src.Modules.Authentication
             if (!PasswordHelper.VerifyPassword(dto.Password, user.Password))
             {
                 _logger.LogWarning("Login failed: Invalid password for {Identifier}", dto.Identifier);
-                
-                // Record failed login attempt
-                await RecordFailedLoginAsync(user.AccountId);
-                
-                // ✅ Record failed login
+
+                // ✅ FIX Bug 5: Only ONE call to record failure.
+                // Old code called BOTH RecordFailedLoginAsync AND RecordLoginAttemptAsync
+                // → double-incremented FailedLoginAttempts on every failed login.
                 await _accountService.RecordLoginAttemptAsync(user.AccountId, success: false);
 
                 throw new UnauthorizedException("Tên đăng nhập hoặc mật khẩu không đúng");
@@ -193,6 +192,15 @@ namespace ItSupportServer.src.Modules.Authentication
                     // ✅ Soft delete / revoke token
                     token.RevokedAt = DateTime.UtcNow;
                     await _db.SaveChangesAsync();
+
+                    // ✅ FIX Bug 4: Evict session from cache immediately.
+                    // Without this, a revoked session stays valid in cache for up to
+                    // IDLE_TIMEOUT_MINUTES (30 min), allowing post-logout API access.
+                    if (!string.IsNullOrEmpty(token.SessionId))
+                    {
+                        _cache.Remove($"Session:{token.SessionId}");
+                        _logger.LogDebug("Session cache evicted on logout: {SessionId}", token.SessionId);
+                    }
                 }
             }
 
@@ -200,7 +208,8 @@ namespace ItSupportServer.src.Modules.Authentication
             return true;
         }
 
-        public async Task<OtpResponseDto> ConfirmOtpAsync(OtpDto dto)
+        // ✅ FIX Bug 1: ConfirmOtpAsync now accepts HttpContext (required by SessionManagementService)
+        public async Task<OtpResponseDto> ConfirmOtpAsync(OtpDto dto, HttpContext httpContext)
         {
             _logger.LogInformation("OTP confirmation for {AccountId}", dto.AccountId);
 
@@ -252,7 +261,8 @@ namespace ItSupportServer.src.Modules.Authentication
 
             return new OtpResponseDto
             {
-                Token = await CreateTokenResponseAsync(user)
+                // ✅ FIX Bug 1: Pass HttpContext so session is created properly
+                Token = await CreateTokenResponseAsync(user, httpContext: httpContext)
             };
         }
 
@@ -287,11 +297,13 @@ namespace ItSupportServer.src.Modules.Authentication
             using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
-                // ✅ SECURE: Generate cryptographic OTP
-                var newOtp = Convert.ToBase64String(
-                    System.Security.Cryptography.RandomNumberGenerator.GetBytes(6))
-                    .Substring(0, 6)
-                    .ToUpper(); // 6-character alphanumeric
+                // ✅ FIX Bug 3: Generate 6-digit NUMERIC OTP using cryptographically secure RNG.
+                // The previous Base64 generator produced chars like A-Z,+,/ which failed
+                // the OtpValidator's ^\d{6}$ rule. Per OWASP: numeric OTPs are user-friendly
+                // and sufficiently random at 6 digits (1 in 1,000,000 = 99.9999% rejection).
+                var randomBytes = new byte[4];
+                System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
+                var newOtp = (Math.Abs(BitConverter.ToInt32(randomBytes)) % 1_000_000).ToString("D6");
 
                 // ✅ SECURE: Hash OTP before storage
                 user.Otp = PasswordHelper.HashPassword(newOtp);
@@ -315,8 +327,8 @@ namespace ItSupportServer.src.Modules.Authentication
 
                 await transaction.CommitAsync();
 
-                // Set rate limit
-                _cache.Set(rateLimitKey, true, TimeSpan.FromSeconds(60));
+                // ✅ FIX Bug 7: Rate limit window matches the "5 phút" message (was 60s)
+                _cache.Set(rateLimitKey, true, TimeSpan.FromMinutes(5));
 
                 _logger.LogInformation("OTP sent successfully to {Email}", email);
 
@@ -547,60 +559,6 @@ namespace ItSupportServer.src.Modules.Authentication
             );
 
             return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
-        }
-
-        private async Task<string> GenerateAndSaveRefreshTokenAsync(Guid accountId)
-        {
-            var refreshToken = new AccountTokens
-            {
-                AccountId = accountId,
-                ExpiryTime = DateTime.UtcNow.AddDays(7)
-                // CreatedAt tự động set bởi AuditInterceptor
-            };
-
-            await _db.AccountTokens.AddAsync(refreshToken);
-            await _db.SaveChangesAsync();
-
-            return refreshToken.AccountTokenId.ToString();
-        }
-
-        private async Task RevokeOldRefreshTokensAsync(Guid accountId)
-        {
-            // ✅ Optional: Keep only last N refresh tokens per user
-            var oldTokens = await _db.AccountTokens
-                .Where(t => t.AccountId == accountId && t.RevokedAt == null)
-                .OrderByDescending(t => t.CreatedAt)
-                .Skip(5) // Keep latest 5 tokens
-                .ToListAsync();
-
-            foreach (var token in oldTokens)
-            {
-                token.RevokedAt = DateTime.UtcNow;
-            }
-
-            if (oldTokens.Any())
-            {
-                await _db.SaveChangesAsync();
-            }
-        }
-
-        private async Task RecordFailedLoginAsync(Guid accountId)
-        {
-            var account = await _db.Accounts.FindAsync(accountId);
-            if (account is null) return;
-
-            account.FailedLoginAttempts++;
-
-            // Auto-lock after 5 failed attempts
-            if (account.FailedLoginAttempts >= 5)
-            {
-                account.IsLocked = true;
-                account.LockedUntil = DateTime.UtcNow.AddMinutes(30);
-                _logger.LogWarning("Account {AccountId} locked due to {Attempts} failed attempts",
-                    accountId, account.FailedLoginAttempts);
-            }
-
-            await _db.SaveChangesAsync();
         }
 
         #endregion

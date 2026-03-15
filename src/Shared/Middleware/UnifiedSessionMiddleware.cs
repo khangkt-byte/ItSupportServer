@@ -43,9 +43,11 @@ namespace ItSupportServer.src.Shared.Middleware
             var accountId = context.User.FindFirst(
                 System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var sessionId = context.User.FindFirst("sid")?.Value;
-            var tokenId = context.User.FindFirst("jti")?.Value;
+            // jti is intentionally not read here: per RFC 7519 jti is a per-token replay-prevention
+            // ID and is never stored in AccountTokens. Session lookup uses sid → AccountTokens.SessionId.
 
-            if (string.IsNullOrEmpty(accountId) || string.IsNullOrEmpty(tokenId))
+            // ✅ FIX Bug 3: guard on sessionId (used for cache key + DB lookup), not tokenId
+            if (string.IsNullOrEmpty(accountId) || string.IsNullOrEmpty(sessionId))
             {
                 await _next(context);
                 return;
@@ -61,10 +63,12 @@ namespace ItSupportServer.src.Shared.Middleware
 
                 if (session == null)
                 {
+                    // ✅ FIX Bug 1: use SessionId (= "sid" claim, stored in DB)
+                    // jti (tokenId) = Guid.CreateVersion7() — random, NEVER saved to AccountTokens
                     session = await db.AccountTokens
                         .FirstOrDefaultAsync(t =>
                             t.AccountId.ToString() == accountId &&
-                            t.AccountTokenId.ToString() == tokenId);
+                            t.SessionId == sessionId);
 
                     if (session == null)
                     {
@@ -245,14 +249,19 @@ namespace ItSupportServer.src.Shared.Middleware
 
         private string ComputeFingerprint(HttpContext context)
         {
+            // ✅ FIX Bug 2: Must match SessionManagementService.ComputeDeviceFingerprint exactly.
+            // IP is excluded per OWASP SMCS (mobile users change IPs legitimately)
+            // and is already scored separately (+30 pts) in hijacking detection above.
             var components = new[]
             {
                 context.Request.Headers["User-Agent"].ToString(),
                 context.Request.Headers["Accept-Language"].ToString(),
-                context.Request.Headers["Accept-Encoding"].ToString()
+                context.Request.Headers["Accept-Encoding"].ToString(),
+                context.Request.Headers["Sec-Ch-Ua"].ToString(),
+                context.Request.Headers["Sec-Ch-Ua-Platform"].ToString()
             };
 
-            var combined = string.Join("|", components);
+            var combined = string.Join("|", components.Where(c => !string.IsNullOrEmpty(c)));
             using var sha256 = System.Security.Cryptography.SHA256.Create();
             var hash = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(combined));
             return Convert.ToBase64String(hash);

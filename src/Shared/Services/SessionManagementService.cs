@@ -71,18 +71,18 @@ namespace ItSupportServer.src.Shared.Services
         /// </summary>
         public async Task<SessionCreationResult> CreateSessionAsync(
             Guid accountId,
-            HttpContext httpContext)
+            HttpContext? httpContext)
         {
             // ✅ 1. SESSION FIXATION PREVENTION
-            // Generate NEW session ID after authentication
             var sessionId = GenerateSecureSessionId();
 
-            // ✅ 2. DEVICE FINGERPRINTING
-            var fingerprint = ComputeDeviceFingerprint(httpContext);
+            // ✅ 2. DEVICE FINGERPRINTING (graceful when no HttpContext, e.g. tests/background jobs)
+            var fingerprint = httpContext != null ? ComputeDeviceFingerprint(httpContext) : string.Empty;
+            var ipAddress = httpContext?.Connection.RemoteIpAddress?.ToString();
+            var userAgent = httpContext?.Request.Headers["User-Agent"].ToString() ?? string.Empty;
 
             // ✅ 3. GEO-LOCATION (Optional)
-            var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
-            var userAgent = httpContext.Request.Headers["User-Agent"].ToString();
+            
 
             // ✅ 4. CONCURRENT SESSION CONTROL
             await EnforceConcurrentSessionLimitAsync(accountId);
@@ -129,13 +129,15 @@ namespace ItSupportServer.src.Shared.Services
         /// </summary>
         private string ComputeDeviceFingerprint(HttpContext httpContext)
         {
+            // ✅ Stable browser headers only — no IP (per OWASP SMCS: mobile users change IPs legitimately)
+            // This hash is stored in AccountTokens.DeviceInfo and must match
+            // UnifiedSessionMiddleware.ComputeFingerprint exactly for hijacking detection to work.
             var components = new[]
             {
                 httpContext.Request.Headers["User-Agent"].ToString(),
                 httpContext.Request.Headers["Accept-Language"].ToString(),
                 httpContext.Request.Headers["Accept-Encoding"].ToString(),
-                httpContext.Connection.RemoteIpAddress?.ToString() ?? "",
-                httpContext.Request.Headers["Sec-Ch-Ua"].ToString(), // Chrome User-Agent Client Hints
+                httpContext.Request.Headers["Sec-Ch-Ua"].ToString(),
                 httpContext.Request.Headers["Sec-Ch-Ua-Platform"].ToString()
             };
 

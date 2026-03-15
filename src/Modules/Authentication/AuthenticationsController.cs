@@ -122,7 +122,8 @@ namespace ItSupportServer.src.Modules.Authentication
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<OtpResponseDto>> ConfirmOtp([FromBody] OtpDto dto)
         {
-            var result = await _authService.ConfirmOtpAsync(dto);
+            // ✅ FIX Bug 1: Pass HttpContext so session metadata (IP, UA, fingerprint) is captured
+            var result = await _authService.ConfirmOtpAsync(dto, HttpContext);
 
             // ✅ USE FACTORY - Consistent cookie configuration
             Response.Cookies.Append("refreshToken", result.Token.RefreshToken,
