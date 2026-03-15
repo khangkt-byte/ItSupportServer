@@ -144,8 +144,8 @@ try
                     if (context.Exception is SecurityTokenExpiredException)
                     {
                         // ✅ CRITICAL: Signal token expiration to client
-                        context.Response.Headers.Add("Token-Expired", "true");
-                        context.Response.Headers.Add("Access-Control-Expose-Headers", "Token-Expired");
+                        context.Response.Headers.Append("Token-Expired", "true");
+                        context.Response.Headers.Append("Access-Control-Expose-Headers", "Token-Expired");
                     }
 
                     // ✅ Log failed authentication with Serilog

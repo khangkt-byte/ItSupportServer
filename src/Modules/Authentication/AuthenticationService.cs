@@ -170,12 +170,19 @@ namespace ItSupportServer.src.Modules.Authentication
                 throw new ForbiddenException("Tài khoản đã bị khóa");
             }
 
+            // ✅ SECURITY: locked accounts cannot mint new access tokens via refresh flow
+            if (await _accountService.IsAccountLockedAsync(user.AccountId))
+            {
+                _logger.LogWarning("Refresh blocked: Account locked {AccountId}", user.AccountId);
+                throw new ForbiddenException("Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.");
+            }
+
             _logger.LogInformation("Refresh token successful for {AccountId}", user.AccountId);
 
             // ✅ Rotate refresh token + create new session
             return await CreateTokenResponseAsync(
-                user, 
-                shouldRotateRefreshToken: true, 
+                user,
+                shouldRotateRefreshToken: true,
                 oldTokenId: tokenRecord.AccountTokenId,
                 httpContext: httpContext);  // ✅ PASS HTTPCONTEXT
         }
@@ -373,14 +380,19 @@ namespace ItSupportServer.src.Modules.Authentication
                     // ✅ SECURE: Generate cryptographic reset token (NOT password)
                     var resetToken = Convert.ToBase64String(
                         System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
-                    
+
                     var hashedToken = PasswordHelper.HashPassword(resetToken); // Hash token before storage
+
+                    // ✅ PERF FIX: Store non-secret prefix (first 8 chars) to allow exact DB lookup
+                    // before BCrypt verification, avoiding O(N×BCrypt) full-table scan.
+                    var tokenPrefix = resetToken.Length >= 8 ? resetToken[..8] : resetToken;
 
                     // ✅ Store hashed token with expiration
                     var passwordReset = new PasswordResetTokens
                     {
                         AccountId = user.AccountId,
                         Token = hashedToken,
+                        TokenPrefix = tokenPrefix,
                         ExpiresAt = DateTime.UtcNow.AddHours(1), // 1 hour expiry
                     };
 
@@ -389,10 +401,17 @@ namespace ItSupportServer.src.Modules.Authentication
 
                     // ✅ SECURE: Send reset LINK, not password
                     var resetUrl = $"{_configuration["AppSettings:FrontendUrl"]}/reset-password?token={resetToken}";
-                    
+
+                    var recipientEmail = user.Employee?.Email;
+                    if (string.IsNullOrEmpty(recipientEmail))
+                    {
+                        await transaction.RollbackAsync();
+                        throw new BusinessRuleException("Tài khoản không có email liên kết");
+                    }
+
                     var emailSent = await SendMail.SendMailAsync(
                         _configuration,
-                        user.Employee.Email,
+                        recipientEmail,
                         "Đặt lại mật khẩu",
                         "Nhấn vào link sau để đặt lại mật khẩu (hết hạn sau 1 giờ):",
                         resetUrl);
@@ -438,15 +457,18 @@ namespace ItSupportServer.src.Modules.Authentication
             var validationResult = await _resetPasswordValidator.ValidateAsync(dto);
             validationResult.ThrowIfInvalid();
 
-            // Find token record
+            // ✅ PERF FIX: Use TokenPrefix to narrow lookup to at most 1-2 rows before BCrypt verify.
+            // Previously loaded ALL active tokens and BCrypt-verified each one → O(N×BCrypt).
+            var tokenPrefix = dto.Token.Length >= 8 ? dto.Token[..8] : dto.Token;
+
             var tokenRecords = await _db.PasswordResetTokens
-                .Where(t => t.ExpiresAt > DateTime.UtcNow && t.UsedAt == null)
+                .Where(t => t.ExpiresAt > DateTime.UtcNow && t.UsedAt == null && t.TokenPrefix == tokenPrefix)
                 .Include(t => t.Account)
                 .ToListAsync();
 
             PasswordResetTokens? validToken = null;
 
-            // ✅ SECURITY: Verify hashed token
+            // ✅ SECURITY: Verify hashed token (BCrypt constant-time comparison)
             foreach (var record in tokenRecords)
             {
                 if (PasswordHelper.VerifyPassword(dto.Token, record.Token))
@@ -466,18 +488,24 @@ namespace ItSupportServer.src.Modules.Authentication
             {
                 // Update password
                 validToken.Account.Password = PasswordHelper.HashPassword(dto.NewPassword);
-                
+
                 // Mark token as used
                 validToken.UsedAt = DateTime.UtcNow;
-                
+
                 // ✅ SECURITY: Revoke all refresh tokens (force re-login)
                 var refreshTokens = await _db.AccountTokens
                     .Where(t => t.AccountId == validToken.AccountId && t.RevokedAt == null)
                     .ToListAsync();
-                
+
                 foreach (var token in refreshTokens)
                 {
                     token.RevokedAt = DateTime.UtcNow;
+
+                    // ✅ FIX: remove active session cache immediately (prevent stale-cache access)
+                    if (!string.IsNullOrEmpty(token.SessionId))
+                    {
+                        _cache.Remove($"Session:{token.SessionId}");
+                    }
                 }
 
                 await _db.SaveChangesAsync();
@@ -518,6 +546,12 @@ namespace ItSupportServer.src.Modules.Authentication
                 {
                     oldToken.RevokedAt = DateTime.UtcNow;
                     await _db.SaveChangesAsync();
+
+                    // ✅ FIX: evict old session cache on refresh rotation
+                    if (!string.IsNullOrEmpty(oldToken.SessionId))
+                    {
+                        _cache.Remove($"Session:{oldToken.SessionId}");
+                    }
                 }
             }
 

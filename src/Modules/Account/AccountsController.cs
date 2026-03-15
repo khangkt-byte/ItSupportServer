@@ -9,11 +9,11 @@ using System.Security.Claims;
 namespace ItSupportServer.src.Modules.Account
 {
     /// <summary>
-    /// API quản lý tài khoản (authentication & authorization)
-    /// Pattern: RESTful API, RBAC
-    /// Security: JWT + Permission-based authorization
-    /// Reference: Microsoft Identity Platform, Auth0 Management API
+    /// API quản lý tài khoản.
     /// </summary>
+    /// <remarks>
+    /// RESTful API + RBAC + JWT bearer authentication.
+    /// </remarks>
     [ApiController]
     [Route("api/accounts")]
     [Produces("application/json")]
@@ -355,44 +355,11 @@ namespace ItSupportServer.src.Modules.Account
 
         // ✅ ADD THIS ENDPOINT - MUST BE BEFORE {id} ROUTE
         /// <summary>
-        /// [SELF] Lấy danh sách permissions của mình
+        /// [SELF] Lấy danh sách permissions của mình.
         /// </summary>
         /// <returns>List of permission names</returns>
         /// <remarks>
-        /// **Purpose:** Frontend uses this for permission-based UI rendering
-        /// 
-        /// **Pattern:** Permission-based UI optimization
-        /// **Reference:** Auth0 RBAC, Azure AD App Roles
-        /// 
-        /// **Caching Strategy:**
-        /// - Backend: Permissions query is fast (indexed joins)
-        /// - Frontend: Should cache result for 5-10 minutes
-        /// - Invalidate cache on: Login, Logout, Role change
-        /// 
-        /// **Security:**
-        /// - Only returns permissions for authenticated user (cannot query others)
-        /// - Does NOT bypass authorization checks (backend still validates)
-        /// - Used for UX optimization (hiding unavailable features)
-        /// 
-        /// **Example Response:**
-        /// ```json
-        /// [
-        ///   "Admin",
-        ///   "Account.View",
-        ///   "Account.Create",
-        ///   "Account.Edit",
-        ///   "Employee.View",
-        ///   "IssueLog.View"
-        /// ]
-        /// ```
-        /// 
-        /// **Frontend Usage:**
-        /// ```typescript
-        /// const permissions = await authApi.getMyPermissions();
-        /// const canCreateAccount = permissions.includes('Account.Create');
-        /// 
-        /// {canCreateAccount && <CreateAccountButton />}
-        /// ```
+        /// Frontend dùng endpoint này để render UI theo quyền.
         /// </remarks>
         [HttpGet("my-permissions")]
         [Authorize]
@@ -412,27 +379,10 @@ namespace ItSupportServer.src.Modules.Account
         /// <param name="dto">Change password request</param>
         /// <returns>Success message</returns>
         /// <remarks>
-        /// **Validation (400):**
-        /// - CurrentPassword, NewPassword, ConfirmPassword: required
-        /// - NewPassword: 8-128 chars, complexity requirements
-        /// - ConfirmPassword must match NewPassword
-        /// 
-        /// **Unauthorized (401):**
-        /// - Mật khẩu hiện tại không đúng
-        /// - Token expired/invalid
-        /// 
-        /// **Business Rules (422):**
-        /// - Mật khẩu mới phải khác mật khẩu cũ
-        /// - Không thể dùng mật khẩu đã sử dụng gần đây (nếu có history)
-        /// 
-        /// **Example:**
-        /// ```json
-        /// {
-        ///   "currentPassword": "OldPass@123",
-        ///   "newPassword": "NewPass@456",
-        ///   "confirmPassword": "NewPass@456"
-        /// }
-        /// ```
+        /// Validation: CurrentPassword, NewPassword, ConfirmPassword là bắt buộc.
+        /// NewPassword phải đáp ứng chính sách độ mạnh và ConfirmPassword phải khớp.
+        /// Unauthorized nếu mật khẩu hiện tại sai hoặc token không hợp lệ.
+        /// Business rule: mật khẩu mới phải khác mật khẩu cũ.
         /// </remarks>
         [HttpPost("me/change-password")]
         [Authorize]

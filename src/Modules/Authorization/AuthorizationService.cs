@@ -415,11 +415,10 @@ namespace ItSupportServer.src.Modules.Authorization
             // Collect role-based claims (only from active roles)
             foreach (var accountRole in account.AccountRoles)
             {
-                // Skip deleted roles (security: prevent using deleted roles)
                 if (accountRole.Role?.DeletedAt != null)
                     continue;
 
-                foreach (var roleClaim in accountRole.Role.RoleClaims)
+                foreach (var roleClaim in accountRole.Role?.RoleClaims ?? [])
                 {
                     if (!string.IsNullOrEmpty(roleClaim.Claim?.Claim))
                     {

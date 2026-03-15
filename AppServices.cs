@@ -83,12 +83,7 @@ namespace ItSupportServer
             services.AddSingleton<CauseMapper>();
 
             // ===== BACKGROUND SERVICES =====
-    
-            /// <summary>
-            /// Token cleanup service (runs every 6 hours)
-            /// Pattern: BackgroundService for maintenance tasks
-            /// Purpose: Remove expired password reset tokens + revoked refresh tokens
-            /// </summary>
+            // TokenCleanupService: runs every 6 hours, removes expired password reset tokens + revoked refresh tokens
             services.AddHostedService<TokenCleanupService>();
 
             return services;

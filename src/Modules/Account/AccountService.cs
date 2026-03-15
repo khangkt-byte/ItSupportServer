@@ -560,8 +560,20 @@ namespace ItSupportServer.src.Modules.Account
                 throw new NotFoundException("Tài khoản", accountId);
             }
 
-            // TODO: Implement LoginHistory table and query
-            var history = new List<LoginHistoryDto>();
+            var history = await _db.AccountTokens
+                .AsNoTracking()
+                .Where(t => t.AccountId == accountId)
+                .OrderByDescending(t => t.CreatedAt)
+                .Take(50)
+                .Select(t => new LoginHistoryDto
+                {
+                    LoginAt = t.CreatedAt,
+                    IpAddress = t.IpAddress,
+                    UserAgent = t.UserAgent,
+                    Success = true,
+                    FailureReason = null
+                })
+                .ToListAsync();
 
             return history;
         }

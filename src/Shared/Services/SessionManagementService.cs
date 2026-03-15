@@ -82,7 +82,7 @@ namespace ItSupportServer.src.Shared.Services
             var userAgent = httpContext?.Request.Headers["User-Agent"].ToString() ?? string.Empty;
 
             // ✅ 3. GEO-LOCATION (Optional)
-            
+
 
             // ✅ 4. CONCURRENT SESSION CONTROL
             await EnforceConcurrentSessionLimitAsync(accountId);
@@ -109,9 +109,13 @@ namespace ItSupportServer.src.Shared.Services
             CacheSession(session);
 
             // ✅ 7. LOG SESSION CREATION
+            var fingerprintPreview = string.IsNullOrEmpty(fingerprint)
+                ? "n/a"
+                : fingerprint[..Math.Min(16, fingerprint.Length)];
+
             _logger.LogInformation(
                 "Session created: {SessionId} | Account: {AccountId} | IP: {IP} | Device: {Device}",
-                sessionId, accountId, ipAddress, fingerprint.Substring(0, 16)
+                sessionId, accountId, ipAddress, fingerprintPreview
             );
 
             return new SessionCreationResult

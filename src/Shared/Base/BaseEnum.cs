@@ -15,17 +15,8 @@ namespace ItSupportServer.src.Shared.Base
             [EnumMember(Value = "Nhân viên")]
             Employee = 2,
         }
-
-
-        //public static string GroupRoleEmployee()
-        //{
-        //    return $"{RoleUser.Super_Admin},{RoleUser.Admin},{RoleUser.Employee}";
-        //}
-        //public static string GroupRoleAdmin()
-        //{
-        //    return $"{RoleUser.Super_Admin},{RoleUser.Admin}";
-        //}
     }
+
     public static class RoleUser
     {
         public const string Super_Admin = "Super_Admin";

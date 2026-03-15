@@ -80,7 +80,7 @@ namespace ItSupportServer.src.Modules.Employee
             _logger.LogInformation("Fetching employee {EmpId}", empId);
 
             var employee = await _mapper.ProjectToDetailEmployeeDto(_db.Employees
-                .Include(e => e.Account)
+                .Include(e => e.Account!)
                     .ThenInclude(a => a.AccountRoles)
                         .ThenInclude(ar => ar.Role)
                 .Where(e => e.EmpId == empId && e.DeletedAt == null)

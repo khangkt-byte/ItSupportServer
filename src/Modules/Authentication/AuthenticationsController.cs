@@ -48,7 +48,7 @@ namespace ItSupportServer.src.Modules.Authentication
 
                 return Ok(new { accessToken = result.AccessToken });
             }
-            catch (UnauthorizedException ex)
+            catch (UnauthorizedException)
             {
                 _logger.LogWarning(
                     "Failed login attempt for user: {Identifier} | IP: {IP}",

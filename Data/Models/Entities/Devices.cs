@@ -8,14 +8,11 @@ namespace ItSupportServer.Data.Models.Entities
         public override long Id => DeviceId;
 
         required public int DeviceTypeId { get; set; }
-        public DeviceTypes DeviceType { get; set; }
+        public DeviceTypes DeviceType { get; set; } = null!;
 
         required public string Name { get; set; }
-
         public string? Brand { get; set; }
-
         required public string Model { get; set; }
-
         public string? SerialNumber { get; set; }
 
         //[Column("manufacturer")]

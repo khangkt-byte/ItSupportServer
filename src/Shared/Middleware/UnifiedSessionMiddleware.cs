@@ -7,10 +7,9 @@ using Microsoft.Extensions.Caching.Memory;
 namespace ItSupportServer.src.Shared.Middleware
 {
     /// <summary>
-    /// Unified session tracking & hijacking protection
-    /// Consolidates: EnhancedSessionTrackingMiddleware + SessionHijackingProtectionMiddleware
-    /// Compliance: NIST SP 800-63B, OWASP Session Management
-    /// Performance: -50% middleware overhead
+    /// Unified session tracking and hijacking protection middleware.
+    /// Combines session validation, activity tracking, timeout enforcement,
+    /// and suspicious-session risk scoring in one component.
     /// </summary>
     public class UnifiedSessionMiddleware
     {
@@ -46,10 +45,10 @@ namespace ItSupportServer.src.Shared.Middleware
             // jti is intentionally not read here: per RFC 7519 jti is a per-token replay-prevention
             // ID and is never stored in AccountTokens. Session lookup uses sid → AccountTokens.SessionId.
 
-            // ✅ FIX Bug 3: guard on sessionId (used for cache key + DB lookup), not tokenId
+            // ✅ Enforce mandatory session-bound claims for authenticated users
             if (string.IsNullOrEmpty(accountId) || string.IsNullOrEmpty(sessionId))
             {
-                await _next(context);
+                await TerminateSessionAsync(context, "Missing required session claims");
                 return;
             }
 
@@ -87,7 +86,11 @@ namespace ItSupportServer.src.Shared.Middleware
                     return;
                 }
 
-                // ✅ 3. HANDLE MEDIUM SUSPICION (Step-up auth)
+                // ✅ 3. HANDLE MEDIUM SUSPICION (Step-up auth signal)
+                // NOTE: This sets a context flag only — it does NOT block the request here.
+                // Sensitive endpoints can read context.Items["RequireStepUp"] via the
+                // [RequireStepUpAuth] attribute or an action filter to demand re-authentication.
+                // This two-stage approach follows the OWASP Step-Up Authentication pattern.
                 if (validationResult.SuspicionScore >= 50)
                 {
                     context.Items["RequireStepUp"] = true;
@@ -118,6 +121,12 @@ namespace ItSupportServer.src.Shared.Middleware
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Session validation failed for Account: {AccountId}", accountId);
+
+                if (!context.Response.HasStarted)
+                {
+                    await TerminateSessionAsync(context, "Session validation unavailable");
+                }
+                return;
             }
 
             await _next(context);

@@ -12,34 +12,28 @@ namespace ItSupportServer.src.Modules.IssueLog
     /// - Microsoft: Performance Best Practices
     /// Security: Type-safe, no reflection vulnerabilities
     /// </summary>
-    [Mapper]
+    [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
     public partial class IssueLogImportMapper
     {
         // ===== QUERY PROJECTIONS (CQRS Read Models) =====
 
         /// <summary>
-        /// Project to recent issue log DTO (for duplicate detection)
-        /// Performance: Only 5 fields vs 15+ in full entity
-        /// Reference: CQRS pattern (Greg Young)
+        /// Project to recent issue log DTO (for duplicate detection).
+        /// Manual Select is used here because Mapperly queryable projections emit noisy
+        /// unmapped-member warnings for intentionally partial read models.
         /// </summary>
-        [MapperIgnoreSource(nameof(IssueLogs.Requester))]
-        [MapperIgnoreSource(nameof(IssueLogs.AreaId))]
-        [MapperIgnoreSource(nameof(IssueLogs.IssueId))]
-        [MapperIgnoreSource(nameof(IssueLogs.CauseId))]
-        [MapperIgnoreSource(nameof(IssueLogs.Cause))]
-        [MapperIgnoreSource(nameof(IssueLogs.Resolution))]
-        [MapperIgnoreSource(nameof(IssueLogs.PermanentFix))]
-        [MapperIgnoreSource(nameof(IssueLogs.Notes))]
-        [MapperIgnoreSource(nameof(IssueLogs.Status))]
-        [MapperIgnoreSource(nameof(IssueLogs.CreatedAt))]
-        [MapperIgnoreSource(nameof(IssueLogs.UpdatedAt))]
-        [MapperIgnoreSource(nameof(IssueLogs.DeletedAt))]
-        [MapperIgnoreSource(nameof(IssueLogs.Department))]
-        [MapperIgnoreSource(nameof(IssueLogs.Area))]
-        [MapperIgnoreSource(nameof(IssueLogs.Issue))]
-        [MapperIgnoreSource(nameof(IssueLogs.CauseRef))]
-        public partial IQueryable<RecentIssueLogDto> ProjectToRecentIssueLogDto(
-            IQueryable<IssueLogs> query);
+        public IQueryable<RecentIssueLogDto> ProjectToRecentIssueLogDto(
+            IQueryable<IssueLogs> query)
+        {
+            return query.Select(x => new RecentIssueLogDto
+            {
+                IssLogId = x.IssLogId,
+                Operator = x.Operator,
+                DptId = x.DptId,
+                IssueDescription = x.IssueDescription,
+                DateReported = x.DateReported
+            });
+        }
 
         /// <summary>
         /// Project to department reference DTO with normalized name
