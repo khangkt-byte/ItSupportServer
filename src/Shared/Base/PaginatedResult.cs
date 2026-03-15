@@ -38,6 +38,13 @@ namespace ItSupportServer.src.Shared.Base
         public bool IsDescending { get; init; } = false;
         public string? Search { get; init; }
 
+        // Optional module-specific filters
+        public bool? IsLocked { get; init; }
+        public int? DptId { get; init; }
+        public int? AreaId { get; init; }
+        public long? IssueId { get; init; }
+        public string? Status { get; init; }
+
         /// <summary>
         /// Validated page (always >= 1)
         /// </summary>
