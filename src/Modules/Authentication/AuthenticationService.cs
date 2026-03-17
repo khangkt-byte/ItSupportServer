@@ -26,6 +26,7 @@ namespace ItSupportServer.src.Modules.Authentication
         private readonly IValidator<ResetPasswordDto> _resetPasswordValidator;
         private readonly IAccountService _accountService;
         private readonly SessionManagementService _sessionManagement;
+        private const int PasswordResetTokenLifetimeMinutes = 20;
 
         public AuthenticationService(
             AppDbContext db,
@@ -393,7 +394,7 @@ namespace ItSupportServer.src.Modules.Authentication
                         AccountId = user.AccountId,
                         Token = hashedToken,
                         TokenPrefix = tokenPrefix,
-                        ExpiresAt = DateTime.UtcNow.AddHours(1), // 1 hour expiry
+                        ExpiredAt = DateTime.UtcNow.AddMinutes(PasswordResetTokenLifetimeMinutes),
                     };
 
                     await _db.PasswordResetTokens.AddAsync(passwordReset);
@@ -413,7 +414,7 @@ namespace ItSupportServer.src.Modules.Authentication
                         _configuration,
                         recipientEmail,
                         "Đặt lại mật khẩu",
-                        "Nhấn vào link sau để đặt lại mật khẩu (hết hạn sau 1 giờ):",
+                        $"Nhấn vào link sau để đặt lại mật khẩu (hết hạn sau {PasswordResetTokenLifetimeMinutes} phút):",
                         resetUrl);
 
                     if (!emailSent)
@@ -462,8 +463,9 @@ namespace ItSupportServer.src.Modules.Authentication
             var tokenPrefix = dto.Token.Length >= 8 ? dto.Token[..8] : dto.Token;
 
             var tokenRecords = await _db.PasswordResetTokens
-                .Where(t => t.ExpiresAt > DateTime.UtcNow && t.UsedAt == null && t.TokenPrefix == tokenPrefix)
+                .Where(t => t.ExpiredAt > DateTime.UtcNow && t.UsedAt == null && t.TokenPrefix == tokenPrefix)
                 .Include(t => t.Account)
+                    .ThenInclude(a => a.Employee)
                 .ToListAsync();
 
             PasswordResetTokens? validToken = null;
@@ -512,6 +514,30 @@ namespace ItSupportServer.src.Modules.Authentication
                 await transaction.CommitAsync();
 
                 _logger.LogInformation("Password reset successful for {AccountId}", validToken.AccountId);
+
+                var notifyEmail = validToken.Account.Employee?.Email;
+                if (!string.IsNullOrWhiteSpace(notifyEmail))
+                {
+                    try
+                    {
+                        var notifySent = await SendMail.SendMailAsync(
+                            _configuration,
+                            notifyEmail,
+                            "Mật khẩu đã được thay đổi",
+                            "Mật khẩu tài khoản của bạn vừa được thay đổi thành công. Nếu đây không phải bạn, hãy liên hệ quản trị viên ngay lập tức.",
+                            code: null,
+                            isSendCode: false);
+
+                        if (!notifySent)
+                        {
+                            _logger.LogWarning("Password reset notification email failed for {AccountId}", validToken.AccountId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Password reset notification email threw exception for {AccountId}", validToken.AccountId);
+                    }
+                }
 
                 return true;
             }

@@ -49,31 +49,39 @@ namespace ItSupportServer.src.Modules.Token
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var cutoffDate = DateTime.UtcNow.AddDays(-7); // Keep expired tokens for 7 days (audit trail)
+            var passwordResetRetentionCutoff = DateTime.UtcNow.AddHours(-24);
+            var refreshTokenRetentionCutoff = DateTime.UtcNow.AddDays(-7);
 
-            // ✅ Cleanup password reset tokens
-            var expiredResetTokens = await db.PasswordResetTokens
-                .Where(t => t.ExpiresAt < cutoffDate)
+            var usedResetTokens = await db.PasswordResetTokens
+                .Where(t => t.UsedAt != null && t.UsedAt < passwordResetRetentionCutoff)
                 .ToListAsync(cancellationToken);
 
-            db.PasswordResetTokens.RemoveRange(expiredResetTokens);
+            var expiredUnusedResetTokens = await db.PasswordResetTokens
+                .Where(t => t.UsedAt == null && t.ExpiredAt < passwordResetRetentionCutoff)
+                .ToListAsync(cancellationToken);
+
+            db.PasswordResetTokens.RemoveRange(usedResetTokens);
+            db.PasswordResetTokens.RemoveRange(expiredUnusedResetTokens);
 
             // ✅ Cleanup revoked refresh tokens
             var revokedRefreshTokens = await db.AccountTokens
-                .Where(t => t.RevokedAt != null && t.RevokedAt < cutoffDate)
+                .Where(t => t.RevokedAt != null && t.RevokedAt < refreshTokenRetentionCutoff)
                 .ToListAsync(cancellationToken);
 
             db.AccountTokens.RemoveRange(revokedRefreshTokens);
 
-            var totalRemoved = expiredResetTokens.Count + revokedRefreshTokens.Count;
+            var removedResetTokens = usedResetTokens.Count + expiredUnusedResetTokens.Count;
+            var totalRemoved = removedResetTokens + revokedRefreshTokens.Count;
 
             if (totalRemoved > 0)
             {
                 await db.SaveChangesAsync(cancellationToken);
-                
+
                 _logger.LogInformation(
-                    "Cleaned up {ResetTokens} password reset tokens + {RefreshTokens} refresh tokens",
-                    expiredResetTokens.Count, revokedRefreshTokens.Count);
+                    "Cleaned up {UsedResetTokens} used reset tokens + {ExpiredResetTokens} expired reset tokens + {RefreshTokens} refresh tokens",
+                    usedResetTokens.Count,
+                    expiredUnusedResetTokens.Count,
+                    revokedRefreshTokens.Count);
             }
         }
     }
