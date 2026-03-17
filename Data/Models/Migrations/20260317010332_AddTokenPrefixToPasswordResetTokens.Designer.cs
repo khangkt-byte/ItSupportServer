@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ItSupportServer.Data.Models.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260315192940_AddTokenPrefixToPasswordResetTokens")]
+    [Migration("20260317010332_AddTokenPrefixToPasswordResetTokens")]
     partial class AddTokenPrefixToPasswordResetTokens
     {
         /// <inheritdoc />
@@ -1720,7 +1720,9 @@ namespace ItSupportServer.Data.Models.Migrations
                         .HasColumnName("token");
 
                     b.Property<string>("TokenPrefix")
-                        .HasColumnType("text");
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("token_prefix");
 
                     b.Property<DateTime?>("UsedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1736,6 +1738,9 @@ namespace ItSupportServer.Data.Models.Migrations
 
                     b.HasIndex("Token")
                         .HasDatabaseName("ix_password_reset_tokens_token");
+
+                    b.HasIndex("TokenPrefix")
+                        .HasDatabaseName("ix_password_reset_tokens_prefix");
 
                     b.HasIndex("ExpiresAt", "UsedAt")
                         .HasDatabaseName("ix_password_reset_tokens_expiry_status");

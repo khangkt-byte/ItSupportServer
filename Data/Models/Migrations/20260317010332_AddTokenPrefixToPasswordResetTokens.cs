@@ -11,17 +11,27 @@ namespace ItSupportServer.Data.Models.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
-                name: "TokenPrefix",
+                name: "token_prefix",
                 table: "password_reset_tokens",
-                type: "text",
+                type: "character varying(8)",
+                maxLength: 8,
                 nullable: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_password_reset_tokens_prefix",
+                table: "password_reset_tokens",
+                column: "token_prefix");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropIndex(
+                name: "ix_password_reset_tokens_prefix",
+                table: "password_reset_tokens");
+
             migrationBuilder.DropColumn(
-                name: "TokenPrefix",
+                name: "token_prefix",
                 table: "password_reset_tokens");
         }
     }
