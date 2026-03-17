@@ -392,6 +392,13 @@ namespace ItSupportServer.src.Shared.Middleware
             // ⚠️ Auth errors - Generic (prevent enumeration)
             if (exception is UnauthorizedException)
             {
+                // Login endpoint: return sanitized credential error from service
+                // (same message for non-existing user and wrong password).
+                if (context.Request.Path.StartsWithSegments("/api/auth/login", StringComparison.OrdinalIgnoreCase))
+                {
+                    return exception.Message;
+                }
+
                 return "Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.";
             }
 

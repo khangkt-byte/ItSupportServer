@@ -236,7 +236,7 @@ try
             policy.WithOrigins(
                     "https://localhost:3000",  // Development
                     "https://localhost:5173"  // Vite
-                    //"https://yourdomain.com"   // Production
+                                              //"https://yourdomain.com"   // Production
                 )
                 .AllowAnyMethod()
                 .AllowAnyHeader()
@@ -404,8 +404,8 @@ try
     // ✅ 2. HTTPS Redirection & HSTS
     //if (!app.Environment.IsDevelopment())
     //{
-        app.UseHttpsRedirection();
-        app.UseHsts();
+    app.UseHttpsRedirection();
+    app.UseHsts();
     //}
 
     // ✅ 3. Serilog Request Logging
@@ -436,7 +436,10 @@ try
 
     // ✅ 6. Rate Limiting — MUST be after UseRouting when using [EnableRateLimiting] attribute
     // Reference: https://learn.microsoft.com/aspnet/core/performance/rate-limit
-    app.UseRateLimiter();
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseRateLimiter();
+    }
 
     // ✅ 7. Authentication & Authorization
     app.UseAuthentication();
