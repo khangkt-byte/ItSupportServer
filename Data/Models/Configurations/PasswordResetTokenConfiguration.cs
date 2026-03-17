@@ -29,7 +29,7 @@ namespace ItSupportServer.Data.Models.Configurations
             builder.HasIndex(t => t.AccountId)
                 .HasDatabaseName("ix_password_reset_tokens_account_id");
 
-            builder.HasIndex(t => new { t.ExpiredAt, t.UsedAt })
+            builder.HasIndex(t => new { t.ExpiresAt, t.UsedAt })
                 .HasDatabaseName("ix_password_reset_tokens_expiry_status");
 
             builder.HasIndex(t => t.TokenPrefix)
@@ -45,7 +45,7 @@ namespace ItSupportServer.Data.Models.Configurations
                 .IsRequired()
                 .HasMaxLength(500);  // BCrypt hash = ~60 chars, SHA-256 = 64 chars
 
-            builder.Property(t => t.ExpiredAt)
+            builder.Property(t => t.ExpiresAt)
                 .HasColumnName("expires_at")
                 .IsRequired();
 

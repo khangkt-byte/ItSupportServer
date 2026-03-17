@@ -394,7 +394,7 @@ namespace ItSupportServer.src.Modules.Authentication
                         AccountId = user.AccountId,
                         Token = hashedToken,
                         TokenPrefix = tokenPrefix,
-                        ExpiredAt = DateTime.UtcNow.AddMinutes(PasswordResetTokenLifetimeMinutes),
+                        ExpiresAt = DateTime.UtcNow.AddMinutes(PasswordResetTokenLifetimeMinutes),
                     };
 
                     await _db.PasswordResetTokens.AddAsync(passwordReset);
@@ -463,7 +463,7 @@ namespace ItSupportServer.src.Modules.Authentication
             var tokenPrefix = dto.Token.Length >= 8 ? dto.Token[..8] : dto.Token;
 
             var tokenRecords = await _db.PasswordResetTokens
-                .Where(t => t.ExpiredAt > DateTime.UtcNow && t.UsedAt == null && t.TokenPrefix == tokenPrefix)
+                .Where(t => t.ExpiresAt > DateTime.UtcNow && t.UsedAt == null && t.TokenPrefix == tokenPrefix)
                 .Include(t => t.Account)
                     .ThenInclude(a => a.Employee)
                 .ToListAsync();

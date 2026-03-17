@@ -30,7 +30,7 @@ namespace ItSupportServer.Data.Models.Entities
         /// Token expiration time
         /// Security: OWASP recommends 15-60 minutes
         /// </summary>
-        public DateTime ExpiredAt { get; set; }
+        public DateTime ExpiresAt { get; set; }
 
         /// <summary>
         /// When token was used (null if unused)

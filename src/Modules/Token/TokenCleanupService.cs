@@ -57,7 +57,7 @@ namespace ItSupportServer.src.Modules.Token
                 .ToListAsync(cancellationToken);
 
             var expiredUnusedResetTokens = await db.PasswordResetTokens
-                .Where(t => t.UsedAt == null && t.ExpiredAt < passwordResetRetentionCutoff)
+                .Where(t => t.UsedAt == null && t.ExpiresAt < passwordResetRetentionCutoff)
                 .ToListAsync(cancellationToken);
 
             db.PasswordResetTokens.RemoveRange(usedResetTokens);
