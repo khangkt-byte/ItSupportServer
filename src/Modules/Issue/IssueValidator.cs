@@ -38,7 +38,7 @@ namespace ItSupportServer.src.Modules.Issue
                 .When(x => !string.IsNullOrWhiteSpace(x.Category));
 
             RuleFor(x => x.Severity)
-                .IsInEnum()
+                .InclusiveBetween(1, 5)
                 .WithMessage("Độ nghiêm trọng phải từ 1 (Thấp) đến 5 (Khẩn cấp).")
                 .When(x => x.Severity.HasValue);
         }
@@ -72,7 +72,7 @@ namespace ItSupportServer.src.Modules.Issue
                 .When(x => x.Category != null && !string.IsNullOrWhiteSpace(x.Category));
 
             RuleFor(x => x.Severity)
-                .IsInEnum()
+                .InclusiveBetween(1, 5)
                 .WithMessage("Độ nghiêm trọng phải từ 1 (Thấp) đến 5 (Khẩn cấp).")
                 .When(x => x.Severity.HasValue);
 
