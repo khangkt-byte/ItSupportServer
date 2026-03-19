@@ -44,5 +44,10 @@ namespace ItSupportServer.src.Modules.Role
         /// Assign roles to an account
         /// </summary>
         Task<AccountRolesDto> AssignRolesToAccountAsync(AssignRolesDto dto);
+
+        /// <summary>
+        /// Assign direct claims to an account
+        /// </summary>
+        Task<AccountClaimsDto> AssignClaimsToAccountAsync(AssignClaimsDto dto);
     }
 }

@@ -19,6 +19,7 @@ namespace ItSupportServer.src.Modules.Role
         private readonly IValidator<CreateRoleDto> _createValidator;
         private readonly IValidator<UpdateRoleDto> _updateValidator;
         private readonly IValidator<AssignRolesDto> _assignRolesValidator;
+        private readonly IValidator<AssignClaimsDto> _assignClaimsValidator;
         private readonly IAuthorizationService _authorizationService;
 
         public RoleService(
@@ -28,6 +29,7 @@ namespace ItSupportServer.src.Modules.Role
             IValidator<CreateRoleDto> createValidator,
             IValidator<UpdateRoleDto> updateValidator,
             IValidator<AssignRolesDto> assignRolesValidator,
+            IValidator<AssignClaimsDto> assignClaimsValidator,
             IAuthorizationService authorizationService)
         {
             _db = db;
@@ -36,6 +38,7 @@ namespace ItSupportServer.src.Modules.Role
             _createValidator = createValidator;
             _updateValidator = updateValidator;
             _assignRolesValidator = assignRolesValidator;
+            _assignClaimsValidator = assignClaimsValidator;
             _authorizationService = authorizationService;
         }
 
@@ -643,6 +646,96 @@ namespace ItSupportServer.src.Modules.Role
                     AccountId = dto.AccountId,
                     Username = account.Username,
                     Roles = updatedRoles
+                };
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task<AccountClaimsDto> AssignClaimsToAccountAsync(AssignClaimsDto dto)
+        {
+            _logger.LogInformation("Assigning direct claims to account {AccountId}", dto.AccountId);
+
+            var validationResult = await _assignClaimsValidator.ValidateAsync(dto);
+            validationResult.ThrowIfInvalid();
+
+            var account = await _db.Accounts
+                .Include(a => a.AccountClaims)
+                .FirstOrDefaultAsync(a => a.AccountId == dto.AccountId && a.DeletedAt == null);
+
+            if (account is null)
+            {
+                throw new NotFoundException("Tài khoản", dto.AccountId);
+            }
+
+            var existingClaimIds = await _db.Claims
+                .Where(c => dto.ClaimIds.Contains(c.ClaimId))
+                .Select(c => c.ClaimId)
+                .ToListAsync();
+
+            var missingClaimIds = dto.ClaimIds.Except(existingClaimIds).ToList();
+            if (missingClaimIds.Any())
+            {
+                throw new NotFoundException($"Claims không tồn tại: {string.Join(", ", missingClaimIds)}");
+            }
+
+            using var transaction = await _db.Database.BeginTransactionAsync();
+
+            try
+            {
+                var currentClaimIds = account.AccountClaims
+                    .Select(ac => ac.ClaimId)
+                    .ToList();
+
+                var selected = dto.ClaimIds.Distinct().ToList();
+
+                var toAdd = selected.Except(currentClaimIds).ToList();
+                var toRemove = currentClaimIds.Except(selected).ToList();
+
+                if (toAdd.Any())
+                {
+                    var newAccountClaims = toAdd.Select(claimId => new AccountClaims
+                    {
+                        AccountId = dto.AccountId,
+                        ClaimId = claimId
+                    });
+
+                    await _db.AccountClaims.AddRangeAsync(newAccountClaims);
+                }
+
+                if (toRemove.Any())
+                {
+                    var removeAccountClaims = await _db.AccountClaims
+                        .Where(ac => ac.AccountId == dto.AccountId && toRemove.Contains(ac.ClaimId))
+                        .ToListAsync();
+
+                    _db.AccountClaims.RemoveRange(removeAccountClaims);
+                }
+
+                await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _authorizationService.InvalidatePermissionCache(dto.AccountId);
+                _logger.LogInformation(
+                    "Invalidated permission cache for account {AccountId} after direct claim assignment",
+                    dto.AccountId);
+
+                _logger.LogInformation("Successfully assigned {Count} direct claims to account {AccountId}",
+                    selected.Count, dto.AccountId);
+
+                var updatedClaims = await _mapper.ProjectToClaimDto(_db.Claims
+                    .Where(c => selected.Contains(c.ClaimId))
+                    .AsNoTracking())
+                    .ToListAsync();
+
+                return new AccountClaimsDto
+                {
+                    AccountId = dto.AccountId,
+                    Username = account.Username,
+                    Claims = updatedClaims
                 };
             }
             catch

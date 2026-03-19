@@ -61,4 +61,21 @@ namespace ItSupportServer.src.Modules.Role
                 .WithMessage("Các vai trò được chọn không hợp lệ.");
         }
     }
+
+    public class AccountClaimValidator : AbstractValidator<AssignClaimsDto>
+    {
+        public AccountClaimValidator()
+        {
+            RuleFor(x => x.AccountId)
+                .NotEmpty().WithMessage("Vui lòng chọn một tài khoản.");
+
+            RuleFor(x => x.ClaimIds)
+                .NotNull()
+                .WithMessage("Danh sách quyền không được null.")
+                .NotEmpty()
+                .WithMessage("Vui lòng chọn ít nhất một quyền.")
+                .Must(ids => ids.All(id => id > 0))
+                .WithMessage("Các quyền được chọn không hợp lệ.");
+        }
+    }
 }
