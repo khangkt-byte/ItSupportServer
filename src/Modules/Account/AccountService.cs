@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using ItSupportServer.Data.Models;
 using ItSupportServer.Data.Models.Entities;
+using ItSupportServer.src.Modules.Role;
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Dto;
 using ItSupportServer.src.Shared.Exceptions;
@@ -79,6 +80,8 @@ namespace ItSupportServer.src.Modules.Account
                     .ThenInclude(ar => ar.Role)
                     .ThenInclude(r => r.RoleClaims)
                     .ThenInclude(rc => rc.Claim)
+                .Include(a => a.AccountClaims)
+                    .ThenInclude(ac => ac.Claim)
                 .Where(a => a.AccountId == accountId && a.DeletedAt == null)
                 .AsNoTracking())
                 .FirstOrDefaultAsync();
@@ -641,16 +644,28 @@ namespace ItSupportServer.src.Modules.Account
         {
             _logger.LogInformation("Fetching permissions for account {AccountId}", accountId);
 
-            var permissions = await _db.Accounts
+            var rolePermissions = _db.Accounts
                 .AsNoTracking()
                 .Where(a => a.AccountId == accountId && a.DeletedAt == null)
                 .SelectMany(a => a.AccountRoles
-                    .Where(ar => ar.Role.DeletedAt == null)  // ✅ Exclude deleted roles
+                    .Where(ar => ar.Role.DeletedAt == null)
                     .SelectMany(ar => ar.Role.RoleClaims
-                        .Select(rc => rc.Claim.Claim)))
+                        .Select(rc => rc.Claim.Claim)));
+
+            var directPermissions = _db.AccountClaims
+                .AsNoTracking()
+                .Where(ac => ac.AccountId == accountId)
+                .Select(ac => ac.Claim.Claim);
+
+            var permissions = await rolePermissions
+                .Concat(directPermissions)
                 .Distinct()
-                .OrderBy(p => p)  // ✅ Sort alphabetically
+                .OrderBy(p => p)
                 .ToListAsync();
+
+            permissions = permissions
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .ToList();
 
             _logger.LogInformation("Retrieved {Count} permissions for account {AccountId}", 
                 permissions.Count, accountId);

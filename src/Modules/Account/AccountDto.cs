@@ -20,6 +20,7 @@ namespace ItSupportServer.src.Modules.Account
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
         public List<RoleDto>? Roles { get; init; }
+        public List<ClaimDto>? Claims { get; init; }
     }
 
     /// <summary>
@@ -34,6 +35,9 @@ namespace ItSupportServer.src.Modules.Account
         public bool IsLocked { get; init; }
         public DateTime? LastLoginAt { get; init; }
         public DateTime CreatedAt { get; init; }
+        // Total number of distinct claims available to the account
+        // (includes claims from assigned roles and direct account claims)
+        public int TotalClaims { get; init; }
     }
 
     /// <summary>
