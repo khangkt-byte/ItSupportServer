@@ -44,38 +44,4 @@ namespace ItSupportServer.src.Modules.Role
                 .When(x => x.ClaimIds != null);
         }
     }
-
-    public class AccountRoleValidator : AbstractValidator<AssignRolesDto>
-    {
-        public AccountRoleValidator()
-        {
-            RuleFor(x => x.AccountId)
-                .NotEmpty().WithMessage("Vui lòng chọn một tài khoản.");
-
-            RuleFor(x => x.RoleIds)
-                .NotNull()
-                .WithMessage("Danh sách vai trò không được null.")
-                .NotEmpty()
-                .WithMessage("Vui lòng chọn ít nhất một vai trò.")
-                .Must(ids => ids.All(id => id > 0))
-                .WithMessage("Các vai trò được chọn không hợp lệ.");
-        }
-    }
-
-    public class AccountClaimValidator : AbstractValidator<AssignClaimsDto>
-    {
-        public AccountClaimValidator()
-        {
-            RuleFor(x => x.AccountId)
-                .NotEmpty().WithMessage("Vui lòng chọn một tài khoản.");
-
-            RuleFor(x => x.ClaimIds)
-                .NotNull()
-                .WithMessage("Danh sách quyền không được null.")
-                .NotEmpty()
-                .WithMessage("Vui lòng chọn ít nhất một quyền.")
-                .Must(ids => ids.All(id => id > 0))
-                .WithMessage("Các quyền được chọn không hợp lệ.");
-        }
-    }
 }

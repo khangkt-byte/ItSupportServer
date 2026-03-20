@@ -36,6 +36,16 @@ namespace ItSupportServer.src.Modules.Account
         Task<BulkDeleteResultDto> DeleteAccountsAsync(List<Guid> accountIds, bool softDelete = true);
 
         /// <summary>
+        /// Assign roles to an account
+        /// </summary>
+        Task<AccountRolesDto> AssignRolesToAccountAsync(AssignRolesDto dto);
+
+        /// <summary>
+        /// Assign direct claims to an account
+        /// </summary>
+        Task<AccountClaimsDto> AssignClaimsToAccountAsync(AssignClaimsDto dto);
+
+        /// <summary>
         /// Admin reset password for user
         /// </summary>
         Task<ResetPasswordResultDto> ResetPasswordAsync(Guid accountId);

@@ -1,7 +1,9 @@
-﻿using ItSupportServer.src.Modules.Authorization;
+﻿using DocumentFormat.OpenXml.Office2010.Excel;
+using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Attributes;
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Dto;
+using ItSupportServer.src.Shared.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -243,6 +245,56 @@ namespace ItSupportServer.src.Modules.Account
             [FromBody] List<Guid> accountIds)
         {
             var result = await _service.DeleteAccountsAsync(accountIds);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Gán roles cho tài khoản
+        /// </summary>
+        [HttpPost("assign-roles")]
+        [HasPermission(Permissions.AccountClaims.SetAccessControl)]
+        [ProducesResponseType(typeof(AccountRolesDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<AccountRolesDto>> AssignRolesToAccount(
+            [FromBody] AssignRolesDto dto)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (currentUserId != null && Guid.Parse(currentUserId) == dto.AccountId)
+            {
+                throw new BusinessRuleException("Không thể tự thay đổi roles của chính mình");
+            }
+
+            var result = await _service.AssignRolesToAccountAsync(dto);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Gán direct claims cho tài khoản
+        /// </summary>
+        [HttpPost("assign-claims")]
+        [HasPermission(Permissions.AccountClaims.SetAccessControl)]
+        [ProducesResponseType(typeof(AccountClaimsDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<AccountClaimsDto>> AssignClaimsToAccount(
+            [FromBody] AssignClaimsDto dto)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (currentUserId != null && Guid.Parse(currentUserId) == dto.AccountId)
+            {
+                throw new BusinessRuleException("Không thể tự thay đổi roles của chính mình");
+            }
+
+            var result = await _service.AssignClaimsToAccountAsync(dto);
             return Ok(result);
         }
 

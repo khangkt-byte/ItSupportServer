@@ -18,8 +18,6 @@ namespace ItSupportServer.src.Modules.Role
         private readonly ILogger<RoleService> _logger;
         private readonly IValidator<CreateRoleDto> _createValidator;
         private readonly IValidator<UpdateRoleDto> _updateValidator;
-        private readonly IValidator<AssignRolesDto> _assignRolesValidator;
-        private readonly IValidator<AssignClaimsDto> _assignClaimsValidator;
         private readonly IAuthorizationService _authorizationService;
 
         public RoleService(
@@ -28,8 +26,6 @@ namespace ItSupportServer.src.Modules.Role
             ILogger<RoleService> logger,
             IValidator<CreateRoleDto> createValidator,
             IValidator<UpdateRoleDto> updateValidator,
-            IValidator<AssignRolesDto> assignRolesValidator,
-            IValidator<AssignClaimsDto> assignClaimsValidator,
             IAuthorizationService authorizationService)
         {
             _db = db;
@@ -37,8 +33,6 @@ namespace ItSupportServer.src.Modules.Role
             _logger = logger;
             _createValidator = createValidator;
             _updateValidator = updateValidator;
-            _assignRolesValidator = assignRolesValidator;
-            _assignClaimsValidator = assignClaimsValidator;
             _authorizationService = authorizationService;
         }
 
@@ -556,193 +550,6 @@ namespace ItSupportServer.src.Modules.Role
             _logger.LogInformation("Retrieved {Count} claims", claims.Count);
 
             return claims;
-        }
-
-        public async Task<AccountRolesDto> AssignRolesToAccountAsync(AssignRolesDto dto)
-        {
-            _logger.LogInformation("Assigning roles to account {AccountId}", dto.AccountId);
-
-            var validationResult = await _assignRolesValidator.ValidateAsync(dto);
-            validationResult.ThrowIfInvalid();
-
-            var account = await _db.Accounts
-                .Include(a => a.AccountRoles)
-                    .ThenInclude(ar => ar.Role)
-                .FirstOrDefaultAsync(a => a.AccountId == dto.AccountId && a.DeletedAt == null);
-
-            if (account is null)
-            {
-                throw new NotFoundException("Tài khoản", dto.AccountId);
-            }
-
-            // Validate all roles exist
-            var existingRoles = await _db.Roles
-                .Where(r => dto.RoleIds.Contains(r.RoleId) && r.DeletedAt == null)
-                .Select(r => r.RoleId)
-                .ToListAsync();
-
-            var missingRoles = dto.RoleIds.Except(existingRoles).ToList();
-            if (missingRoles.Any())
-            {
-                throw new NotFoundException($"Roles không tồn tại: {string.Join(", ", missingRoles)}");
-            }
-
-            using var transaction = await _db.Database.BeginTransactionAsync();
-
-            try
-            {
-                // Get current role IDs
-                var currentRoleIds = account.AccountRoles
-                    .Select(ar => ar.RoleId)
-                    .ToList();
-
-                var selected = dto.RoleIds.Distinct().ToList();
-
-                var toAdd = selected.Except(currentRoleIds).ToList();
-                var toRemove = currentRoleIds.Except(selected).ToList();
-
-                // Add new roles
-                if (toAdd.Any())
-                {
-                    var newAccountRoles = toAdd.Select(roleId => new AccountRoles
-                    {
-                        AccountId = dto.AccountId,
-                        RoleId = roleId
-                    });
-
-                    await _db.AccountRoles.AddRangeAsync(newAccountRoles);
-                }
-
-                // Remove old roles
-                if (toRemove.Any())
-                {
-                    var removeAccountRoles = await _db.AccountRoles
-                        .Where(ar => ar.AccountId == dto.AccountId && toRemove.Contains(ar.RoleId))
-                        .ToListAsync();
-
-                    _db.AccountRoles.RemoveRange(removeAccountRoles);
-                }
-
-                await _db.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                // ✅ Invalidate permission cache (already has field now)
-                _authorizationService.InvalidatePermissionCache(dto.AccountId);
-                _logger.LogInformation(
-                    "Invalidated permission cache for account {AccountId} after role assignment",
-                    dto.AccountId);
-
-                _logger.LogInformation("Successfully assigned {Count} roles to account {AccountId}",
-                    dto.RoleIds.Count, dto.AccountId);
-
-                // Return updated account with roles
-                var updatedRoles = await _mapper.ProjectToRoleDto(_db.Roles
-                    .Where(r => dto.RoleIds.Contains(r.RoleId))
-                    .AsNoTracking())
-                    .ToListAsync();
-
-                return new AccountRolesDto
-                {
-                    AccountId = dto.AccountId,
-                    Username = account.Username,
-                    Roles = updatedRoles
-                };
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-        }
-
-        public async Task<AccountClaimsDto> AssignClaimsToAccountAsync(AssignClaimsDto dto)
-        {
-            _logger.LogInformation("Assigning direct claims to account {AccountId}", dto.AccountId);
-
-            var validationResult = await _assignClaimsValidator.ValidateAsync(dto);
-            validationResult.ThrowIfInvalid();
-
-            var account = await _db.Accounts
-                .Include(a => a.AccountClaims)
-                .FirstOrDefaultAsync(a => a.AccountId == dto.AccountId && a.DeletedAt == null);
-
-            if (account is null)
-            {
-                throw new NotFoundException("Tài khoản", dto.AccountId);
-            }
-
-            var existingClaimIds = await _db.Claims
-                .Where(c => dto.ClaimIds.Contains(c.ClaimId))
-                .Select(c => c.ClaimId)
-                .ToListAsync();
-
-            var missingClaimIds = dto.ClaimIds.Except(existingClaimIds).ToList();
-            if (missingClaimIds.Any())
-            {
-                throw new NotFoundException($"Claims không tồn tại: {string.Join(", ", missingClaimIds)}");
-            }
-
-            using var transaction = await _db.Database.BeginTransactionAsync();
-
-            try
-            {
-                var currentClaimIds = account.AccountClaims
-                    .Select(ac => ac.ClaimId)
-                    .ToList();
-
-                var selected = dto.ClaimIds.Distinct().ToList();
-
-                var toAdd = selected.Except(currentClaimIds).ToList();
-                var toRemove = currentClaimIds.Except(selected).ToList();
-
-                if (toAdd.Any())
-                {
-                    var newAccountClaims = toAdd.Select(claimId => new AccountClaims
-                    {
-                        AccountId = dto.AccountId,
-                        ClaimId = claimId
-                    });
-
-                    await _db.AccountClaims.AddRangeAsync(newAccountClaims);
-                }
-
-                if (toRemove.Any())
-                {
-                    var removeAccountClaims = await _db.AccountClaims
-                        .Where(ac => ac.AccountId == dto.AccountId && toRemove.Contains(ac.ClaimId))
-                        .ToListAsync();
-
-                    _db.AccountClaims.RemoveRange(removeAccountClaims);
-                }
-
-                await _db.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                _authorizationService.InvalidatePermissionCache(dto.AccountId);
-                _logger.LogInformation(
-                    "Invalidated permission cache for account {AccountId} after direct claim assignment",
-                    dto.AccountId);
-
-                _logger.LogInformation("Successfully assigned {Count} direct claims to account {AccountId}",
-                    selected.Count, dto.AccountId);
-
-                var updatedClaims = await _mapper.ProjectToClaimDto(_db.Claims
-                    .Where(c => selected.Contains(c.ClaimId))
-                    .AsNoTracking())
-                    .ToListAsync();
-
-                return new AccountClaimsDto
-                {
-                    AccountId = dto.AccountId,
-                    Username = account.Username,
-                    Claims = updatedClaims
-                };
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
         }
     }
 }

@@ -39,15 +39,5 @@ namespace ItSupportServer.src.Modules.Role
         /// Get all available claims
         /// </summary>
         Task<List<ClaimDto>> GetAllClaimsAsync();
-
-        /// <summary>
-        /// Assign roles to an account
-        /// </summary>
-        Task<AccountRolesDto> AssignRolesToAccountAsync(AssignRolesDto dto);
-
-        /// <summary>
-        /// Assign direct claims to an account
-        /// </summary>
-        Task<AccountClaimsDto> AssignClaimsToAccountAsync(AssignClaimsDto dto);
     }
 }

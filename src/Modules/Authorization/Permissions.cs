@@ -19,6 +19,10 @@ namespace ItSupportServer.src.Modules.Authorization
         public const string AdminClaim = "Admin";
 
         // ===== MODULE PERMISSIONS =====
+        public static class DashboardClaims
+        {
+            public const string View = "Dashboard.View";
+        }
 
         public static class DepartmentClaims
         {
@@ -52,6 +56,7 @@ namespace ItSupportServer.src.Modules.Authorization
             public const string Delete = "Account.Delete";
             public const string ResetPassword = "Account.ResetPassword";
             public const string Lock = "Account.Lock";
+            public const string SetAccessControl = "Account.SetAccessControl";
         }
 
         public static class RoleClaims
@@ -60,7 +65,6 @@ namespace ItSupportServer.src.Modules.Authorization
             public const string Create = "Role.Create";
             public const string Edit = "Role.Edit";
             public const string Delete = "Role.Delete";
-            public const string SetRole = "Role.SetRole";
         }
 
         public static class DeviceClaims

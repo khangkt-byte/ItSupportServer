@@ -52,42 +52,4 @@ namespace ItSupportServer.src.Modules.Role
         /// </summary>
         public List<int>? ClaimIds { get; init; }
     }
-
-    /// <summary>
-    /// Assign roles to account request DTO
-    /// </summary>
-    public record AssignRolesDto
-    {
-        public required Guid AccountId { get; init; }
-        public required List<int> RoleIds { get; init; } 
-    }
-
-    /// <summary>
-    /// Assign direct claims to account request DTO
-    /// </summary>
-    public record AssignClaimsDto
-    {
-        public required Guid AccountId { get; init; }
-        public required List<int> ClaimIds { get; init; }
-    }
-
-    /// <summary>
-    /// Account with assigned roles response DTO
-    /// </summary>
-    public record AccountRolesDto
-    {
-        public Guid AccountId { get; init; }
-        public required string Username { get; init; }
-        public List<RoleDto> Roles { get; init; } = [];
-    }
-
-    /// <summary>
-    /// Account with assigned direct claims response DTO
-    /// </summary>
-    public record AccountClaimsDto
-    {
-        public Guid AccountId { get; init; }
-        public required string Username { get; init; }
-        public List<ClaimDto> Claims { get; init; } = [];
-    }
 }
