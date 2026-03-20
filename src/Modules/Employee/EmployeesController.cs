@@ -191,7 +191,7 @@ namespace ItSupportServer.src.Modules.Employee
         /// **Lưu ý:** Admin không thể tự thay đổi roles của chính mình
         /// </remarks>
         [HttpPost("{id}/roles")]
-        [HasPermission(Permissions.RoleClaims.SetRole)]
+        [HasPermission(Permissions.AccountClaims.SetAccessControl)]
         [ProducesResponseType(typeof(DetailEmployeeDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]

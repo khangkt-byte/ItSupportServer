@@ -23,7 +23,7 @@ namespace ItSupportServer.src.Modules.Dashboard
         }
 
         [HttpGet("summary")]
-        [HasPermission(Permissions.IssueLogClaims.View)]
+        [HasPermission(Permissions.DashboardClaims.View)]
         [ProducesResponseType(typeof(DashboardSummaryDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
