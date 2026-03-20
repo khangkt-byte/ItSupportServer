@@ -111,24 +111,32 @@ namespace ItSupportServer.src.Modules.Account
         /// Use this for GetAccountsAsync (no roles needed)
         /// </summary>
         public partial IQueryable<ListAccountDto> ProjectToListAccountDto(IQueryable<Accounts> query);
-    }
 
-    // Helper used by mapper to count distinct claims available to an account
-    // Includes both role-based claims and direct account claims
-    partial class AccountMapper
-    {
         private static int CountClaims(Accounts account)
         {
-            if (account == null)
-                return 0;
-            // Only count direct account claims (exclude role-based claims)
-            var directClaimStrings = account.AccountClaims?
-                .Select(ac => ac.Claim?.Claim)
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .Distinct()
-                .ToList() ?? new List<string?>();
+            if (account == null) return 0;
 
-            return directClaimStrings.Count;
+            var uniqueClaims = new HashSet<int>();
+
+            if (account.AccountClaims != null)
+            {
+                foreach (var ac in account.AccountClaims)
+                    uniqueClaims.Add(ac.ClaimId);
+            }
+
+            if (account.AccountRoles != null)
+            {
+                foreach (var ar in account.AccountRoles)
+                {
+                    if (ar.Role is { DeletedAt: null } role && role.RoleClaims != null)
+                    {
+                        foreach (var rc in role.RoleClaims)
+                            uniqueClaims.Add(rc.ClaimId);
+                    }
+                }
+            }
+
+            return uniqueClaims.Count;
         }
     }
 }

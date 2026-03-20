@@ -61,6 +61,10 @@ namespace ItSupportServer.src.Modules.Account
                 parameters.Search, parameters.Page);
 
             var query = _accountMapper.ProjectToListAccountDto(_db.Accounts
+                .Include(a => a.AccountRoles)
+                    .ThenInclude(ar => ar.Role)
+                        .ThenInclude(r => r.RoleClaims)
+                .Include(a => a.AccountClaims)
                 .AsNoTracking());
 
             if (!string.IsNullOrWhiteSpace(parameters.Search))
