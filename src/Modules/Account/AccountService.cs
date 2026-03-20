@@ -119,6 +119,12 @@ namespace ItSupportServer.src.Modules.Account
             var validationResult = await _createValidator.ValidateAsync(dto);
             validationResult.ThrowIfInvalid();
 
+            if (dto.Password != dto.ConfirmPassword)
+            {
+                throw new Shared.Exceptions.ValidationException("ConfirmPassword",
+                    "Mật khẩu xác nhận không khớp");
+            }
+
             var employee = await _db.Employees
                 .Include(e => e.Account)
                 .FirstOrDefaultAsync(e => e.EmpId == dto.EmpId && e.DeletedAt == null);
@@ -238,6 +244,23 @@ namespace ItSupportServer.src.Modules.Account
                     account.LockedUntil = null;
                 }
 
+                hasChanges = true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.NewPassword))
+            {
+                if (dto.NewPassword != dto.ConfirmPassword)
+                {
+                    throw new Shared.Exceptions.ValidationException("ConfirmPassword",
+                        "Mật khẩu xác nhận không khớp");
+                }
+
+                if (PasswordHelper.VerifyPassword(dto.NewPassword, account.Password))
+                {
+                    throw new BusinessRuleException("Mật khẩu mới phải khác mật khẩu hiện tại");
+                }
+
+                account.Password = PasswordHelper.HashPassword(dto.NewPassword);
                 hasChanges = true;
             }
 

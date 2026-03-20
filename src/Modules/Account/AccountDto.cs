@@ -61,6 +61,11 @@ namespace ItSupportServer.src.Modules.Account
         public required string Password { get; init; }
 
         /// <summary>
+        /// Confirm initial password to prevent typing mistakes
+        /// </summary>
+        public required string ConfirmPassword { get; init; }
+
+        /// <summary>
         /// Optional roles to assign
         /// </summary>
         public List<int>? RoleIds { get; init; }
@@ -73,6 +78,8 @@ namespace ItSupportServer.src.Modules.Account
     {
         public string? Username { get; init; }
         public bool? IsLocked { get; init; }
+        public string? NewPassword { get; init; }
+        public string? ConfirmPassword { get; init; }
     }
 
     /// <summary>

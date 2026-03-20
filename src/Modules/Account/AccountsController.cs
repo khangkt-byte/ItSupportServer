@@ -15,6 +15,8 @@ namespace ItSupportServer.src.Modules.Account
     /// </summary>
     /// <remarks>
     /// RESTful API + RBAC + JWT bearer authentication.
+    /// Bao gồm quản lý thông tin account, phân quyền (roles/claims), khóa/mở khóa,
+    /// reset mật khẩu và các endpoint self-service.
     /// </remarks>
     [ApiController]
     [Route("api/accounts")]
@@ -33,17 +35,18 @@ namespace ItSupportServer.src.Modules.Account
         /// <summary>
         /// [ADMIN] Lấy danh sách tài khoản (có phân trang)
         /// </summary>
-        /// <param name="parameters">Query parameters (page, pageSize, sortBy, search)</param>
-        /// <returns>Paginated list of accounts</returns>
+        /// <param name="parameters">Query parameters (page, pageSize, sortBy, sortDirection, search, isLocked)</param>
+        /// <returns>Paginated list of accounts (bao gồm TotalClaims là số direct claims)</returns>
         /// <remarks>
         /// **Supports:**
         /// - Pagination: page, pageSize
         /// - Sorting: sortBy, sortDirection
-        /// - Search: username, employee name, email
+        /// - Search: username, employee name, emp code
+        /// - Filter: isLocked
         /// 
         /// **Example:**
         /// ```
-        /// GET /api/accounts?page=1&amp;pageSize=20&amp;search=admin&amp;sortBy=CreatedAt
+        /// GET /api/accounts?page=1&amp;pageSize=20&amp;search=admin&amp;sortBy=CreatedAt&amp;isLocked=false
         /// ```
         /// </remarks>
         [HttpGet]
@@ -60,10 +63,10 @@ namespace ItSupportServer.src.Modules.Account
         }
 
         /// <summary>
-        /// [ADMIN] Lấy chi tiết tài khoản (bao gồm roles)
+        /// [ADMIN] Lấy chi tiết tài khoản (bao gồm roles và direct claims)
         /// </summary>
         /// <param name="id">Account ID (GUID)</param>
-        /// <returns>Account details with roles and employee info</returns>
+        /// <returns>Account details with employee info, roles và direct claims</returns>
         [HttpGet("{id}")]
         [HasPermission(Permissions.AccountClaims.View)]
         [ProducesResponseType(typeof(AccountDto), StatusCodes.Status200OK)]
@@ -86,6 +89,7 @@ namespace ItSupportServer.src.Modules.Account
         /// **Validation (400):**
         /// - Username: 3-32 chars, alphanumeric + underscore
         /// - Password: 8-128 chars, complexity requirements
+        /// - ConfirmPassword: phải khớp Password
         /// - EmpId: required
         /// 
         /// **Not Found (404):**
@@ -102,6 +106,7 @@ namespace ItSupportServer.src.Modules.Account
         ///   "empId": "guid-here",
         ///   "username": "admin",
         ///   "password": "Admin@123",
+        ///   "confirmPassword": "Admin@123",
         ///   "roleIds": [1, 2]
         /// }
         /// ```
@@ -122,22 +127,31 @@ namespace ItSupportServer.src.Modules.Account
         }
 
         /// <summary>
-        /// [ADMIN] Cập nhật tài khoản (username, lock status)
+        /// [ADMIN] Cập nhật tài khoản (username, lock status, mật khẩu)
         /// </summary>
         /// <param name="id">Account ID</param>
         /// <param name="dto">Update account request</param>
         /// <returns>Updated account</returns>
         /// <remarks>
-        /// **Partial update:** Chỉ các fields có giá trị sẽ được update
+        /// **Partial update:** Chỉ các fields có giá trị sẽ được update.
+        /// 
+        /// **Có thể cập nhật:**
+        /// - Username
+        /// - IsLocked
+        /// - NewPassword + ConfirmPassword (optional)
         /// 
         /// **Validation (400):**
         /// - Username format (nếu update)
+        /// - Password policy + confirm password match (nếu update password)
         /// 
         /// **Not Found (404):**
         /// - Account không tồn tại
         /// 
         /// **Conflict (409):**
-        /// - Username mới đã tồn tại (nếu update username)
+        /// - Username mới đã tồn tại
+        /// 
+        /// **Business Rules (422):**
+        /// - Mật khẩu mới không được trùng mật khẩu hiện tại
         /// </remarks>
         [HttpPut("{id}")]
         [HasPermission(Permissions.AccountClaims.Edit)]
@@ -249,8 +263,18 @@ namespace ItSupportServer.src.Modules.Account
         }
 
         /// <summary>
-        /// Gán roles cho tài khoản
+        /// [ADMIN] Gán roles cho tài khoản
         /// </summary>
+        /// <param name="id">Account ID</param>
+        /// <param name="roleIds">Danh sách role IDs cần gán (replace set)</param>
+        /// <remarks>
+        /// Endpoint này đồng bộ toàn bộ role set của account:
+        /// - IDs có trong request sẽ được giữ/gán
+        /// - IDs không có trong request sẽ bị gỡ
+        /// 
+        /// **Business Rules (422):**
+        /// - Không thể tự thay đổi roles của chính mình
+        /// </remarks>
         [HttpPost("{id}/assign-roles")]
         [HasPermission(Permissions.AccountClaims.SetAccessControl)]
         [ProducesResponseType(typeof(AccountRolesDto), StatusCodes.Status200OK)]
@@ -275,8 +299,18 @@ namespace ItSupportServer.src.Modules.Account
         }
 
         /// <summary>
-        /// Gán direct claims cho tài khoản
+        /// [ADMIN] Gán direct claims cho tài khoản
         /// </summary>
+        /// <param name="id">Account ID</param>
+        /// <param name="claimIds">Danh sách claim IDs cần gán trực tiếp (replace set)</param>
+        /// <remarks>
+        /// Endpoint này đồng bộ toàn bộ direct claims của account:
+        /// - IDs có trong request sẽ được giữ/gán
+        /// - IDs không có trong request sẽ bị gỡ
+        /// 
+        /// **Business Rules (422):**
+        /// - Không thể tự thay đổi direct claims của chính mình
+        /// </remarks>
         [HttpPost("{id}/assign-claims")]
         [HasPermission(Permissions.AccountClaims.SetAccessControl)]
         [ProducesResponseType(typeof(AccountClaimsDto), StatusCodes.Status200OK)]
@@ -293,7 +327,7 @@ namespace ItSupportServer.src.Modules.Account
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (currentUserId != null && Guid.Parse(currentUserId) == id)
             {
-                throw new BusinessRuleException("Không thể tự thay đổi roles của chính mình");
+                throw new BusinessRuleException("Không thể tự thay đổi direct claims của chính mình");
             }
 
             var result = await _service.AssignClaimsToAccountAsync(id, claimIds);
@@ -307,25 +341,9 @@ namespace ItSupportServer.src.Modules.Account
         /// <returns>Temporary password (phải gửi cho user ngay)</returns>
         /// <remarks>
         /// **QUAN TRỌNG:**
-        /// - Mật khẩu tạm thời sẽ được tạo ngẫu nhiên (12 chars, complexity compliant)
+        /// - Mật khẩu tạm thời được tạo ngẫu nhiên (10 ký tự)
         /// - Admin phải gửi mật khẩu cho nhân viên ngay (qua email hoặc tin nhắn)
-        /// - Nhân viên nên đổi mật khẩu sau khi đăng nhập
         /// - Response chỉ trả về 1 lần, không lưu plain text
-        /// 
-        /// **Not Found (404):**
-        /// - Account không tồn tại
-        /// 
-        /// **Business Rules (422):**
-        /// - Không thể reset mật khẩu Super Admin (security)
-        /// - Không thể reset mật khẩu chính mình (dùng change-password)
-        /// 
-        /// **Example response:**
-        /// ```json
-        /// {
-        ///   "accountId": "guid-here",
-        ///   "temporaryPassword": "Abc@1234Xyz"
-        /// }
-        /// ```
         /// </remarks>
         [HttpPost("{id}/reset-password")]
         [HasPermission(Permissions.AccountClaims.ResetPassword)]
@@ -409,9 +427,9 @@ namespace ItSupportServer.src.Modules.Account
 
         // ✅ ADD THIS ENDPOINT - MUST BE BEFORE {id} ROUTE
         /// <summary>
-        /// [SELF] Lấy danh sách permissions của mình.
+        /// [SELF] Lấy danh sách permissions của mình
         /// </summary>
-        /// <returns>List of permission names</returns>
+        /// <returns>List of permission names (bao gồm role-based + direct claims)</returns>
         /// <remarks>
         /// Frontend dùng endpoint này để render UI theo quyền.
         /// </remarks>

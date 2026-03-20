@@ -34,6 +34,12 @@ namespace ItSupportServer.src.Modules.Account
                 .Matches(@"[\W_]")  
                 .WithMessage("Mật khẩu phải có ít nhất 1 ký tự đặc biệt.");
 
+            RuleFor(x => x.ConfirmPassword)
+                .NotEmpty()
+                .WithMessage("Vui lòng xác nhận mật khẩu.")
+                .Equal(x => x.Password)
+                .WithMessage("Mật khẩu xác nhận không khớp.");
+
             RuleFor(x => x.RoleIds)
                 .Must(ids => ids == null || ids.All(id => id > 0))
                 .WithMessage("Vui lòng chọn vai trò.")
@@ -51,6 +57,30 @@ namespace ItSupportServer.src.Modules.Account
                 .Matches(@"^[a-zA-Z0-9_]+$")
                 .WithMessage("Username chỉ được chứa chữ cái, số và gạch dưới (_).")
                 .When(x => x.Username != null);
+
+            RuleFor(x => x.NewPassword)
+                .NotEmpty()
+                .WithMessage("Vui lòng nhập mật khẩu mới.")
+                .MinimumLength(8)
+                .WithMessage("Mật khẩu phải có ít nhất 8 ký tự.")
+                .MaximumLength(128)
+                .WithMessage("Mật khẩu không được quá 128 ký tự.")
+                .Matches(@"[A-Z]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 chữ hoa.")
+                .Matches(@"[a-z]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 chữ thường.")
+                .Matches(@"[0-9]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 chữ số.")
+                .Matches(@"[\W_]")
+                .WithMessage("Mật khẩu phải có ít nhất 1 ký tự đặc biệt.")
+                .When(x => x.NewPassword != null);
+
+            RuleFor(x => x.ConfirmPassword)
+                .NotEmpty()
+                .WithMessage("Vui lòng xác nhận mật khẩu mới.")
+                .Equal(x => x.NewPassword)
+                .WithMessage("Mật khẩu xác nhận không khớp.")
+                .When(x => x.NewPassword != null);
         }
     }
 
@@ -64,8 +94,8 @@ namespace ItSupportServer.src.Modules.Account
             RuleFor(x => x.RoleIds)
                 .NotNull()
                 .WithMessage("Danh sách vai trò không được null.")
-                .NotEmpty()
-                .WithMessage("Vui lòng chọn ít nhất một vai trò.")
+                //.NotEmpty()
+                //.WithMessage("Vui lòng chọn ít nhất một vai trò.")
                 .Must(ids => ids.All(id => id > 0))
                 .WithMessage("Các vai trò được chọn không hợp lệ.");
         }
@@ -81,8 +111,8 @@ namespace ItSupportServer.src.Modules.Account
             RuleFor(x => x.ClaimIds)
                 .NotNull()
                 .WithMessage("Danh sách quyền không được null.")
-                .NotEmpty()
-                .WithMessage("Vui lòng chọn ít nhất một quyền.")
+                //.NotEmpty()
+                //.WithMessage("Vui lòng chọn ít nhất một quyền.")
                 .Must(ids => ids.All(id => id > 0))
                 .WithMessage("Các quyền được chọn không hợp lệ.");
         }
