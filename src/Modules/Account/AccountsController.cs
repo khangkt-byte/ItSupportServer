@@ -251,7 +251,7 @@ namespace ItSupportServer.src.Modules.Account
         /// <summary>
         /// Gán roles cho tài khoản
         /// </summary>
-        [HttpPost("assign-roles")]
+        [HttpPost("{id}/assign-roles")]
         [HasPermission(Permissions.AccountClaims.SetAccessControl)]
         [ProducesResponseType(typeof(AccountRolesDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -261,22 +261,23 @@ namespace ItSupportServer.src.Modules.Account
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<AccountRolesDto>> AssignRolesToAccount(
-            [FromBody] AssignRolesDto dto)
+            [FromRoute] Guid id,
+            [FromBody] List<int> roleIds)
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (currentUserId != null && Guid.Parse(currentUserId) == dto.AccountId)
+            if (currentUserId != null && Guid.Parse(currentUserId) == id)
             {
                 throw new BusinessRuleException("Không thể tự thay đổi roles của chính mình");
             }
 
-            var result = await _service.AssignRolesToAccountAsync(dto);
+            var result = await _service.AssignRolesToAccountAsync(id, roleIds);
             return Ok(result);
         }
 
         /// <summary>
         /// Gán direct claims cho tài khoản
         /// </summary>
-        [HttpPost("assign-claims")]
+        [HttpPost("{id}/assign-claims")]
         [HasPermission(Permissions.AccountClaims.SetAccessControl)]
         [ProducesResponseType(typeof(AccountClaimsDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -286,15 +287,16 @@ namespace ItSupportServer.src.Modules.Account
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<AccountClaimsDto>> AssignClaimsToAccount(
-            [FromBody] AssignClaimsDto dto)
+            [FromRoute] Guid id,
+            [FromBody] List<int> claimIds)
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (currentUserId != null && Guid.Parse(currentUserId) == dto.AccountId)
+            if (currentUserId != null && Guid.Parse(currentUserId) == id)
             {
                 throw new BusinessRuleException("Không thể tự thay đổi roles của chính mình");
             }
 
-            var result = await _service.AssignClaimsToAccountAsync(dto);
+            var result = await _service.AssignClaimsToAccountAsync(id, claimIds);
             return Ok(result);
         }
 

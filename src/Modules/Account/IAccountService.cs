@@ -38,12 +38,12 @@ namespace ItSupportServer.src.Modules.Account
         /// <summary>
         /// Assign roles to an account
         /// </summary>
-        Task<AccountRolesDto> AssignRolesToAccountAsync(AssignRolesDto dto);
+        Task<AccountRolesDto> AssignRolesToAccountAsync(Guid accountId, List<int> roleIds);
 
         /// <summary>
         /// Assign direct claims to an account
         /// </summary>
-        Task<AccountClaimsDto> AssignClaimsToAccountAsync(AssignClaimsDto dto);
+        Task<AccountClaimsDto> AssignClaimsToAccountAsync(Guid accountId, List<int> claimIds);
 
         /// <summary>
         /// Admin reset password for user

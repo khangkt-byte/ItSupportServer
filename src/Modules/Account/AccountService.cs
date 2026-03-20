@@ -451,30 +451,36 @@ namespace ItSupportServer.src.Modules.Account
             }
         }
 
-        public async Task<AccountRolesDto> AssignRolesToAccountAsync(AssignRolesDto dto)
+        public async Task<AccountRolesDto> AssignRolesToAccountAsync(Guid accountId, List<int> roleIds)
         {
-            _logger.LogInformation("Assigning roles to account {AccountId}", dto.AccountId);
+            AssignRolesDto assignRolesDto = new AssignRolesDto
+            {
+                AccountId = accountId,
+                RoleIds = roleIds
+            };
 
-            var validationResult = await _assignRolesValidator.ValidateAsync(dto);
+            _logger.LogInformation("Assigning roles to account {AccountId}", assignRolesDto.AccountId);
+
+            var validationResult = await _assignRolesValidator.ValidateAsync(assignRolesDto);
             validationResult.ThrowIfInvalid();
 
             var account = await _db.Accounts
                 .Include(a => a.AccountRoles)
                     .ThenInclude(ar => ar.Role)
-                .FirstOrDefaultAsync(a => a.AccountId == dto.AccountId && a.DeletedAt == null);
+                .FirstOrDefaultAsync(a => a.AccountId == assignRolesDto.AccountId && a.DeletedAt == null);
 
             if (account is null)
             {
-                throw new NotFoundException("Tài khoản", dto.AccountId);
+                throw new NotFoundException("Tài khoản", assignRolesDto.AccountId);
             }
 
             // Validate all roles exist
             var existingRoles = await _db.Roles
-                .Where(r => dto.RoleIds.Contains(r.RoleId) && r.DeletedAt == null)
+                .Where(r => assignRolesDto.RoleIds.Contains(r.RoleId) && r.DeletedAt == null)
                 .Select(r => r.RoleId)
                 .ToListAsync();
 
-            var missingRoles = dto.RoleIds.Except(existingRoles).ToList();
+            var missingRoles = assignRolesDto.RoleIds.Except(existingRoles).ToList();
             if (missingRoles.Any())
             {
                 throw new NotFoundException($"Roles không tồn tại: {string.Join(", ", missingRoles)}");
@@ -489,7 +495,7 @@ namespace ItSupportServer.src.Modules.Account
                     .Select(ar => ar.RoleId)
                     .ToList();
 
-                var selected = dto.RoleIds.Distinct().ToList();
+                var selected = assignRolesDto.RoleIds.Distinct().ToList();
 
                 var toAdd = selected.Except(currentRoleIds).ToList();
                 var toRemove = currentRoleIds.Except(selected).ToList();
@@ -499,7 +505,7 @@ namespace ItSupportServer.src.Modules.Account
                 {
                     var newAccountRoles = toAdd.Select(roleId => new AccountRoles
                     {
-                        AccountId = dto.AccountId,
+                        AccountId = assignRolesDto.AccountId,
                         RoleId = roleId
                     });
 
@@ -510,7 +516,7 @@ namespace ItSupportServer.src.Modules.Account
                 if (toRemove.Any())
                 {
                     var removeAccountRoles = await _db.AccountRoles
-                        .Where(ar => ar.AccountId == dto.AccountId && toRemove.Contains(ar.RoleId))
+                        .Where(ar => ar.AccountId == assignRolesDto.AccountId && toRemove.Contains(ar.RoleId))
                         .ToListAsync();
 
                     _db.AccountRoles.RemoveRange(removeAccountRoles);
@@ -520,23 +526,23 @@ namespace ItSupportServer.src.Modules.Account
                 await transaction.CommitAsync();
 
                 // ✅ Invalidate permission cache (already has field now)
-                _authorizationService.InvalidatePermissionCache(dto.AccountId);
+                _authorizationService.InvalidatePermissionCache(assignRolesDto.AccountId);
                 _logger.LogInformation(
                     "Invalidated permission cache for account {AccountId} after role assignment",
-                    dto.AccountId);
+                    assignRolesDto.AccountId);
 
                 _logger.LogInformation("Successfully assigned {Count} roles to account {AccountId}",
-                    dto.RoleIds.Count, dto.AccountId);
+                    assignRolesDto.RoleIds.Count, assignRolesDto.AccountId);
 
                 // Return updated account with roles
                 var updatedRoles = await _roleMapper.ProjectToRoleDto(_db.Roles
-                    .Where(r => dto.RoleIds.Contains(r.RoleId))
+                    .Where(r => assignRolesDto.RoleIds.Contains(r.RoleId))
                     .AsNoTracking())
                     .ToListAsync();
 
                 return new AccountRolesDto
                 {
-                    AccountId = dto.AccountId,
+                    AccountId = assignRolesDto.AccountId,
                     Username = account.Username,
                     Roles = updatedRoles
                 };
@@ -548,28 +554,34 @@ namespace ItSupportServer.src.Modules.Account
             }
         }
 
-        public async Task<AccountClaimsDto> AssignClaimsToAccountAsync(AssignClaimsDto dto)
+        public async Task<AccountClaimsDto> AssignClaimsToAccountAsync(Guid accountId, List<int> claimIds)
         {
-            _logger.LogInformation("Assigning direct claims to account {AccountId}", dto.AccountId);
+            AssignClaimsDto assignClaimsDto = new AssignClaimsDto
+            {
+                AccountId = accountId,
+                ClaimIds = claimIds
+            };
 
-            var validationResult = await _assignClaimsValidator.ValidateAsync(dto);
+            _logger.LogInformation("Assigning direct claims to account {AccountId}", assignClaimsDto.AccountId);
+
+            var validationResult = await _assignClaimsValidator.ValidateAsync(assignClaimsDto);
             validationResult.ThrowIfInvalid();
 
             var account = await _db.Accounts
                 .Include(a => a.AccountClaims)
-                .FirstOrDefaultAsync(a => a.AccountId == dto.AccountId && a.DeletedAt == null);
+                .FirstOrDefaultAsync(a => a.AccountId == assignClaimsDto.AccountId && a.DeletedAt == null);
 
             if (account is null)
             {
-                throw new NotFoundException("Tài khoản", dto.AccountId);
+                throw new NotFoundException("Tài khoản", assignClaimsDto.AccountId);
             }
 
             var existingClaimIds = await _db.Claims
-                .Where(c => dto.ClaimIds.Contains(c.ClaimId))
+                .Where(c => assignClaimsDto.ClaimIds.Contains(c.ClaimId))
                 .Select(c => c.ClaimId)
                 .ToListAsync();
 
-            var missingClaimIds = dto.ClaimIds.Except(existingClaimIds).ToList();
+            var missingClaimIds = assignClaimsDto.ClaimIds.Except(existingClaimIds).ToList();
             if (missingClaimIds.Any())
             {
                 throw new NotFoundException($"Claims không tồn tại: {string.Join(", ", missingClaimIds)}");
@@ -583,7 +595,7 @@ namespace ItSupportServer.src.Modules.Account
                     .Select(ac => ac.ClaimId)
                     .ToList();
 
-                var selected = dto.ClaimIds.Distinct().ToList();
+                var selected = assignClaimsDto.ClaimIds.Distinct().ToList();
 
                 var toAdd = selected.Except(currentClaimIds).ToList();
                 var toRemove = currentClaimIds.Except(selected).ToList();
@@ -592,7 +604,7 @@ namespace ItSupportServer.src.Modules.Account
                 {
                     var newAccountClaims = toAdd.Select(claimId => new AccountClaims
                     {
-                        AccountId = dto.AccountId,
+                        AccountId = assignClaimsDto.AccountId,
                         ClaimId = claimId
                     });
 
@@ -602,7 +614,7 @@ namespace ItSupportServer.src.Modules.Account
                 if (toRemove.Any())
                 {
                     var removeAccountClaims = await _db.AccountClaims
-                        .Where(ac => ac.AccountId == dto.AccountId && toRemove.Contains(ac.ClaimId))
+                        .Where(ac => ac.AccountId == assignClaimsDto.AccountId && toRemove.Contains(ac.ClaimId))
                         .ToListAsync();
 
                     _db.AccountClaims.RemoveRange(removeAccountClaims);
@@ -611,13 +623,13 @@ namespace ItSupportServer.src.Modules.Account
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                _authorizationService.InvalidatePermissionCache(dto.AccountId);
+                _authorizationService.InvalidatePermissionCache(assignClaimsDto.AccountId);
                 _logger.LogInformation(
                     "Invalidated permission cache for account {AccountId} after direct claim assignment",
-                    dto.AccountId);
+                    assignClaimsDto.AccountId);
 
                 _logger.LogInformation("Successfully assigned {Count} direct claims to account {AccountId}",
-                    selected.Count, dto.AccountId);
+                    selected.Count, assignClaimsDto.AccountId);
 
                 var updatedClaims = await _roleMapper.ProjectToClaimDto(_db.Claims
                     .Where(c => selected.Contains(c.ClaimId))
@@ -626,7 +638,7 @@ namespace ItSupportServer.src.Modules.Account
 
                 return new AccountClaimsDto
                 {
-                    AccountId = dto.AccountId,
+                    AccountId = assignClaimsDto.AccountId,
                     Username = account.Username,
                     Claims = updatedClaims
                 };
