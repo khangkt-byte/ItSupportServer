@@ -25,6 +25,14 @@ namespace ItSupportServer.Data.Seeds
         private const int DeviceClaimIdStart = 34;
         private const int DeviceTypeClaimIdStart = 38;
 
+        // Added claims from Permissions.cs
+        private const int DashboardViewClaimId = 42;
+        private const int AccountResetPasswordClaimId = 43;
+        private const int AccountLockClaimId = 44;
+        private const int AccountSetAccessControlClaimId = 45;
+        private const int IssueLogImportClaimId = 46;
+        private const int IssueLogExportClaimId = 47;
+
         private static readonly DateTime SeedDate = new(2025, 10, 30, 9, 38, 50, DateTimeKind.Utc);
 
         public static void SeedPermissions(ModelBuilder modelBuilder)
@@ -72,7 +80,7 @@ namespace ItSupportServer.Data.Seeds
         {
             modelBuilder.Entity<Claims>().HasData(
                 // Admin superuser claim
-                new Claims { ClaimId = AdminClaimId, Claim = "Admin" },
+                new Claims { ClaimId = AdminClaimId, Claim = Permissions.AdminClaim },
 
                 // Area permissions (2-5)
                 new Claims { ClaimId = 2, Claim = Permissions.AreaClaims.View },
@@ -132,7 +140,19 @@ namespace ItSupportServer.Data.Seeds
                 new Claims { ClaimId = 38, Claim = Permissions.DeviceTypeClaims.View },
                 new Claims { ClaimId = 39, Claim = Permissions.DeviceTypeClaims.Create },
                 new Claims { ClaimId = 40, Claim = Permissions.DeviceTypeClaims.Edit },
-                new Claims { ClaimId = 41, Claim = Permissions.DeviceTypeClaims.Delete }
+                new Claims { ClaimId = 41, Claim = Permissions.DeviceTypeClaims.Delete },
+
+                // Dashboard permissions
+                new Claims { ClaimId = DashboardViewClaimId, Claim = Permissions.DashboardClaims.View },
+
+                // Extended Account permissions
+                new Claims { ClaimId = AccountResetPasswordClaimId, Claim = Permissions.AccountClaims.ResetPassword },
+                new Claims { ClaimId = AccountLockClaimId, Claim = Permissions.AccountClaims.Lock },
+                new Claims { ClaimId = AccountSetAccessControlClaimId, Claim = Permissions.AccountClaims.SetAccessControl },
+
+                // Extended IssueLog permissions
+                new Claims { ClaimId = IssueLogImportClaimId, Claim = Permissions.IssueLogClaims.Import },
+                new Claims { ClaimId = IssueLogExportClaimId, Claim = Permissions.IssueLogClaims.Export }
             );
         }
 
@@ -142,7 +162,7 @@ namespace ItSupportServer.Data.Seeds
 
             // ===== ADMIN ROLE =====
             // Only needs Admin claim (bypass all checks)
-            roleClaims.Add(new RoleClaims { RoleId = AdminRoleId, ClaimId = 1 });
+            roleClaims.Add(new RoleClaims { RoleId = AdminRoleId, ClaimId = AdminClaimId });
 
             // ===== EMPLOYEE ROLE =====
             roleClaims.AddRange(GetEmployeeRoleClaims());
@@ -160,6 +180,9 @@ namespace ItSupportServer.Data.Seeds
         {
             return new[]
             {
+                // Dashboard
+                new RoleClaims { RoleId = EmployeeRoleId, ClaimId = DashboardViewClaimId },
+
                 // IssueLog (main feature)
                 new RoleClaims { RoleId = EmployeeRoleId, ClaimId = 22 },  // View
                 new RoleClaims { RoleId = EmployeeRoleId, ClaimId = 23 },  // Create
@@ -179,6 +202,9 @@ namespace ItSupportServer.Data.Seeds
         {
             return new[]
             {
+                // Dashboard
+                new RoleClaims { RoleId = ManagerRoleId, ClaimId = DashboardViewClaimId },
+
                 // All IssueLog permissions
                 new RoleClaims { RoleId = ManagerRoleId, ClaimId = 22 },
                 new RoleClaims { RoleId = ManagerRoleId, ClaimId = 23 },
@@ -204,6 +230,9 @@ namespace ItSupportServer.Data.Seeds
         {
             return new[]
             {
+                // Dashboard
+                new RoleClaims { RoleId = ViewerRoleId, ClaimId = DashboardViewClaimId },
+
                 // View-only permissions
                 new RoleClaims { RoleId = ViewerRoleId, ClaimId = 22 },  // IssueLog.View
                 new RoleClaims { RoleId = ViewerRoleId, ClaimId = 26 },  // Issue.View
