@@ -3,6 +3,7 @@ using System;
 using ItSupportServer.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ItSupportServer.Data.Models.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260317010332_AddTokenPrefixToPasswordResetTokens")]
+    partial class AddTokenPrefixToPasswordResetTokens
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -750,36 +753,6 @@ namespace ItSupportServer.Data.Models.Migrations
                         {
                             ClaimId = 41,
                             Claim = "DeviceType.Delete"
-                        },
-                        new
-                        {
-                            ClaimId = 42,
-                            Claim = "Dashboard.View"
-                        },
-                        new
-                        {
-                            ClaimId = 43,
-                            Claim = "Account.ResetPassword"
-                        },
-                        new
-                        {
-                            ClaimId = 44,
-                            Claim = "Account.Lock"
-                        },
-                        new
-                        {
-                            ClaimId = 45,
-                            Claim = "Account.SetAccessControl"
-                        },
-                        new
-                        {
-                            ClaimId = 46,
-                            Claim = "IssueLog.Import"
-                        },
-                        new
-                        {
-                            ClaimId = 47,
-                            Claim = "IssueLog.Export"
                         });
                 });
 
@@ -1800,11 +1773,6 @@ namespace ItSupportServer.Data.Models.Migrations
                         new
                         {
                             RoleId = 2,
-                            ClaimId = 42
-                        },
-                        new
-                        {
-                            RoleId = 2,
                             ClaimId = 22
                         },
                         new
@@ -1846,11 +1814,6 @@ namespace ItSupportServer.Data.Models.Migrations
                         {
                             RoleId = 2,
                             ClaimId = 2
-                        },
-                        new
-                        {
-                            RoleId = 3,
-                            ClaimId = 42
                         },
                         new
                         {
@@ -1916,11 +1879,6 @@ namespace ItSupportServer.Data.Models.Migrations
                         {
                             RoleId = 3,
                             ClaimId = 2
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            ClaimId = 42
                         },
                         new
                         {

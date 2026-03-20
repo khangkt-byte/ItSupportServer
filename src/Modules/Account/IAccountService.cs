@@ -36,6 +36,16 @@ namespace ItSupportServer.src.Modules.Account
         Task<BulkDeleteResultDto> DeleteAccountsAsync(List<Guid> accountIds, bool softDelete = true);
 
         /// <summary>
+        /// Assign roles to an account
+        /// </summary>
+        Task<AccountRolesDto> AssignRolesToAccountAsync(Guid accountId, List<int> roleIds);
+
+        /// <summary>
+        /// Assign direct claims to an account
+        /// </summary>
+        Task<AccountClaimsDto> AssignClaimsToAccountAsync(Guid accountId, List<int> claimIds);
+
+        /// <summary>
         /// Admin reset password for user
         /// </summary>
         Task<ResetPasswordResultDto> ResetPasswordAsync(Guid accountId);
@@ -69,5 +79,13 @@ namespace ItSupportServer.src.Modules.Account
         /// Check if account is locked
         /// </summary>
         Task<bool> IsAccountLockedAsync(Guid accountId);
+
+        /// <summary>
+        /// Get all permissions for an account
+        /// Used by frontend for permission-based UI rendering
+        /// </summary>
+        /// <param name="accountId">Account ID</param>
+        /// <returns>List of permission names (e.g., ["Admin", "Account.View", "Employee.Create"])</returns>
+        Task<List<string>> GetPermissionsAsync(Guid accountId);
     }
 }

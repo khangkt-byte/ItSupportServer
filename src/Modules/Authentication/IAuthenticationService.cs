@@ -4,10 +4,11 @@ namespace ItSupportServer.src.Modules.Authentication
 {
     public interface IAuthenticationService
     {
-        Task<TokenResponseDto> LoginAsync(LoginDto dto);
-        Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto req);
+        Task<TokenResponseDto> LoginAsync(LoginDto dto, HttpContext httpContext);
+        Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto req, HttpContext httpContext);
         Task<bool> LogoutAsync(Guid accountId, string refreshToken);
-        Task<OtpResponseDto> ConfirmOtpAsync(OtpDto dto);
+        // ✅ FIX Bug 1: HttpContext is required to create a session (device fingerprint, IP, etc.)
+        Task<OtpResponseDto> ConfirmOtpAsync(OtpDto dto, HttpContext httpContext);
         Task<OtpSentResponseDto> RefreshOtpAsync(string email);
         
         /// <summary>

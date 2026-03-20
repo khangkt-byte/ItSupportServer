@@ -11,6 +11,8 @@ using ItSupportServer.src.Modules.Cause;
 using Microsoft.AspNetCore.Authorization;
 using ItSupportServer.src.Modules.Department;
 using ItSupportServer.src.Modules.Token;
+using ItSupportServer.src.Shared.Services;
+using ItSupportServer.src.Modules.Dashboard;
 
 namespace ItSupportServer
 {
@@ -56,6 +58,8 @@ namespace ItSupportServer
             services.AddScoped<IIssueLogService, IssueLogService>();
             services.AddScoped<IIssueLogImportService, IssueLogImportService>();
             services.AddScoped<ICauseService, CauseService>();
+            services.AddScoped<IDashboardService, DashboardService>();
+            services.AddScoped<SessionManagementService>();
 
             // ===== VALIDATION (FluentValidation) =====
 
@@ -81,12 +85,7 @@ namespace ItSupportServer
             services.AddSingleton<CauseMapper>();
 
             // ===== BACKGROUND SERVICES =====
-    
-            /// <summary>
-            /// Token cleanup service (runs every 6 hours)
-            /// Pattern: BackgroundService for maintenance tasks
-            /// Purpose: Remove expired password reset tokens + revoked refresh tokens
-            /// </summary>
+            // TokenCleanupService: runs every 6 hours, removes expired password reset tokens + revoked refresh tokens
             services.AddHostedService<TokenCleanupService>();
 
             return services;

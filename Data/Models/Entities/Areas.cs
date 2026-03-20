@@ -7,7 +7,7 @@ namespace ItSupportServer.Data.Models.Entities
         public int AreaId { get; set; }
         public override int Id => AreaId;
 
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         public string? Description { get; set; }
 

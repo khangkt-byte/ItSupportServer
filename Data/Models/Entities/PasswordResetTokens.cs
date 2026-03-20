@@ -39,6 +39,13 @@ namespace ItSupportServer.Data.Models.Entities
         public DateTime? UsedAt { get; set; }
         public DateTime CreatedAt { get; set; }
 
+        /// <summary>
+        /// Non-secret prefix of the reset token (first 8 chars) used to narrow DB lookup
+        /// before BCrypt verification. Avoids O(N×BCrypt) full-table scan.
+        /// Security: prefix alone is not sufficient to verify — BCrypt hash is still required.
+        /// </summary>
+        public string? TokenPrefix { get; set; }
+
         // ===== NAVIGATION PROPERTIES =====
 
         /// <summary>

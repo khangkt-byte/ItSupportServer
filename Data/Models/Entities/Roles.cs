@@ -7,7 +7,7 @@ namespace ItSupportServer.Data.Models.Entities
         public int RoleId { get; set; }
         public override int Id => RoleId;
 
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         public string? Description { get; set; }
 

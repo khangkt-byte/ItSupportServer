@@ -1,6 +1,8 @@
 ﻿using FluentValidation;
 using ItSupportServer.Data.Models;
 using ItSupportServer.Data.Models.Entities;
+using ItSupportServer.src.Modules.Authorization;
+using ItSupportServer.src.Modules.Role;
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Dto;
 using ItSupportServer.src.Shared.Exceptions;
@@ -15,10 +17,14 @@ namespace ItSupportServer.src.Modules.Account
     public class AccountService : IAccountService
     {
         private readonly AppDbContext _db;
-        private readonly AccountMapper _mapper;
+        private readonly AccountMapper _accountMapper;
+        private readonly RoleMapper _roleMapper;
         private readonly ILogger<AccountService> _logger;
         private readonly IValidator<CreateAccountDto> _createValidator;
         private readonly IValidator<UpdateAccountDto> _updateValidator;
+        private readonly IValidator<AssignRolesDto> _assignRolesValidator;
+        private readonly IValidator<AssignClaimsDto> _assignClaimsValidator;
+        private readonly IAuthorizationService _authorizationService;
         private readonly IValidator<ChangePasswordDto> _changePasswordValidator;
 
         // Constants
@@ -27,17 +33,25 @@ namespace ItSupportServer.src.Modules.Account
 
         public AccountService(
             AppDbContext db,
-            AccountMapper mapper,
+            AccountMapper accountMapper,
+            RoleMapper roleMapper,
             ILogger<AccountService> logger,
             IValidator<CreateAccountDto> createValidator,
             IValidator<UpdateAccountDto> updateValidator,
+            IValidator<AssignRolesDto> assignRolesValidator,
+            IValidator<AssignClaimsDto> assignClaimsValidator,
+            IAuthorizationService authorizationService,
             IValidator<ChangePasswordDto> changePasswordValidator)
         {
             _db = db;
-            _mapper = mapper;
+            _accountMapper = accountMapper;
+            _roleMapper = roleMapper;
             _logger = logger;
             _createValidator = createValidator;
             _updateValidator = updateValidator;
+            _assignRolesValidator = assignRolesValidator;
+            _assignClaimsValidator = assignClaimsValidator;
+            _authorizationService = authorizationService;
             _changePasswordValidator = changePasswordValidator;
         }
 
@@ -46,7 +60,11 @@ namespace ItSupportServer.src.Modules.Account
             _logger.LogInformation("Fetching accounts with search: {Search}, page: {Page}",
                 parameters.Search, parameters.Page);
 
-            var query = _mapper.ProjectToListAccountDto(_db.Accounts
+            var query = _accountMapper.ProjectToListAccountDto(_db.Accounts
+                .Include(a => a.AccountRoles)
+                    .ThenInclude(ar => ar.Role)
+                        .ThenInclude(r => r.RoleClaims)
+                .Include(a => a.AccountClaims)
                 .AsNoTracking());
 
             if (!string.IsNullOrWhiteSpace(parameters.Search))
@@ -55,6 +73,11 @@ namespace ItSupportServer.src.Modules.Account
                     a.Username.Contains(parameters.Search) ||
                     (a.EmpName != null && a.EmpName.Contains(parameters.Search)) ||
                     (a.EmpCode != null && a.EmpCode.Contains(parameters.Search)));
+            }
+
+            if (parameters.IsLocked.HasValue)
+            {
+                query = query.Where(a => a.IsLocked == parameters.IsLocked.Value);
             }
 
             var result = await query.ToPaginatedResultAsync(parameters, defaultSortField: "CreatedAt");
@@ -68,12 +91,14 @@ namespace ItSupportServer.src.Modules.Account
         {
             _logger.LogInformation("Fetching account {AccountId}", accountId);
 
-            var account = await _mapper.ProjectToAccountDto(_db.Accounts
+            var account = await _accountMapper.ProjectToAccountDto(_db.Accounts
                 .Include(a => a.Employee)
                 .Include(a => a.AccountRoles)
                     .ThenInclude(ar => ar.Role)
                     .ThenInclude(r => r.RoleClaims)
                     .ThenInclude(rc => rc.Claim)
+                .Include(a => a.AccountClaims)
+                    .ThenInclude(ac => ac.Claim)
                 .Where(a => a.AccountId == accountId && a.DeletedAt == null)
                 .AsNoTracking())
                 .FirstOrDefaultAsync();
@@ -227,7 +252,7 @@ namespace ItSupportServer.src.Modules.Account
 
         public async Task DeleteAccountAsync(Guid accountId, bool softDelete = true)
         {
-            _logger.LogInformation("Deleting account {AccountId} | SoftDelete: {SoftDelete}", 
+            _logger.LogInformation("Deleting account {AccountId} | SoftDelete: {SoftDelete}",
                 accountId, softDelete);
 
             // ✅ Only include what we need
@@ -244,7 +269,7 @@ namespace ItSupportServer.src.Modules.Account
             // ✅ Business rules validation
             if (account.Employee?.Position == "Super_Admin")
             {
-                _logger.LogWarning("Attempt to delete Super Admin account {AccountId}:{Username}", 
+                _logger.LogWarning("Attempt to delete Super Admin account {AccountId}:{Username}",
                     accountId, account.Username);
                 throw new BusinessRuleException(
                     "Không thể xóa tài khoản Super Admin",
@@ -269,23 +294,23 @@ namespace ItSupportServer.src.Modules.Account
                 // Soft delete - no transaction needed (single operation)
                 account.DeletedAt = DateTime.UtcNow;
                 _db.Accounts.Update(account);
-                
+
                 await _db.SaveChangesAsync();
-                
-                _logger.LogInformation("Soft deleted account {AccountId}:{Username}", 
+
+                _logger.LogInformation("Soft deleted account {AccountId}:{Username}",
                     accountId, account.Username);
             }
             else
             {
                 // Hard delete - use transaction for multiple operations
                 using var transaction = await _db.Database.BeginTransactionAsync();
-                
+
                 try
                 {
                     // ✅ Option 1: Rely on DB cascade delete (if configured)
                     // Just remove the account, FK constraints handle the rest
                     _db.Accounts.Remove(account);
-                    
+
                     // ✅ Option 2: Manual cascade (if not using DB cascade)
                     // Use ExecuteDelete for better performance
                     // await _db.AccountRoles
@@ -295,11 +320,11 @@ namespace ItSupportServer.src.Modules.Account
                     //     .Where(ac => ac.AccountId == accountId)
                     //     .ExecuteDeleteAsync();
                     // _db.Accounts.Remove(account);
-                    
+
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
-                    
-                    _logger.LogInformation("Hard deleted account {AccountId}:{Username}", 
+
+                    _logger.LogInformation("Hard deleted account {AccountId}:{Username}",
                         accountId, account.Username);
                 }
                 catch
@@ -312,7 +337,7 @@ namespace ItSupportServer.src.Modules.Account
 
         public async Task<BulkDeleteResultDto> DeleteAccountsAsync(List<Guid> accountIds, bool softDelete = true)
         {
-            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}", 
+            _logger.LogInformation("Batch delete started | Count: {Count} | SoftDelete: {SoftDelete}",
                 accountIds?.Count ?? 0, softDelete);
 
             // ✅ Step 0: Input validation
@@ -346,7 +371,7 @@ namespace ItSupportServer.src.Modules.Account
                 // Check if ALL requested IDs exist (strict validation)
                 var foundIds = accounts.Select(a => a.AccountId).ToList();
                 var missingIds = uniqueIds.Except(foundIds).ToList();
-                
+
                 if (missingIds.Any())
                 {
                     _logger.LogWarning("Accounts not found: {Ids}", string.Join(", ", missingIds));
@@ -393,14 +418,14 @@ namespace ItSupportServer.src.Modules.Account
                         var accountClaims = await _db.AccountClaims
                             .Where(ac => ac.AccountId == account.AccountId)
                             .ToListAsync();
-                        
+
                         _db.AccountRoles.RemoveRange(accountRoles);
                         _db.AccountClaims.RemoveRange(accountClaims);
                         _db.Accounts.Remove(account);
                     }
-                    
+
                     // ✅ Added detailed logging for audit trail
-                    _logger.LogInformation("Deleted account {AccountId}:{Username} | SoftDelete: {SoftDelete}", 
+                    _logger.LogInformation("Deleted account {AccountId}:{Username} | SoftDelete: {SoftDelete}",
                         account.AccountId, account.Username, softDelete);
                 }
 
@@ -408,11 +433,11 @@ namespace ItSupportServer.src.Modules.Account
                 {
                     _db.Accounts.UpdateRange(accounts);
                 }
-                
+
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("Batch delete SUCCESS | Count: {Count}/{Total}", 
+                _logger.LogInformation("Batch delete SUCCESS | Count: {Count}/{Total}",
                     accounts.Count, uniqueIds.Count);
 
                 return new BulkDeleteResultDto
@@ -430,6 +455,205 @@ namespace ItSupportServer.src.Modules.Account
             }
         }
 
+        public async Task<AccountRolesDto> AssignRolesToAccountAsync(Guid accountId, List<int> roleIds)
+        {
+            AssignRolesDto assignRolesDto = new AssignRolesDto
+            {
+                AccountId = accountId,
+                RoleIds = roleIds
+            };
+
+            _logger.LogInformation("Assigning roles to account {AccountId}", assignRolesDto.AccountId);
+
+            var validationResult = await _assignRolesValidator.ValidateAsync(assignRolesDto);
+            validationResult.ThrowIfInvalid();
+
+            var account = await _db.Accounts
+                .Include(a => a.AccountRoles)
+                    .ThenInclude(ar => ar.Role)
+                .FirstOrDefaultAsync(a => a.AccountId == assignRolesDto.AccountId && a.DeletedAt == null);
+
+            if (account is null)
+            {
+                throw new NotFoundException("Tài khoản", assignRolesDto.AccountId);
+            }
+
+            // Validate all roles exist
+            var existingRoles = await _db.Roles
+                .Where(r => assignRolesDto.RoleIds.Contains(r.RoleId) && r.DeletedAt == null)
+                .Select(r => r.RoleId)
+                .ToListAsync();
+
+            var missingRoles = assignRolesDto.RoleIds.Except(existingRoles).ToList();
+            if (missingRoles.Any())
+            {
+                throw new NotFoundException($"Roles không tồn tại: {string.Join(", ", missingRoles)}");
+            }
+
+            using var transaction = await _db.Database.BeginTransactionAsync();
+
+            try
+            {
+                // Get current role IDs
+                var currentRoleIds = account.AccountRoles
+                    .Select(ar => ar.RoleId)
+                    .ToList();
+
+                var selected = assignRolesDto.RoleIds.Distinct().ToList();
+
+                var toAdd = selected.Except(currentRoleIds).ToList();
+                var toRemove = currentRoleIds.Except(selected).ToList();
+
+                // Add new roles
+                if (toAdd.Any())
+                {
+                    var newAccountRoles = toAdd.Select(roleId => new AccountRoles
+                    {
+                        AccountId = assignRolesDto.AccountId,
+                        RoleId = roleId
+                    });
+
+                    await _db.AccountRoles.AddRangeAsync(newAccountRoles);
+                }
+
+                // Remove old roles
+                if (toRemove.Any())
+                {
+                    var removeAccountRoles = await _db.AccountRoles
+                        .Where(ar => ar.AccountId == assignRolesDto.AccountId && toRemove.Contains(ar.RoleId))
+                        .ToListAsync();
+
+                    _db.AccountRoles.RemoveRange(removeAccountRoles);
+                }
+
+                await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // ✅ Invalidate permission cache (already has field now)
+                _authorizationService.InvalidatePermissionCache(assignRolesDto.AccountId);
+                _logger.LogInformation(
+                    "Invalidated permission cache for account {AccountId} after role assignment",
+                    assignRolesDto.AccountId);
+
+                _logger.LogInformation("Successfully assigned {Count} roles to account {AccountId}",
+                    assignRolesDto.RoleIds.Count, assignRolesDto.AccountId);
+
+                // Return updated account with roles
+                var updatedRoles = await _roleMapper.ProjectToRoleDto(_db.Roles
+                    .Where(r => assignRolesDto.RoleIds.Contains(r.RoleId))
+                    .AsNoTracking())
+                    .ToListAsync();
+
+                return new AccountRolesDto
+                {
+                    AccountId = assignRolesDto.AccountId,
+                    Username = account.Username,
+                    Roles = updatedRoles
+                };
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task<AccountClaimsDto> AssignClaimsToAccountAsync(Guid accountId, List<int> claimIds)
+        {
+            AssignClaimsDto assignClaimsDto = new AssignClaimsDto
+            {
+                AccountId = accountId,
+                ClaimIds = claimIds
+            };
+
+            _logger.LogInformation("Assigning direct claims to account {AccountId}", assignClaimsDto.AccountId);
+
+            var validationResult = await _assignClaimsValidator.ValidateAsync(assignClaimsDto);
+            validationResult.ThrowIfInvalid();
+
+            var account = await _db.Accounts
+                .Include(a => a.AccountClaims)
+                .FirstOrDefaultAsync(a => a.AccountId == assignClaimsDto.AccountId && a.DeletedAt == null);
+
+            if (account is null)
+            {
+                throw new NotFoundException("Tài khoản", assignClaimsDto.AccountId);
+            }
+
+            var existingClaimIds = await _db.Claims
+                .Where(c => assignClaimsDto.ClaimIds.Contains(c.ClaimId))
+                .Select(c => c.ClaimId)
+                .ToListAsync();
+
+            var missingClaimIds = assignClaimsDto.ClaimIds.Except(existingClaimIds).ToList();
+            if (missingClaimIds.Any())
+            {
+                throw new NotFoundException($"Claims không tồn tại: {string.Join(", ", missingClaimIds)}");
+            }
+
+            using var transaction = await _db.Database.BeginTransactionAsync();
+
+            try
+            {
+                var currentClaimIds = account.AccountClaims
+                    .Select(ac => ac.ClaimId)
+                    .ToList();
+
+                var selected = assignClaimsDto.ClaimIds.Distinct().ToList();
+
+                var toAdd = selected.Except(currentClaimIds).ToList();
+                var toRemove = currentClaimIds.Except(selected).ToList();
+
+                if (toAdd.Any())
+                {
+                    var newAccountClaims = toAdd.Select(claimId => new AccountClaims
+                    {
+                        AccountId = assignClaimsDto.AccountId,
+                        ClaimId = claimId
+                    });
+
+                    await _db.AccountClaims.AddRangeAsync(newAccountClaims);
+                }
+
+                if (toRemove.Any())
+                {
+                    var removeAccountClaims = await _db.AccountClaims
+                        .Where(ac => ac.AccountId == assignClaimsDto.AccountId && toRemove.Contains(ac.ClaimId))
+                        .ToListAsync();
+
+                    _db.AccountClaims.RemoveRange(removeAccountClaims);
+                }
+
+                await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _authorizationService.InvalidatePermissionCache(assignClaimsDto.AccountId);
+                _logger.LogInformation(
+                    "Invalidated permission cache for account {AccountId} after direct claim assignment",
+                    assignClaimsDto.AccountId);
+
+                _logger.LogInformation("Successfully assigned {Count} direct claims to account {AccountId}",
+                    selected.Count, assignClaimsDto.AccountId);
+
+                var updatedClaims = await _roleMapper.ProjectToClaimDto(_db.Claims
+                    .Where(c => selected.Contains(c.ClaimId))
+                    .AsNoTracking())
+                    .ToListAsync();
+
+                return new AccountClaimsDto
+                {
+                    AccountId = assignClaimsDto.AccountId,
+                    Username = account.Username,
+                    Claims = updatedClaims
+                };
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
         public async Task<ResetPasswordResultDto> ResetPasswordAsync(Guid accountId)
         {
             _logger.LogInformation("Resetting password for account {AccountId}", accountId);
@@ -443,7 +667,7 @@ namespace ItSupportServer.src.Modules.Account
                 throw new NotFoundException("Tài khoản", accountId);
             }
 
-            var tempPassword = GenerateTemporaryPassword();
+            var tempPassword = RandomString.GenerateRandomString(10);
 
             account.Password = PasswordHelper.HashPassword(tempPassword);
             account.FailedLoginAttempts = 0;
@@ -555,8 +779,20 @@ namespace ItSupportServer.src.Modules.Account
                 throw new NotFoundException("Tài khoản", accountId);
             }
 
-            // TODO: Implement LoginHistory table and query
-            var history = new List<LoginHistoryDto>();
+            var history = await _db.AccountTokens
+                .AsNoTracking()
+                .Where(t => t.AccountId == accountId)
+                .OrderByDescending(t => t.CreatedAt)
+                .Take(50)
+                .Select(t => new LoginHistoryDto
+                {
+                    LoginAt = t.CreatedAt,
+                    IpAddress = t.IpAddress,
+                    UserAgent = t.UserAgent,
+                    Success = true,
+                    FailureReason = null
+                })
+                .ToListAsync();
 
             return history;
         }
@@ -594,31 +830,63 @@ namespace ItSupportServer.src.Modules.Account
         {
             var account = await _db.Accounts
                 .AsNoTracking()
-                .FirstOrDefaultAsync(a => a.AccountId == accountId && a.DeletedAt == null);
+                .FirstOrDefaultAsync(a => a.AccountId == accountId);
 
-            if (account is null) return true;
-
-            // Check if temporary lock has expired
-            if (account.IsLocked && account.LockedUntil.HasValue && account.LockedUntil.Value < DateTime.UtcNow)
+            if (account is null)
             {
-                // Auto-unlock if lock period expired
-                account.IsLocked = false;
-                account.LockedUntil = null;
-                account.FailedLoginAttempts = 0;
-                _db.Accounts.Update(account);
-                await _db.SaveChangesAsync();
                 return false;
             }
 
-            return account.IsLocked;
+            if (!account.IsLocked)
+            {
+                return false;
+            }
+
+            if (account.LockedUntil.HasValue && account.LockedUntil.Value < DateTime.UtcNow)
+            {
+                return false;
+            }
+
+            return true;
         }
 
-        private static string GenerateTemporaryPassword()
+        // ✅ ADD THIS METHOD
+        /// <summary>
+        /// Get all permissions for an account
+        /// Pattern: Flattened permission list for frontend consumption
+        /// Reference: Auth0 RBAC, Azure AD App Roles
+        /// </summary>
+        public async Task<List<string>> GetPermissionsAsync(Guid accountId)
         {
-            const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-            var random = new Random();
-            return new string(Enumerable.Repeat(chars, 8)
-                .Select(s => s[random.Next(s.Length)]).ToArray());
+            _logger.LogInformation("Fetching permissions for account {AccountId}", accountId);
+
+            var rolePermissions = _db.Accounts
+                .AsNoTracking()
+                .Where(a => a.AccountId == accountId && a.DeletedAt == null)
+                .SelectMany(a => a.AccountRoles
+                    .Where(ar => ar.Role.DeletedAt == null)
+                    .SelectMany(ar => ar.Role.RoleClaims
+                        .Select(rc => rc.Claim.Claim)));
+
+            var directPermissions = _db.AccountClaims
+                .AsNoTracking()
+                .Where(ac => ac.AccountId == accountId)
+                .Select(ac => ac.Claim.Claim);
+
+            var permissions = await rolePermissions
+                .Concat(directPermissions)
+                .Distinct()
+                .OrderBy(p => p)
+                .ToListAsync();
+
+            permissions = permissions
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .ToList();
+
+            _logger.LogInformation("Retrieved {Count} permissions for account {AccountId}",
+                permissions.Count, accountId);
+
+            return permissions;
         }
     }
 }

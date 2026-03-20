@@ -32,6 +32,9 @@ namespace ItSupportServer.Data.Models.Configurations
             builder.HasIndex(t => new { t.ExpiresAt, t.UsedAt })
                 .HasDatabaseName("ix_password_reset_tokens_expiry_status");
 
+            builder.HasIndex(t => t.TokenPrefix)
+                .HasDatabaseName("ix_password_reset_tokens_prefix");
+
             // Properties
             builder.Property(t => t.AccountId)
                 .HasColumnName("account_id")
@@ -49,13 +52,12 @@ namespace ItSupportServer.Data.Models.Configurations
             builder.Property(t => t.UsedAt)
                 .HasColumnName("used_at");
 
-            // ===== RELATIONSHIPS =====
+            builder.Property(t => t.TokenPrefix)
+                .HasColumnName("token_prefix")
+                .HasMaxLength(8);
 
-            /// <summary>
-            /// One Account → Many PasswordResetTokens
-            /// Pattern: One-to-many relationship
-            /// Delete behavior: Cascade (when account deleted, delete tokens)
-            /// </summary>
+            // ===== RELATIONSHIPS =====
+            // One Account → Many PasswordResetTokens (Cascade delete)
             builder.HasOne(t => t.Account)
                 .WithMany(a => a.PasswordResetTokens)
                 .HasForeignKey(t => t.AccountId)

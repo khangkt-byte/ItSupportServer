@@ -11,6 +11,7 @@ using Microsoft.Extensions.Caching.Memory;
 using ItSupportServer.src.Shared.Extensions;
 using ItSupportServer.src.Modules.Account;
 using ItSupportServer.Data.Models.Entities;
+using ItSupportServer.src.Shared.Services;
 
 namespace ItSupportServer.src.Modules.Authentication
 {
@@ -24,6 +25,8 @@ namespace ItSupportServer.src.Modules.Authentication
         private readonly IValidator<OtpDto> _otpValidator;
         private readonly IValidator<ResetPasswordDto> _resetPasswordValidator;
         private readonly IAccountService _accountService;
+        private readonly SessionManagementService _sessionManagement;
+        private const int PasswordResetTokenLifetimeMinutes = 20;
 
         public AuthenticationService(
             AppDbContext db,
@@ -33,7 +36,8 @@ namespace ItSupportServer.src.Modules.Authentication
             IValidator<LoginDto> loginValidator,
             IValidator<OtpDto> otpValidator,
             IValidator<ResetPasswordDto> resetPasswordValidator,
-            IAccountService accountService)
+            IAccountService accountService,
+            SessionManagementService sessionManagement)
         {
             _db = db;
             _configuration = configuration;
@@ -43,9 +47,10 @@ namespace ItSupportServer.src.Modules.Authentication
             _otpValidator = otpValidator;
             _resetPasswordValidator = resetPasswordValidator;
             _accountService = accountService;
+            _sessionManagement = sessionManagement;
         }
 
-        public async Task<TokenResponseDto> LoginAsync(LoginDto dto)
+        public async Task<TokenResponseDto> LoginAsync(LoginDto dto, HttpContext httpContext)  // ✅ ADD PARAMETER
         {
             _logger.LogInformation("Login attempt for: {Identifier}", dto.Identifier);
 
@@ -102,11 +107,10 @@ namespace ItSupportServer.src.Modules.Authentication
             if (!PasswordHelper.VerifyPassword(dto.Password, user.Password))
             {
                 _logger.LogWarning("Login failed: Invalid password for {Identifier}", dto.Identifier);
-                
-                // Record failed login attempt
-                await RecordFailedLoginAsync(user.AccountId);
-                
-                // ✅ Record failed login
+
+                // ✅ FIX Bug 5: Only ONE call to record failure.
+                // Old code called BOTH RecordFailedLoginAsync AND RecordLoginAttemptAsync
+                // → double-incremented FailedLoginAttempts on every failed login.
                 await _accountService.RecordLoginAttemptAsync(user.AccountId, success: false);
 
                 throw new UnauthorizedException("Tên đăng nhập hoặc mật khẩu không đúng");
@@ -122,15 +126,12 @@ namespace ItSupportServer.src.Modules.Authentication
             // ✅ Record successful login
             await _accountService.RecordLoginAttemptAsync(user.AccountId, success: true);
 
-            // ✅ Revoke old refresh tokens (optional, for better security)
-            await RevokeOldRefreshTokensAsync(user.AccountId);
-
             _logger.LogInformation("Login successful for {AccountId}", user.AccountId);
 
-            return await CreateTokenResponseAsync(user);
+            return await CreateTokenResponseAsync(user, httpContext: httpContext);  // ✅ PASS HTTPCONTEXT
         }
 
-        public async Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto req)
+        public async Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto req, HttpContext httpContext)  // ✅ ADD PARAMETER
         {
             _logger.LogInformation("Refresh token attempt");
 
@@ -170,10 +171,21 @@ namespace ItSupportServer.src.Modules.Authentication
                 throw new ForbiddenException("Tài khoản đã bị khóa");
             }
 
+            // ✅ SECURITY: locked accounts cannot mint new access tokens via refresh flow
+            if (await _accountService.IsAccountLockedAsync(user.AccountId))
+            {
+                _logger.LogWarning("Refresh blocked: Account locked {AccountId}", user.AccountId);
+                throw new ForbiddenException("Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.");
+            }
+
             _logger.LogInformation("Refresh token successful for {AccountId}", user.AccountId);
 
-            // ✅ Rotate refresh token (security best practice)
-            return await CreateTokenResponseAsync(user, shouldRotateRefreshToken: true, oldTokenId: tokenRecord.AccountTokenId);
+            // ✅ Rotate refresh token + create new session
+            return await CreateTokenResponseAsync(
+                user,
+                shouldRotateRefreshToken: true,
+                oldTokenId: tokenRecord.AccountTokenId,
+                httpContext: httpContext);  // ✅ PASS HTTPCONTEXT
         }
 
         public async Task<bool> LogoutAsync(Guid accountId, string refreshToken)
@@ -188,6 +200,15 @@ namespace ItSupportServer.src.Modules.Authentication
                     // ✅ Soft delete / revoke token
                     token.RevokedAt = DateTime.UtcNow;
                     await _db.SaveChangesAsync();
+
+                    // ✅ FIX Bug 4: Evict session from cache immediately.
+                    // Without this, a revoked session stays valid in cache for up to
+                    // IDLE_TIMEOUT_MINUTES (30 min), allowing post-logout API access.
+                    if (!string.IsNullOrEmpty(token.SessionId))
+                    {
+                        _cache.Remove($"Session:{token.SessionId}");
+                        _logger.LogDebug("Session cache evicted on logout: {SessionId}", token.SessionId);
+                    }
                 }
             }
 
@@ -195,7 +216,8 @@ namespace ItSupportServer.src.Modules.Authentication
             return true;
         }
 
-        public async Task<OtpResponseDto> ConfirmOtpAsync(OtpDto dto)
+        // ✅ FIX Bug 1: ConfirmOtpAsync now accepts HttpContext (required by SessionManagementService)
+        public async Task<OtpResponseDto> ConfirmOtpAsync(OtpDto dto, HttpContext httpContext)
         {
             _logger.LogInformation("OTP confirmation for {AccountId}", dto.AccountId);
 
@@ -247,7 +269,8 @@ namespace ItSupportServer.src.Modules.Authentication
 
             return new OtpResponseDto
             {
-                Token = await CreateTokenResponseAsync(user)
+                // ✅ FIX Bug 1: Pass HttpContext so session is created properly
+                Token = await CreateTokenResponseAsync(user, httpContext: httpContext)
             };
         }
 
@@ -282,11 +305,13 @@ namespace ItSupportServer.src.Modules.Authentication
             using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
-                // ✅ SECURE: Generate cryptographic OTP
-                var newOtp = Convert.ToBase64String(
-                    System.Security.Cryptography.RandomNumberGenerator.GetBytes(6))
-                    .Substring(0, 6)
-                    .ToUpper(); // 6-character alphanumeric
+                // ✅ FIX Bug 3: Generate 6-digit NUMERIC OTP using cryptographically secure RNG.
+                // The previous Base64 generator produced chars like A-Z,+,/ which failed
+                // the OtpValidator's ^\d{6}$ rule. Per OWASP: numeric OTPs are user-friendly
+                // and sufficiently random at 6 digits (1 in 1,000,000 = 99.9999% rejection).
+                var randomBytes = new byte[4];
+                System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
+                var newOtp = (Math.Abs(BitConverter.ToInt32(randomBytes)) % 1_000_000).ToString("D6");
 
                 // ✅ SECURE: Hash OTP before storage
                 user.Otp = PasswordHelper.HashPassword(newOtp);
@@ -310,8 +335,8 @@ namespace ItSupportServer.src.Modules.Authentication
 
                 await transaction.CommitAsync();
 
-                // Set rate limit
-                _cache.Set(rateLimitKey, true, TimeSpan.FromSeconds(60));
+                // ✅ FIX Bug 7: Rate limit window matches the "5 phút" message (was 60s)
+                _cache.Set(rateLimitKey, true, TimeSpan.FromMinutes(5));
 
                 _logger.LogInformation("OTP sent successfully to {Email}", email);
 
@@ -356,15 +381,20 @@ namespace ItSupportServer.src.Modules.Authentication
                     // ✅ SECURE: Generate cryptographic reset token (NOT password)
                     var resetToken = Convert.ToBase64String(
                         System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
-                    
+
                     var hashedToken = PasswordHelper.HashPassword(resetToken); // Hash token before storage
+
+                    // ✅ PERF FIX: Store non-secret prefix (first 8 chars) to allow exact DB lookup
+                    // before BCrypt verification, avoiding O(N×BCrypt) full-table scan.
+                    var tokenPrefix = resetToken.Length >= 8 ? resetToken[..8] : resetToken;
 
                     // ✅ Store hashed token with expiration
                     var passwordReset = new PasswordResetTokens
                     {
                         AccountId = user.AccountId,
                         Token = hashedToken,
-                        ExpiresAt = DateTime.UtcNow.AddHours(1), // 1 hour expiry
+                        TokenPrefix = tokenPrefix,
+                        ExpiresAt = DateTime.UtcNow.AddMinutes(PasswordResetTokenLifetimeMinutes),
                     };
 
                     await _db.PasswordResetTokens.AddAsync(passwordReset);
@@ -372,12 +402,19 @@ namespace ItSupportServer.src.Modules.Authentication
 
                     // ✅ SECURE: Send reset LINK, not password
                     var resetUrl = $"{_configuration["AppSettings:FrontendUrl"]}/reset-password?token={resetToken}";
-                    
+
+                    var recipientEmail = user.Employee?.Email;
+                    if (string.IsNullOrEmpty(recipientEmail))
+                    {
+                        await transaction.RollbackAsync();
+                        throw new BusinessRuleException("Tài khoản không có email liên kết");
+                    }
+
                     var emailSent = await SendMail.SendMailAsync(
                         _configuration,
-                        user.Employee.Email,
+                        recipientEmail,
                         "Đặt lại mật khẩu",
-                        "Nhấn vào link sau để đặt lại mật khẩu (hết hạn sau 1 giờ):",
+                        $"Nhấn vào link sau để đặt lại mật khẩu (hết hạn sau {PasswordResetTokenLifetimeMinutes} phút):",
                         resetUrl);
 
                     if (!emailSent)
@@ -421,15 +458,19 @@ namespace ItSupportServer.src.Modules.Authentication
             var validationResult = await _resetPasswordValidator.ValidateAsync(dto);
             validationResult.ThrowIfInvalid();
 
-            // Find token record
+            // ✅ PERF FIX: Use TokenPrefix to narrow lookup to at most 1-2 rows before BCrypt verify.
+            // Previously loaded ALL active tokens and BCrypt-verified each one → O(N×BCrypt).
+            var tokenPrefix = dto.Token.Length >= 8 ? dto.Token[..8] : dto.Token;
+
             var tokenRecords = await _db.PasswordResetTokens
-                .Where(t => t.ExpiresAt > DateTime.UtcNow && t.UsedAt == null)
+                .Where(t => t.ExpiresAt > DateTime.UtcNow && t.UsedAt == null && t.TokenPrefix == tokenPrefix)
                 .Include(t => t.Account)
+                    .ThenInclude(a => a.Employee)
                 .ToListAsync();
 
             PasswordResetTokens? validToken = null;
 
-            // ✅ SECURITY: Verify hashed token
+            // ✅ SECURITY: Verify hashed token (BCrypt constant-time comparison)
             foreach (var record in tokenRecords)
             {
                 if (PasswordHelper.VerifyPassword(dto.Token, record.Token))
@@ -449,24 +490,54 @@ namespace ItSupportServer.src.Modules.Authentication
             {
                 // Update password
                 validToken.Account.Password = PasswordHelper.HashPassword(dto.NewPassword);
-                
+
                 // Mark token as used
                 validToken.UsedAt = DateTime.UtcNow;
-                
+
                 // ✅ SECURITY: Revoke all refresh tokens (force re-login)
                 var refreshTokens = await _db.AccountTokens
                     .Where(t => t.AccountId == validToken.AccountId && t.RevokedAt == null)
                     .ToListAsync();
-                
+
                 foreach (var token in refreshTokens)
                 {
                     token.RevokedAt = DateTime.UtcNow;
+
+                    // ✅ FIX: remove active session cache immediately (prevent stale-cache access)
+                    if (!string.IsNullOrEmpty(token.SessionId))
+                    {
+                        _cache.Remove($"Session:{token.SessionId}");
+                    }
                 }
 
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 _logger.LogInformation("Password reset successful for {AccountId}", validToken.AccountId);
+
+                var notifyEmail = validToken.Account.Employee?.Email;
+                if (!string.IsNullOrWhiteSpace(notifyEmail))
+                {
+                    try
+                    {
+                        var notifySent = await SendMail.SendMailAsync(
+                            _configuration,
+                            notifyEmail,
+                            "Mật khẩu đã được thay đổi",
+                            "Mật khẩu tài khoản của bạn vừa được thay đổi thành công. Nếu đây không phải bạn, hãy liên hệ quản trị viên ngay lập tức.",
+                            code: null,
+                            isSendCode: false);
+
+                        if (!notifySent)
+                        {
+                            _logger.LogWarning("Password reset notification email failed for {AccountId}", validToken.AccountId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Password reset notification email threw exception for {AccountId}", validToken.AccountId);
+                    }
+                }
 
                 return true;
             }
@@ -482,44 +553,50 @@ namespace ItSupportServer.src.Modules.Authentication
         private async Task<TokenResponseDto> CreateTokenResponseAsync(
             Accounts user,
             bool shouldRotateRefreshToken = false,
-            Guid? oldTokenId = null)
+            Guid? oldTokenId = null,
+            HttpContext? httpContext = null)  // ✅ ADD PARAMETER
         {
-            // Generate new access token
-            var accessToken = await CreateAccessTokenAsync(user);
+            // ✅ CREATE SESSION (generates SessionId + populates metadata)
+            var sessionResult = await _sessionManagement.CreateSessionAsync(
+                user.AccountId,
+                httpContext);
 
-            // Generate or reuse refresh token
-            string refreshToken;
+            // ✅ Generate access token with SessionId claim
+            var accessToken = await CreateAccessTokenAsync(user, sessionResult.SessionId);
 
+            // ✅ Revoke old token if rotating
             if (shouldRotateRefreshToken && oldTokenId.HasValue)
             {
-                // ✅ Rotate refresh token (revoke old, create new)
                 var oldToken = await _db.AccountTokens.FindAsync(oldTokenId.Value);
                 if (oldToken != null)
                 {
                     oldToken.RevokedAt = DateTime.UtcNow;
+                    await _db.SaveChangesAsync();
+
+                    // ✅ FIX: evict old session cache on refresh rotation
+                    if (!string.IsNullOrEmpty(oldToken.SessionId))
+                    {
+                        _cache.Remove($"Session:{oldToken.SessionId}");
+                    }
                 }
-                refreshToken = await GenerateAndSaveRefreshTokenAsync(user.AccountId);
-            }
-            else
-            {
-                refreshToken = await GenerateAndSaveRefreshTokenAsync(user.AccountId);
             }
 
             return new TokenResponseDto
             {
                 AccessToken = accessToken,
-                RefreshToken = refreshToken
+                RefreshToken = sessionResult.TokenId.ToString()  // ✅ Use TokenId from session
             };
         }
 
-        private async Task<string> CreateAccessTokenAsync(Accounts user)
+        private async Task<string> CreateAccessTokenAsync(Accounts user, string sessionId)  // ✅ ADD PARAMETER
         {
             var claims = new List<Claim>
             {
                 new(ClaimTypes.Name, user.Username),
                 new(ClaimTypes.NameIdentifier, user.AccountId.ToString()),
-                new(JwtRegisteredClaimNames.Jti, Guid.CreateVersion7().ToString()), // ✅ Unique token ID
-                new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()) // ✅ Issued at
+                new(JwtRegisteredClaimNames.Jti, Guid.CreateVersion7().ToString()),
+                new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()),
+                new("sid", sessionId)  // ✅ ADD SESSION ID CLAIM
             };
 
             // ✅ Add roles
@@ -542,60 +619,6 @@ namespace ItSupportServer.src.Modules.Authentication
             );
 
             return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
-        }
-
-        private async Task<string> GenerateAndSaveRefreshTokenAsync(Guid accountId)
-        {
-            var refreshToken = new AccountTokens
-            {
-                AccountId = accountId,
-                ExpiryTime = DateTime.UtcNow.AddDays(7)
-                // CreatedAt tự động set bởi AuditInterceptor
-            };
-
-            await _db.AccountTokens.AddAsync(refreshToken);
-            await _db.SaveChangesAsync();
-
-            return refreshToken.AccountTokenId.ToString();
-        }
-
-        private async Task RevokeOldRefreshTokensAsync(Guid accountId)
-        {
-            // ✅ Optional: Keep only last N refresh tokens per user
-            var oldTokens = await _db.AccountTokens
-                .Where(t => t.AccountId == accountId && t.RevokedAt == null)
-                .OrderByDescending(t => t.CreatedAt)
-                .Skip(5) // Keep latest 5 tokens
-                .ToListAsync();
-
-            foreach (var token in oldTokens)
-            {
-                token.RevokedAt = DateTime.UtcNow;
-            }
-
-            if (oldTokens.Any())
-            {
-                await _db.SaveChangesAsync();
-            }
-        }
-
-        private async Task RecordFailedLoginAsync(Guid accountId)
-        {
-            var account = await _db.Accounts.FindAsync(accountId);
-            if (account is null) return;
-
-            account.FailedLoginAttempts++;
-
-            // Auto-lock after 5 failed attempts
-            if (account.FailedLoginAttempts >= 5)
-            {
-                account.IsLocked = true;
-                account.LockedUntil = DateTime.UtcNow.AddMinutes(30);
-                _logger.LogWarning("Account {AccountId} locked due to {Attempts} failed attempts",
-                    accountId, account.FailedLoginAttempts);
-            }
-
-            await _db.SaveChangesAsync();
         }
 
         #endregion

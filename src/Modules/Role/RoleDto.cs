@@ -52,23 +52,4 @@ namespace ItSupportServer.src.Modules.Role
         /// </summary>
         public List<int>? ClaimIds { get; init; }
     }
-
-    /// <summary>
-    /// Assign roles to account request DTO
-    /// </summary>
-    public record AssignRolesDto
-    {
-        public required Guid AccountId { get; init; }
-        public required List<int> RoleIds { get; init; } 
-    }
-
-    /// <summary>
-    /// Account with assigned roles response DTO
-    /// </summary>
-    public record AccountRolesDto
-    {
-        public Guid AccountId { get; init; }
-        public required string Username { get; init; }
-        public List<RoleDto> Roles { get; init; } = [];
-    }
 }

@@ -40,9 +40,21 @@ namespace ItSupportServer.src.Modules.Employee
             _logger.LogInformation("Fetching employees with search: {Search}, page: {Page}",
                 parameters.Search, parameters.Page);
 
-            var query = _mapper.ProjectToListEmployeeDto(_db.Employees
+            var employeeQuery = _db.Employees
                 .Where(e => e.DeletedAt == null)
-                .AsNoTracking());
+                .AsNoTracking();
+
+            if (parameters.DptId.HasValue)
+            {
+                employeeQuery = employeeQuery.Where(e => e.DptId == parameters.DptId.Value);
+            }
+
+            if (parameters.AreaId.HasValue)
+            {
+                employeeQuery = employeeQuery.Where(e => e.AreaId == parameters.AreaId.Value);
+            }
+
+            var query = _mapper.ProjectToListEmployeeDto(employeeQuery);
 
             // Apply search filter
             if (!string.IsNullOrWhiteSpace(parameters.Search))
@@ -68,7 +80,7 @@ namespace ItSupportServer.src.Modules.Employee
             _logger.LogInformation("Fetching employee {EmpId}", empId);
 
             var employee = await _mapper.ProjectToDetailEmployeeDto(_db.Employees
-                .Include(e => e.Account)
+                .Include(e => e.Account!)
                     .ThenInclude(a => a.AccountRoles)
                         .ThenInclude(ar => ar.Role)
                 .Where(e => e.EmpId == empId && e.DeletedAt == null)

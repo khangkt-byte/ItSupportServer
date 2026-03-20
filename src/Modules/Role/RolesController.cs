@@ -180,24 +180,5 @@ namespace ItSupportServer.src.Modules.Role
             var result = await _service.GetAllClaimsAsync();
             return Ok(result);
         }
-
-        /// <summary>
-        /// Gán roles cho tài khoản
-        /// </summary>
-        [HttpPost("assign")]
-        [HasPermission(Permissions.RoleClaims.SetRole)]
-        [ProducesResponseType(typeof(AccountRolesDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<AccountRolesDto>> AssignRolesToAccount(
-            [FromBody] AssignRolesDto dto)
-        {
-            var result = await _service.AssignRolesToAccountAsync(dto);
-            return Ok(result);
-        }
     }
 }

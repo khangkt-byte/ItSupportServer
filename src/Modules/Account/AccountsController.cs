@@ -1,7 +1,9 @@
-﻿using ItSupportServer.src.Modules.Authorization;
+﻿using DocumentFormat.OpenXml.Office2010.Excel;
+using ItSupportServer.src.Modules.Authorization;
 using ItSupportServer.src.Shared.Attributes;
 using ItSupportServer.src.Shared.Base;
 using ItSupportServer.src.Shared.Dto;
+using ItSupportServer.src.Shared.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -9,11 +11,11 @@ using System.Security.Claims;
 namespace ItSupportServer.src.Modules.Account
 {
     /// <summary>
-    /// API quản lý tài khoản (authentication & authorization)
-    /// Pattern: RESTful API, RBAC
-    /// Security: JWT + Permission-based authorization
-    /// Reference: Microsoft Identity Platform, Auth0 Management API
+    /// API quản lý tài khoản.
     /// </summary>
+    /// <remarks>
+    /// RESTful API + RBAC + JWT bearer authentication.
+    /// </remarks>
     [ApiController]
     [Route("api/accounts")]
     [Produces("application/json")]
@@ -247,6 +249,58 @@ namespace ItSupportServer.src.Modules.Account
         }
 
         /// <summary>
+        /// Gán roles cho tài khoản
+        /// </summary>
+        [HttpPost("{id}/assign-roles")]
+        [HasPermission(Permissions.AccountClaims.SetAccessControl)]
+        [ProducesResponseType(typeof(AccountRolesDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<AccountRolesDto>> AssignRolesToAccount(
+            [FromRoute] Guid id,
+            [FromBody] List<int> roleIds)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (currentUserId != null && Guid.Parse(currentUserId) == id)
+            {
+                throw new BusinessRuleException("Không thể tự thay đổi roles của chính mình");
+            }
+
+            var result = await _service.AssignRolesToAccountAsync(id, roleIds);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Gán direct claims cho tài khoản
+        /// </summary>
+        [HttpPost("{id}/assign-claims")]
+        [HasPermission(Permissions.AccountClaims.SetAccessControl)]
+        [ProducesResponseType(typeof(AccountClaimsDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<AccountClaimsDto>> AssignClaimsToAccount(
+            [FromRoute] Guid id,
+            [FromBody] List<int> claimIds)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (currentUserId != null && Guid.Parse(currentUserId) == id)
+            {
+                throw new BusinessRuleException("Không thể tự thay đổi roles của chính mình");
+            }
+
+            var result = await _service.AssignClaimsToAccountAsync(id, claimIds);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// [ADMIN] Reset mật khẩu cho tài khoản
         /// </summary>
         /// <param name="id">Account ID</param>
@@ -353,33 +407,36 @@ namespace ItSupportServer.src.Modules.Account
 
         // ==================== SELF-SERVICE OPERATIONS ====================
 
+        // ✅ ADD THIS ENDPOINT - MUST BE BEFORE {id} ROUTE
+        /// <summary>
+        /// [SELF] Lấy danh sách permissions của mình.
+        /// </summary>
+        /// <returns>List of permission names</returns>
+        /// <remarks>
+        /// Frontend dùng endpoint này để render UI theo quyền.
+        /// </remarks>
+        [HttpGet("my-permissions")]
+        [Authorize]
+        [ProducesResponseType(typeof(List<string>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<List<string>>> GetMyPermissions()
+        {
+            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var permissions = await _service.GetPermissionsAsync(accountId);
+            return Ok(permissions);
+        }
+
         /// <summary>
         /// [SELF] Đổi mật khẩu của chính mình
         /// </summary>
         /// <param name="dto">Change password request</param>
         /// <returns>Success message</returns>
         /// <remarks>
-        /// **Validation (400):**
-        /// - CurrentPassword, NewPassword, ConfirmPassword: required
-        /// - NewPassword: 8-128 chars, complexity requirements
-        /// - ConfirmPassword must match NewPassword
-        /// 
-        /// **Unauthorized (401):**
-        /// - Mật khẩu hiện tại không đúng
-        /// - Token expired/invalid
-        /// 
-        /// **Business Rules (422):**
-        /// - Mật khẩu mới phải khác mật khẩu cũ
-        /// - Không thể dùng mật khẩu đã sử dụng gần đây (nếu có history)
-        /// 
-        /// **Example:**
-        /// ```json
-        /// {
-        ///   "currentPassword": "OldPass@123",
-        ///   "newPassword": "NewPass@456",
-        ///   "confirmPassword": "NewPass@456"
-        /// }
-        /// ```
+        /// Validation: CurrentPassword, NewPassword, ConfirmPassword là bắt buộc.
+        /// NewPassword phải đáp ứng chính sách độ mạnh và ConfirmPassword phải khớp.
+        /// Unauthorized nếu mật khẩu hiện tại sai hoặc token không hợp lệ.
+        /// Business rule: mật khẩu mới phải khác mật khẩu cũ.
         /// </remarks>
         [HttpPost("me/change-password")]
         [Authorize]

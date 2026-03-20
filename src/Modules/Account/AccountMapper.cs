@@ -19,8 +19,6 @@ namespace ItSupportServer.src.Modules.Account
         [MapperIgnoreSource(nameof(Accounts.Otp))]
         [MapperIgnoreSource(nameof(Accounts.ExpiredOtp))]
         [MapperIgnoreSource(nameof(Accounts.DeletedAt))]
-        [MapperIgnoreSource(nameof(Accounts.AccountRoles))]
-        [MapperIgnoreSource(nameof(Accounts.AccountClaims))]
         [MapperIgnoreSource(nameof(Accounts.AccountTokens))]
         [MapperIgnoreSource(nameof(Accounts.PasswordResetTokens))]
         [MapProperty(nameof(Accounts.Employee.EmpCode), nameof(AccountDto.EmpCode))]
@@ -28,6 +26,7 @@ namespace ItSupportServer.src.Modules.Account
         [MapProperty(nameof(Accounts.Employee.Email), nameof(AccountDto.Email))]
         [MapProperty(nameof(Accounts.Employee.FullName), nameof(AccountDto.Position))]
         [MapPropertyFromSource(nameof(AccountDto.Roles), Use = nameof(MapRoles))]
+        [MapPropertyFromSource(nameof(AccountDto.Claims), Use = nameof(MapClaimsForAccount))]
         public partial AccountDto MapToAccountDto(Accounts account);
 
         /// <summary>
@@ -72,8 +71,27 @@ namespace ItSupportServer.src.Modules.Account
                 .ToList();
         }
 
+        private static List<ClaimDto>? MapClaimsForAccount(Accounts account)
+        {
+            if (account == null)
+                return null;
+
+            var directClaims = account.AccountClaims?
+                .Select(ac => ac.Claim)
+                .Where(c => c != null)
+                .GroupBy(c => c.ClaimId)
+                .Select(g => g.First())
+                .AsQueryable();
+
+            if (directClaims == null)
+                return null;
+
+            return rolesMapper.ProjectToClaimDto(directClaims).ToList();
+        }
+
         [MapProperty(nameof(Accounts.Employee.EmpCode), nameof(ListAccountDto.EmpCode))]
         [MapProperty(nameof(Accounts.Employee.FullName), nameof(ListAccountDto.EmpName))]
+        [MapPropertyFromSource(nameof(ListAccountDto.TotalClaims), Use = nameof(CountClaims))]
         [MapperIgnoreSource(nameof(Accounts.Id))]
         [MapperIgnoreSource(nameof(Accounts.Password))]
         [MapperIgnoreSource(nameof(Accounts.FailedLoginAttempts))]
@@ -82,8 +100,6 @@ namespace ItSupportServer.src.Modules.Account
         [MapperIgnoreSource(nameof(Accounts.LifetimePoints))]
         [MapperIgnoreSource(nameof(Accounts.Otp))]
         [MapperIgnoreSource(nameof(Accounts.ExpiredOtp))]
-        [MapperIgnoreSource(nameof(Accounts.AccountRoles))]
-        [MapperIgnoreSource(nameof(Accounts.AccountClaims))]
         [MapperIgnoreSource(nameof(Accounts.AccountTokens))]
         [MapperIgnoreSource(nameof(Accounts.PasswordResetTokens))]
         [MapperIgnoreSource(nameof(Accounts.UpdatedAt))]
@@ -95,5 +111,32 @@ namespace ItSupportServer.src.Modules.Account
         /// Use this for GetAccountsAsync (no roles needed)
         /// </summary>
         public partial IQueryable<ListAccountDto> ProjectToListAccountDto(IQueryable<Accounts> query);
+
+        private static int CountClaims(Accounts account)
+        {
+            if (account == null) return 0;
+
+            var uniqueClaims = new HashSet<int>();
+
+            if (account.AccountClaims != null)
+            {
+                foreach (var ac in account.AccountClaims)
+                    uniqueClaims.Add(ac.ClaimId);
+            }
+
+            if (account.AccountRoles != null)
+            {
+                foreach (var ar in account.AccountRoles)
+                {
+                    if (ar.Role is { DeletedAt: null } role && role.RoleClaims != null)
+                    {
+                        foreach (var rc in role.RoleClaims)
+                            uniqueClaims.Add(rc.ClaimId);
+                    }
+                }
+            }
+
+            return uniqueClaims.Count;
+        }
     }
 }

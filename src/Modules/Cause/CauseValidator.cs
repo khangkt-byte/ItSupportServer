@@ -20,7 +20,7 @@ namespace ItSupportServer.src.Modules.Cause
                 .WithMessage("Vui lòng nhập tên nguyên nhân.")
                 .MaximumLength(255)
                 .WithMessage("Tên nguyên nhân không được quá 255 ký tự.")
-                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()]+$")
+                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()'"";:/| \\]+$")
                 .WithMessage("Tên nguyên nhân chỉ được chứa chữ cái, số và ký tự đặc biệt cơ bản.");
 
             RuleFor(x => x.Description)
@@ -42,7 +42,7 @@ namespace ItSupportServer.src.Modules.Cause
                 .WithMessage("Tên nguyên nhân không được để trống khi cập nhật.")
                 .MaximumLength(255)
                 .WithMessage("Tên nguyên nhân không được quá 255 ký tự.")
-                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()]+$")
+                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()'"";:/| \\]+$")
                 .WithMessage("Tên nguyên nhân chỉ được chứa chữ cái, số và ký tự đặc biệt cơ bản.")
                 .When(x => x.Name != null);
 

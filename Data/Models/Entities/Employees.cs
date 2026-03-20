@@ -23,11 +23,11 @@ namespace ItSupportServer.Data.Models.Entities
 
         required public int DptId { get; set; }
 
-        public Departments Department { get; set; }
+        public Departments Department { get; set; } = null!;
 
         required public int AreaId { get; set; }
 
-        public Areas Area { get; set; }
+        public Areas Area { get; set; } = null!;
 
         public string? Position { get; set; }
 

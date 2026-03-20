@@ -41,15 +41,14 @@ namespace ItSupportServer.src.Modules.Authentication
         {
             try
             {
-                var result = await _authService.LoginAsync(dto);
+                var result = await _authService.LoginAsync(dto, HttpContext);  // ✅ PASS HTTPCONTEXT
 
-                // ✅ USE FACTORY - Consistent cookie configuration
                 Response.Cookies.Append("refreshToken", result.RefreshToken,
                     CookieOptionsFactory.CreateRefreshTokenCookieOptions());
 
                 return Ok(new { accessToken = result.AccessToken });
             }
-            catch (UnauthorizedException ex)
+            catch (UnauthorizedException)
             {
                 _logger.LogWarning(
                     "Failed login attempt for user: {Identifier} | IP: {IP}",
@@ -81,7 +80,7 @@ namespace ItSupportServer.src.Modules.Authentication
             var result = await _authService.RefreshTokenAsync(new RefreshTokenRequestDto
             {
                 RefreshToken = refreshToken
-            });
+            }, HttpContext);  // ✅ ADD THIS PARAMETER
 
             // ✅ USE FACTORY - Consistent cookie configuration
             Response.Cookies.Append("refreshToken", result.RefreshToken,
@@ -123,7 +122,8 @@ namespace ItSupportServer.src.Modules.Authentication
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<OtpResponseDto>> ConfirmOtp([FromBody] OtpDto dto)
         {
-            var result = await _authService.ConfirmOtpAsync(dto);
+            // ✅ FIX Bug 1: Pass HttpContext so session metadata (IP, UA, fingerprint) is captured
+            var result = await _authService.ConfirmOtpAsync(dto, HttpContext);
 
             // ✅ USE FACTORY - Consistent cookie configuration
             Response.Cookies.Append("refreshToken", result.Token.RefreshToken,

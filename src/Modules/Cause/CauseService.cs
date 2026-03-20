@@ -51,7 +51,7 @@ namespace ItSupportServer.src.Modules.Cause
             {
                 query = query.Where(c =>
                     c.Name.Contains(parameters.Search) ||
-                    c.IssueName.Contains(parameters.Search));
+                    (c.IssueName != null && c.IssueName.Contains(parameters.Search)));
             }
 
             var result = await query.ToPaginatedResultAsync(parameters, defaultSortField: "Name");

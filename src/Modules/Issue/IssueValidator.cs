@@ -20,7 +20,7 @@ namespace ItSupportServer.src.Modules.Issue
                 .WithMessage("Vui lòng nhập tên vấn đề.")
                 .MaximumLength(255)
                 .WithMessage("Tên vấn đề không được quá 255 ký tự.")
-                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()]+$")
+                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()'"";:/| \\]+$")
                 .WithMessage("Tên vấn đề chỉ được chứa chữ cái, số và ký tự đặc biệt cơ bản.")
                 .Must(name => !string.IsNullOrWhiteSpace(name?.Trim()))
                 .WithMessage("Tên vấn đề không được chỉ chứa khoảng trắng.");
@@ -33,12 +33,12 @@ namespace ItSupportServer.src.Modules.Issue
             RuleFor(x => x.Category)
                 .MaximumLength(100)
                 .WithMessage("Danh mục không được quá 100 ký tự.")
-                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_]+$")
+                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()'"";:/| \\]+$")
                 .WithMessage("Danh mục chỉ được chứa chữ cái, số, khoảng trắng và dấu gạch ngang.")
                 .When(x => !string.IsNullOrWhiteSpace(x.Category));
 
             RuleFor(x => x.Severity)
-                .IsInEnum()
+                .InclusiveBetween(1, 5)
                 .WithMessage("Độ nghiêm trọng phải từ 1 (Thấp) đến 5 (Khẩn cấp).")
                 .When(x => x.Severity.HasValue);
         }
@@ -53,7 +53,7 @@ namespace ItSupportServer.src.Modules.Issue
                 .WithMessage("Tên vấn đề không được để trống khi cập nhật.")
                 .MaximumLength(255)
                 .WithMessage("Tên vấn đề không được quá 255 ký tự.")
-                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()]+$")
+                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()'"";:/| \\]+$")
                 .WithMessage("Tên vấn đề chỉ được chứa chữ cái, số và ký tự đặc biệt cơ bản.")
                 .Must(name => !string.IsNullOrWhiteSpace(name?.Trim()))
                 .WithMessage("Tên vấn đề không được chỉ chứa khoảng trắng.")
@@ -67,12 +67,12 @@ namespace ItSupportServer.src.Modules.Issue
             RuleFor(x => x.Category)
                 .MaximumLength(100)
                 .WithMessage("Danh mục không được quá 100 ký tự.")
-                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_]*$")
+                .Matches(@"^[\p{L}\p{M}\p{N}\s\-_.,()'"";:/| \\]+$")
                 .WithMessage("Danh mục chỉ được chứa chữ cái, số, khoảng trắng và dấu gạch ngang.")
                 .When(x => x.Category != null && !string.IsNullOrWhiteSpace(x.Category));
 
             RuleFor(x => x.Severity)
-                .IsInEnum()
+                .InclusiveBetween(1, 5)
                 .WithMessage("Độ nghiêm trọng phải từ 1 (Thấp) đến 5 (Khẩn cấp).")
                 .When(x => x.Severity.HasValue);
 

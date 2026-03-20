@@ -20,6 +20,7 @@ namespace ItSupportServer.src.Modules.Account
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
         public List<RoleDto>? Roles { get; init; }
+        public List<ClaimDto>? Claims { get; init; }
     }
 
     /// <summary>
@@ -34,6 +35,9 @@ namespace ItSupportServer.src.Modules.Account
         public bool IsLocked { get; init; }
         public DateTime? LastLoginAt { get; init; }
         public DateTime CreatedAt { get; init; }
+        // Total number of distinct claims available to the account
+        // (includes claims from assigned roles and direct account claims)
+        public int TotalClaims { get; init; }
     }
 
     /// <summary>
@@ -69,6 +73,44 @@ namespace ItSupportServer.src.Modules.Account
     {
         public string? Username { get; init; }
         public bool? IsLocked { get; init; }
+    }
+
+    /// <summary>
+    /// Assign roles to account request DTO
+    /// </summary>
+    public record AssignRolesDto
+    {
+        public required Guid AccountId { get; init; }
+        public required List<int> RoleIds { get; init; }
+    }
+
+    /// <summary>
+    /// Assign direct claims to account request DTO
+    /// </summary>
+    public record AssignClaimsDto
+    {
+        public required Guid AccountId { get; init; }
+        public required List<int> ClaimIds { get; init; }
+    }
+
+    /// <summary>
+    /// Account with assigned roles response DTO
+    /// </summary>
+    public record AccountRolesDto
+    {
+        public Guid AccountId { get; init; }
+        public required string Username { get; init; }
+        public List<RoleDto> Roles { get; init; } = [];
+    }
+
+    /// <summary>
+    /// Account with assigned direct claims response DTO
+    /// </summary>
+    public record AccountClaimsDto
+    {
+        public Guid AccountId { get; init; }
+        public required string Username { get; init; }
+        public List<ClaimDto> Claims { get; init; } = [];
     }
 
     /// <summary>

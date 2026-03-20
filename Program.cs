@@ -144,8 +144,8 @@ try
                     if (context.Exception is SecurityTokenExpiredException)
                     {
                         // ✅ CRITICAL: Signal token expiration to client
-                        context.Response.Headers.Add("Token-Expired", "true");
-                        context.Response.Headers.Add("Access-Control-Expose-Headers", "Token-Expired");
+                        context.Response.Headers.Append("Token-Expired", "true");
+                        context.Response.Headers.Append("Access-Control-Expose-Headers", "Token-Expired");
                     }
 
                     // ✅ Log failed authentication with Serilog
@@ -234,9 +234,9 @@ try
         {
             // ✅ FIX: Explicit whitelist origins
             policy.WithOrigins(
-                    "http://localhost:3000",  // Development
-                    "http://localhost:5173"  // Vite
-                    //"https://yourdomain.com"   // Production
+                    "https://localhost:3000",  // Development
+                    "https://localhost:5173"  // Vite
+                                              //"https://yourdomain.com"   // Production
                 )
                 .AllowAnyMethod()
                 .AllowAnyHeader()
@@ -402,11 +402,11 @@ try
     }
 
     // ✅ 2. HTTPS Redirection & HSTS
-    if (!app.Environment.IsDevelopment())
-    {
-        app.UseHttpsRedirection();
-        app.UseHsts();
-    }
+    //if (!app.Environment.IsDevelopment())
+    //{
+    app.UseHttpsRedirection();
+    app.UseHsts();
+    //}
 
     // ✅ 3. Serilog Request Logging
     app.UseSerilogRequestLogging(options =>
@@ -434,8 +434,12 @@ try
     // ✅ 5. CORS
     app.UseCors("CorPolicy");
 
-    // ✅ 6. Rate Limiting (includes bot protection)
-    app.UseRateLimiter();
+    // ✅ 6. Rate Limiting — MUST be after UseRouting when using [EnableRateLimiting] attribute
+    // Reference: https://learn.microsoft.com/aspnet/core/performance/rate-limit
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseRateLimiter();
+    }
 
     // ✅ 7. Authentication & Authorization
     app.UseAuthentication();
